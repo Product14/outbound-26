@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,61 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Download, Phone, CheckCircle, Clock, AlertCircle, Calendar, BarChart3, Plus } from 'lucide-react'
 import Link from "next/link"
 
-const mockCampaigns = [
-  {
-    id: 'camp_2024_001',
-    name: 'Q4 Maintenance Reminders',
-    useCase: 'Service',
-    subUseCase: 'Maintenance Reminder',
-    status: 'Running',
-    progress: 65,
-    eta: '2 hours',
-    callsPlaced: 156,
-    totalRecords: 240,
-    answerRate: 68,
-    appointmentsBooked: 23,
-    createdAt: new Date('2024-01-15T10:30:00')
-  },
-  {
-    id: 'camp_2024_002', 
-    name: 'Holiday Sales Follow-up',
-    useCase: 'Sales',
-    subUseCase: 'Follow-up on Leads',
-    status: 'Completed',
-    progress: 100,
-    callsPlaced: 89,
-    totalRecords: 89,
-    answerRate: 72,
-    appointmentsBooked: 18,
-    completedAt: new Date('2024-01-14T16:45:00')
-  },
-  {
-    id: 'camp_2024_003',
-    name: 'Recall Notifications - Honda',
-    useCase: 'Service',
-    subUseCase: 'Recall Notification',
-    status: 'Completed',
-    progress: 100,
-    callsPlaced: 234,
-    totalRecords: 234,
-    answerRate: 61,
-    appointmentsBooked: 31,
-    completedAt: new Date('2024-01-12T14:20:00')
-  },
-  {
-    id: 'camp_2024_004',
-    name: 'Trade-in Promotion',
-    useCase: 'Sales',
-    subUseCase: 'Trade-in Offers',
-    status: 'Scheduled',
-    progress: 0,
-    callsPlaced: 0,
-    totalRecords: 156,
-    answerRate: 0,
-    appointmentsBooked: 0,
-    scheduledFor: new Date('2024-01-20T09:00:00')
-  }
-]
+// No demo campaigns - start with empty array
+const mockCampaigns: any[] = []
 
 const useCaseColors: Record<string, string> = {
   'Sales': 'bg-green-100 text-green-800 border-green-200',
@@ -87,11 +34,28 @@ const statusIcons: Record<string, any> = {
 }
 
 export default function CampaignResults() {
+  const [campaigns, setCampaigns] = useState(mockCampaigns)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [useCaseFilter, setUseCaseFilter] = useState('all')
 
-  const filteredCampaigns = mockCampaigns.filter(campaign => {
+  // Load campaigns from localStorage on component mount
+  useEffect(() => {
+    const storedCampaigns = localStorage.getItem('outbound-campaigns')
+    if (storedCampaigns) {
+      try {
+        const parsed = JSON.parse(storedCampaigns)
+        setCampaigns(parsed)
+      } catch (error) {
+        console.error('Error loading campaigns from localStorage:', error)
+        setCampaigns([])
+      }
+    } else {
+      setCampaigns([])
+    }
+  }, [])
+
+  const filteredCampaigns = campaigns.filter(campaign => {
     const matchesSearch = campaign.name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === 'all' || campaign.status.toLowerCase() === statusFilter
     const matchesUseCase = useCaseFilter === 'all' || campaign.useCase.toLowerCase() === useCaseFilter
@@ -295,7 +259,7 @@ export default function CampaignResults() {
               <p className="text-body text-text-secondary mb-8 max-w-md mx-auto">
                 {searchTerm || statusFilter !== 'all' || useCaseFilter !== 'all'
                   ? 'Try adjusting your search criteria or filters to find the campaigns you\'re looking for'
-                  : 'Ready to start your first AI-powered outbound campaign? Launch the campaign builder to get started.'}
+                  : 'You haven\'t created any campaigns yet. Ready to start your first AI-powered outbound campaign?'}
               </p>
               <Link href="/setup">
                 <Button size="lg" className="btn-primary">

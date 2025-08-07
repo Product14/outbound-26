@@ -11,8 +11,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowRight, ArrowLeft, Upload, FileText, Calendar, CheckCircle, Download, AlertCircle, Zap, Clock, Users, Database, Plus } from 'lucide-react'
+import { ArrowRight, ArrowLeft, Upload, FileText, Calendar, CheckCircle, Download, AlertCircle, Zap, Clock, Users, Database, Plus, X } from 'lucide-react'
 import Link from "next/link"
+import { useRouter } from 'next/navigation'
 import { cn } from "@/lib/utils"
 import { BarChart3 } from 'lucide-react'
 import confetti from 'canvas-confetti'
@@ -91,6 +92,7 @@ const mockData: MockDataRow[] = [
 ]
 
 export default function CampaignSetup() {
+  const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
@@ -109,6 +111,19 @@ export default function CampaignSetup() {
     estimatedTime: '2-3 hours',
     totalRecords: 0
   })
+  const [createdCampaignId, setCreatedCampaignId] = useState('')
+  
+  // Animation states
+  const [isPageLoaded, setIsPageLoaded] = useState(false)
+  const [isStepTransitioning, setIsStepTransitioning] = useState(false)
+
+  // Page entrance animation
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsPageLoaded(true)
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [])
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -140,8 +155,41 @@ export default function CampaignSetup() {
 
   const nextStep = () => {
     if (currentStep < 4) {
-      // If we're launching the campaign (moving from step 3 to 4), trigger confetti
+      // If we're launching the campaign (moving from step 3 to 4), create and save the campaign
       if (currentStep === 3) {
+        // Create the new campaign object
+        const campaignId = `camp_${Date.now()}`
+        const newCampaign = {
+          id: campaignId,
+          name: campaignData.campaignName,
+          useCase: useCases[campaignData.useCase]?.label || campaignData.useCase,
+          subUseCase: useCases[campaignData.useCase]?.subCases.find(sc => sc.value === campaignData.subUseCase)?.label || campaignData.subUseCase,
+          status: campaignData.schedule === 'now' ? 'Running' : 'Scheduled',
+          progress: campaignData.schedule === 'now' ? 0 : 0,
+          eta: campaignData.schedule === 'now' ? campaignData.estimatedTime : null,
+          callsPlaced: 0,
+          totalRecords: campaignData.totalRecords,
+          answerRate: 0,
+          appointmentsBooked: 0,
+          successRate: 0,
+          createdAt: new Date(),
+          startedAt: campaignData.schedule === 'now' ? new Date() : null,
+          scheduledFor: campaignData.schedule === 'scheduled' ? new Date(`${campaignData.scheduledDate}T${campaignData.scheduledTime}`) : null,
+          fileName: campaignData.fileName
+        }
+
+        // Save to localStorage
+        try {
+          const existingCampaigns = localStorage.getItem('outbound-campaigns')
+          const campaigns = existingCampaigns ? JSON.parse(existingCampaigns) : []
+          campaigns.push(newCampaign)
+          localStorage.setItem('outbound-campaigns', JSON.stringify(campaigns))
+        } catch (error) {
+          console.error('Error saving campaign to localStorage:', error)
+        }
+
+        // Store the campaign ID for the analytics button
+        setCreatedCampaignId(campaignId)
         // Trigger confetti animation from bottom of the page
         confetti({
           particleCount: 150,
@@ -178,6 +226,11 @@ export default function CampaignSetup() {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1)
     }
+  }
+
+  const handleCancel = () => {
+    // Navigate back to the campaigns list page
+    router.push('/results')
   }
 
   const getRequiredFields = () => {
@@ -633,7 +686,7 @@ export default function CampaignSetup() {
               </div>
 
               <div className="space-y-3">
-                <Link href="/results/camp_2024_001">
+                <Link href={createdCampaignId ? `/results/${createdCampaignId}` : '/results'}>
                   <Button size="lg" className="w-full h-11 px-4 text-[14px] bg-[#4600F2] hover:bg-[#4600F2]/90 text-white rounded-lg font-medium">
                     <BarChart3 className="h-5 w-5 mr-2" />
                     View Campaign Analytics
@@ -662,6 +715,7 @@ export default function CampaignSetup() {
                     setUploadComplete(false)
                     setHasError(false)
                     setNeedsAgent(false)
+                    setCreatedCampaignId('')
                     // Reset to first step
                     setCurrentStep(1)
                   }}
@@ -748,8 +802,20 @@ export default function CampaignSetup() {
 
           {/* Sticky Navigation */}
           {currentStep < 4 && (
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E7EB] z-50 shadow-lg" style={{ paddingTop: '16px', paddingBottom: '16px', paddingRight: '24px' }}>
-              <div className="flex justify-end">
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E7EB] z-50 shadow-lg" style={{ paddingTop: '16px', paddingBottom: '16px', paddingLeft: '24px', paddingRight: '24px' }}>
+              <div className="flex justify-between items-center">
+                {/* Cancel Button - Left Side */}
+                <Button
+                  onClick={handleCancel}
+                  variant="ghost"
+                  size="lg"
+                  className="h-11 px-4 text-[14px] text-[#6B7280] hover:bg-[#F3F4F6] hover:text-[#374151] rounded-lg font-medium"
+                >
+                  <X className="h-5 w-5 mr-2" />
+                  <span className="hidden sm:inline">Cancel</span>
+                </Button>
+
+                {/* Navigation Buttons - Right Side */}
                 <div className="flex items-center space-x-3">
                   {currentStep > 1 && (
                     <Button

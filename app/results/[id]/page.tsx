@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,23 +13,26 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Download, Search, Phone, CheckCircle, Clock, AlertCircle, Calendar, BarChart3, TrendingUp, Users, ArrowLeft, RefreshCw } from 'lucide-react'
 import Link from "next/link"
 
-// Mock campaign data that updates
-const getCampaignData = (progress = 65) => ({
-  id: 'camp_2024_001',
-  name: 'Q4 Maintenance Reminders',
-  useCase: 'Service',
-  subUseCase: 'Maintenance Reminder',
-  status: progress >= 100 ? 'Completed' : 'Running',
-  progress: Math.min(progress, 100),
-  eta: progress >= 100 ? null : `${Math.ceil((100 - progress) / 10)} hours`,
-  callsPlaced: Math.floor((progress / 100) * 240),
-  totalRecords: 240,
-  answerRate: 68 + Math.floor(Math.random() * 5),
-  appointmentsBooked: Math.floor((progress / 100) * 35),
-  successRate: 72 + Math.floor(Math.random() * 6),
-  createdAt: new Date('2024-01-15T10:30:00'),
-  startedAt: new Date('2024-01-15T10:35:00')
-})
+// Function to load campaign data by ID
+const loadCampaignById = (campaignId: string) => {
+  try {
+    // Check localStorage for user-created campaigns
+    const storedCampaigns = localStorage.getItem('outbound-campaigns')
+    if (storedCampaigns) {
+      const campaigns = JSON.parse(storedCampaigns)
+      const userCampaign = campaigns.find((c: any) => c.id === campaignId)
+      if (userCampaign) {
+        return userCampaign
+      }
+    }
+    
+    // If not found, return null
+    return null
+  } catch (error) {
+    console.error('Error loading campaign:', error)
+    return null
+  }
+}
 
 // Mock call detail data
 const callDetails = [
@@ -117,26 +121,55 @@ const outcomeColors: Record<string, string> = {
 }
 
 export default function CampaignDetail() {
+  const params = useParams()
+  const router = useRouter()
+  const campaignId = params?.id as string
+  
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [outcomeFilter, setOutcomeFilter] = useState('all')
-  const [campaignData, setCampaignData] = useState(getCampaignData(65))
+  const [campaignData, setCampaignData] = useState<any>(null)
   const [lastRefresh, setLastRefresh] = useState(new Date())
+  const [isLoading, setIsLoading] = useState(true)
+  const [campaignNotFound, setCampaignNotFound] = useState(false)
+
+  // Load campaign data when component mounts or campaignId changes
+  useEffect(() => {
+    if (campaignId) {
+      const campaign = loadCampaignById(campaignId)
+      if (campaign) {
+        setCampaignData(campaign)
+        setCampaignNotFound(false)
+      } else {
+        setCampaignNotFound(true)
+      }
+      setIsLoading(false)
+    }
+  }, [campaignId])
 
   // Auto-refresh every 5 seconds for running campaigns
   useEffect(() => {
-    if (campaignData.status === 'Running') {
+    if (campaignData && campaignData.status === 'Running') {
       const interval = setInterval(() => {
-        setCampaignData(prev => {
+        setCampaignData((prev: any) => {
           const newProgress = Math.min(prev.progress + Math.random() * 3, 100)
-          return getCampaignData(newProgress)
+          const newStatus = newProgress >= 100 ? 'Completed' : 'Running'
+          return {
+            ...prev,
+            progress: newProgress,
+            status: newStatus,
+            callsPlaced: Math.floor((newProgress / 100) * prev.totalRecords),
+            answerRate: Math.max(65, Math.min(85, prev.answerRate + (Math.random() - 0.5) * 2)),
+            appointmentsBooked: Math.floor((newProgress / 100) * (prev.totalRecords * 0.15)),
+            eta: newStatus === 'Completed' ? null : `${Math.ceil((100 - newProgress) / 10)} hours`
+          }
         })
         setLastRefresh(new Date())
       }, 5000)
 
       return () => clearInterval(interval)
     }
-  }, [campaignData.status])
+  }, [campaignData?.status])
 
   const filteredCalls = callDetails.filter(call => {
     const matchesSearch = call.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -159,8 +192,61 @@ export default function CampaignDetail() {
   }
 
   const handleRefresh = () => {
-    setCampaignData(prev => getCampaignData(prev.progress))
+    if (campaignId) {
+      const refreshedCampaign = loadCampaignById(campaignId)
+      if (refreshedCampaign) {
+        setCampaignData(refreshedCampaign)
+      }
+    }
     setLastRefresh(new Date())
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="px-12 py-8 bg-[#F4F5F8] min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-body text-text-secondary">Loading campaign data...</p>
+          </div>
+        </div>
+      </MainLayout>
+    )
+  }
+
+  // Campaign not found state
+  if (campaignNotFound || !campaignData) {
+    return (
+      <MainLayout>
+        <div className="px-12 py-8 bg-[#F4F5F8] min-h-screen">
+          <div className="mb-8">
+            <Link href="/results">
+              <Button variant="outline" size="sm" className="btn-secondary mb-4">
+                <ArrowLeft className="icon-small mr-2" />
+                Back to Campaigns
+              </Button>
+            </Link>
+          </div>
+          <Card>
+            <CardContent className="p-12 text-center">
+              <div className="w-20 h-20 mx-auto mb-6 bg-muted rounded-full flex items-center justify-center">
+                <AlertCircle className="h-10 w-10 text-text-secondary" />
+              </div>
+              <h3 className="text-page-heading text-text-primary mb-3">Campaign Not Found</h3>
+              <p className="text-body text-text-secondary mb-8 max-w-md mx-auto">
+                The campaign you're looking for doesn't exist or may have been deleted.
+              </p>
+              <Link href="/results">
+                <Button className="btn-primary">
+                  View All Campaigns
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </MainLayout>
+    )
   }
 
   return (
@@ -244,10 +330,69 @@ export default function CampaignDetail() {
           </Card>
         </div>
 
-        {/* Campaign Overview */}
+        {/* Campaign Details */}
         <div className="mb-8">
           <Card className="border border-[#1A1A1A]/10 bg-white rounded-xl">
-            <CardHeader className="bg-[#F4F5F8] border-b border-[#E5E7EB] p-6 rounded-t-xl">
+            <CardHeader className="p-6">
+              <div>
+                <CardTitle className="text-[20px] font-semibold text-[#1A1A1A] leading-[1.4]">
+                  Campaign Details
+                </CardTitle>
+                <CardDescription className="text-sm text-[#6B7280] leading-[1.5] mt-1">
+                  Campaign information and configuration
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-[#F4F5F8] rounded-lg">
+                  <div>
+                    <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Campaign ID</p>
+                    <p className="text-sm font-mono text-[#1A1A1A] mt-1">{campaignData.id}</p>
+                  </div>
+                  <div className="p-2 bg-[#4600F2]/10 rounded-lg">
+                    <div className="w-4 h-4 bg-[#4600F2] rounded-sm"></div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between p-3 bg-[#F4F5F8] rounded-lg">
+                  <div>
+                    <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Created</p>
+                    <p className="text-sm text-[#1A1A1A] mt-1">{formatDate(campaignData.createdAt)}</p>
+                  </div>
+                  <div className="p-2 bg-[#22C55E]/10 rounded-lg">
+                    <Calendar className="h-4 w-4 text-[#22C55E]" />
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between p-3 bg-[#F4F5F8] rounded-lg">
+                  <div>
+                    <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Started</p>
+                    <p className="text-sm text-[#1A1A1A] mt-1">{formatDate(campaignData.startedAt)}</p>
+                  </div>
+                  <div className="p-2 bg-[#F59E0B]/10 rounded-lg">
+                    <Clock className="h-4 w-4 text-[#F59E0B]" />
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between p-3 bg-[#F4F5F8] rounded-lg">
+                  <div>
+                    <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Total Records</p>
+                    <p className="text-sm text-[#1A1A1A] mt-1">{campaignData.totalRecords}</p>
+                  </div>
+                  <div className="p-2 bg-[#3B82F6]/10 rounded-lg">
+                    <Users className="h-4 w-4 text-[#3B82F6]" />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Campaign Progress */}
+        <div className="mb-8">
+          <Card className="border border-[#1A1A1A]/10 bg-white rounded-xl">
+            <CardHeader className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-[20px] font-semibold text-[#1A1A1A] leading-[1.4]">
@@ -269,93 +414,44 @@ export default function CampaignDetail() {
               </div>
             </CardHeader>
             <CardContent className="p-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Progress Section */}
-                <div className="space-y-6">
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold text-[#1A1A1A] text-sm leading-[1.5]">
-                      Progress: {campaignData.callsPlaced} of {campaignData.totalRecords} calls
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-[#1A1A1A] text-sm leading-[1.5]">
+                    Progress: {campaignData.callsPlaced} of {campaignData.totalRecords} calls
+                  </span>
+                  {campaignData.status === 'Running' && (
+                    <span className="text-[#6B7280] flex items-center text-sm bg-[#F4F5F8] px-3 py-1 rounded-full">
+                      <Clock className="h-4 w-4 mr-1" />
+                      ETA: {campaignData.eta}
                     </span>
-                    {campaignData.status === 'Running' && (
-                      <span className="text-[#6B7280] flex items-center text-sm bg-[#F4F5F8] px-3 py-1 rounded-full">
-                        <Clock className="h-4 w-4 mr-1" />
-                        ETA: {campaignData.eta}
-                      </span>
-                    )}
-                  </div>
-                  {campaignData.status === 'Running' ? (
-                    <div className="space-y-4">
-                      <div className="relative">
-                        <Progress value={campaignData.progress} className="h-3 bg-[#F4F5F8] rounded-full" />
-                        <div className="absolute inset-0 bg-gradient-to-r from-[#4600F2]/20 to-[#3B82F6]/20 rounded-full"></div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-3xl font-bold text-[#1A1A1A] mb-1">
-                          {campaignData.progress.toFixed(1)}%
-                        </div>
-                        <div className="text-sm text-[#6B7280]">Complete</div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <div className="w-16 h-16 bg-[#22C55E]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <CheckCircle className="h-8 w-8 text-[#22C55E]" />
-                      </div>
-                      <div className="text-2xl font-bold text-[#22C55E] mb-2">
-                        Campaign Completed
-                      </div>
-                      <div className="text-sm text-[#6B7280]">
-                        All {campaignData.totalRecords} calls have been processed successfully
-                      </div>
-                    </div>
                   )}
                 </div>
-
-                {/* Campaign Details Section */}
-                <div className="space-y-4">
-                  <h3 className="text-[16px] font-semibold text-[#1A1A1A] leading-[1.4] mb-4">Campaign Details</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-[#F4F5F8] rounded-lg">
-                      <div>
-                        <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Campaign ID</p>
-                        <p className="text-sm font-mono text-[#1A1A1A] mt-1">{campaignData.id}</p>
-                      </div>
-                      <div className="p-2 bg-[#4600F2]/10 rounded-lg">
-                        <div className="w-4 h-4 bg-[#4600F2] rounded-sm"></div>
-                      </div>
+                {campaignData.status === 'Running' ? (
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <Progress value={campaignData.progress} className="h-3 bg-[#F4F5F8] rounded-full" />
+                      <div className="absolute inset-0 bg-gradient-to-r from-[#4600F2]/20 to-[#3B82F6]/20 rounded-full"></div>
                     </div>
-                    
-                    <div className="flex items-center justify-between p-3 bg-[#F4F5F8] rounded-lg">
-                      <div>
-                        <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Created</p>
-                        <p className="text-sm text-[#1A1A1A] mt-1">{formatDate(campaignData.createdAt)}</p>
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-[#1A1A1A] mb-1">
+                        {campaignData.progress.toFixed(1)}%
                       </div>
-                      <div className="p-2 bg-[#22C55E]/10 rounded-lg">
-                        <Calendar className="h-4 w-4 text-[#22C55E]" />
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-3 bg-[#F4F5F8] rounded-lg">
-                      <div>
-                        <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Started</p>
-                        <p className="text-sm text-[#1A1A1A] mt-1">{formatDate(campaignData.startedAt)}</p>
-                      </div>
-                      <div className="p-2 bg-[#F59E0B]/10 rounded-lg">
-                        <Clock className="h-4 w-4 text-[#F59E0B]" />
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-3 bg-[#F4F5F8] rounded-lg">
-                      <div>
-                        <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Total Records</p>
-                        <p className="text-sm text-[#1A1A1A] mt-1">{campaignData.totalRecords}</p>
-                      </div>
-                      <div className="p-2 bg-[#3B82F6]/10 rounded-lg">
-                        <Users className="h-4 w-4 text-[#3B82F6]" />
-                      </div>
+                      <div className="text-sm text-[#6B7280]">Complete</div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 bg-[#22C55E]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle className="h-8 w-8 text-[#22C55E]" />
+                    </div>
+                    <div className="text-2xl font-bold text-[#22C55E] mb-2">
+                      Campaign Completed
+                    </div>
+                    <div className="text-sm text-[#6B7280]">
+                      All {campaignData.totalRecords} calls have been processed successfully
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -363,7 +459,7 @@ export default function CampaignDetail() {
 
         {/* Call Details */}
         <Card className="border-0 shadow-xl bg-white rounded-lg">
-          <CardHeader className="bg-[#F4F5F8] border-b border-[#E5E7EB] p-6">
+          <CardHeader className="p-6">
             <div className="flex justify-between items-center">
               <div>
                 <CardTitle className="text-[20px] font-semibold text-[#1A1A1A] leading-[1.4]">Call Details</CardTitle>

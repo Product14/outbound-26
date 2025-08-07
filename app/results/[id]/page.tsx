@@ -105,15 +105,15 @@ const callDetails = [
 ]
 
 const statusColors: Record<string, string> = {
-  Connected: 'bg-green-100 text-green-800 border-green-200',
-  Voicemail: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-  'No Answer': 'bg-red-100 text-red-800 border-red-200'
+  Connected: 'bg-[#22C55E] text-white border-[#22C55E]',
+  Voicemail: 'bg-[#FACC15] text-[#1A1A1A] border-[#FACC15]',
+  'No Answer': 'bg-[#EF4444] text-white border-[#EF4444]'
 }
 
 const outcomeColors: Record<string, string> = {
-  Success: 'bg-green-100 text-green-800 border-green-200',
-  Failure: 'bg-red-100 text-red-800 border-red-200',
-  Pending: 'bg-gray-100 text-gray-800 border-gray-200'
+  Success: 'bg-[#22C55E] text-white border-[#22C55E]',
+  Failure: 'bg-[#EF4444] text-white border-[#EF4444]',
+  Pending: 'bg-[#6B7280] text-white border-[#6B7280]'
 }
 
 export default function CampaignDetail() {
@@ -165,218 +165,212 @@ export default function CampaignDetail() {
 
   return (
     <MainLayout>
-      <div className="p-6 lg:p-8">
+      <div className="px-12 py-8 bg-[#F4F5F8] min-h-screen">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <Link href="/results" className="flex items-center text-gray-500 hover:text-gray-700">
-                  <ArrowLeft className="h-4 w-4 mr-1" />
-                  Campaign Results
-                </Link>
-                <span className="text-gray-400">/</span>
-                <span className="text-gray-900 font-medium">{campaignData.name}</span>
+          <div className="flex items-center gap-4 mb-2">
+            <Link href="/results" className="flex items-center text-[#6B7280] hover:text-[#1A1A1A] transition-colors">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <h1 className="text-[20px] font-semibold text-[#1A1A1A] leading-[1.4]">{campaignData.name}</h1>
+          </div>
+          <p className="text-sm text-[#6B7280] leading-[1.5] ml-9">{campaignData.useCase} - {campaignData.subUseCase}</p>
+        </div>
+
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="border border-[#1A1A1A]/10 bg-white rounded-xl">
+            <CardContent className="p-6">
+              <div className="flex items-start space-x-6">
+                <div className="p-3 bg-[#F0F4FF] rounded-lg flex-shrink-0">
+                  <Phone className="h-6 w-6 text-[#4600F2]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-[#1A1A1A]/60 font-semibold text-sm leading-[1.4] mb-1">Calls Placed</h3>
+                  <p className="text-[#1A1A1A] text-[26px] font-bold leading-[1.4]">
+                    {campaignData.callsPlaced}
+                  </p>
+                </div>
               </div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-3">{campaignData.name}</h1>
-              <div className="flex items-center gap-3">
-                <Badge className="bg-blue-100 text-blue-800 border-blue-200 px-3 py-1">
-                  {campaignData.useCase} - {campaignData.subUseCase}
-                </Badge>
-                <Badge className={`${campaignData.status === 'Running' ? 'bg-blue-100 text-blue-800 border-blue-200' : 'bg-green-100 text-green-800 border-green-200'} px-3 py-1`}>
-                  {campaignData.status === 'Running' ? <Clock className="h-3 w-3 mr-1" /> : <CheckCircle className="h-3 w-3 mr-1" />}
-                  {campaignData.status}
-                </Badge>
+            </CardContent>
+          </Card>
+          
+          <Card className="border border-[#1A1A1A]/10 bg-white rounded-xl">
+            <CardContent className="p-6">
+              <div className="flex items-start space-x-6">
+                <div className="p-3 bg-[#F0FDF4] rounded-lg flex-shrink-0">
+                  <CheckCircle className="h-6 w-6 text-[#22C55E]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-[#1A1A1A]/60 font-semibold text-sm leading-[1.4] mb-1">Answer Rate</h3>
+                  <p className="text-[#1A1A1A] text-[26px] font-bold leading-[1.4]">
+                    {campaignData.answerRate}%
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="border border-[#1A1A1A]/10 bg-white rounded-xl">
+            <CardContent className="p-6">
+              <div className="flex items-start space-x-6">
+                <div className="p-3 bg-[#FEFCE8] rounded-lg flex-shrink-0">
+                  <Calendar className="h-6 w-6 text-[#F59E0B]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-[#1A1A1A]/60 font-semibold text-sm leading-[1.4] mb-1">Appointments</h3>
+                  <p className="text-[#1A1A1A] text-[26px] font-bold leading-[1.4]">
+                    {campaignData.appointmentsBooked}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="border border-[#1A1A1A]/10 bg-white rounded-xl">
+            <CardContent className="p-6">
+              <div className="flex items-start space-x-6">
+                <div className="p-3 bg-[#EFF6FF] rounded-lg flex-shrink-0">
+                  <BarChart3 className="h-6 w-6 text-[#3B82F6]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-[#1A1A1A]/60 font-semibold text-sm leading-[1.4] mb-1">Success Rate</h3>
+                  <p className="text-[#1A1A1A] text-[26px] font-bold leading-[1.4]">
+                    {campaignData.successRate}%
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Campaign Overview */}
+        <div className="mb-8">
+          <Card className="border border-[#1A1A1A]/10 bg-white rounded-xl">
+            <CardHeader className="bg-[#F4F5F8] border-b border-[#E5E7EB] p-6 rounded-t-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-[20px] font-semibold text-[#1A1A1A] leading-[1.4]">
+                    {campaignData.status === 'Running' ? 'Campaign Progress' : 'Campaign Results'}
+                  </CardTitle>
+                  <CardDescription className="text-sm text-[#6B7280] leading-[1.5] mt-1">
+                    {campaignData.status === 'Running' 
+                      ? 'Real-time calling progress and metrics' 
+                      : 'Final campaign results and performance'
+                    }
+                  </CardDescription>
+                </div>
                 {campaignData.status === 'Running' && (
-                  <div className="flex items-center text-sm text-gray-500">
-                    <RefreshCw className="h-4 w-4 mr-1" />
-                    Last updated: {lastRefresh.toLocaleTimeString()}
+                  <div className="flex items-center gap-2 px-3 py-1 bg-[#3B82F6]/10 rounded-full">
+                    <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-pulse"></div>
+                    <span className="text-xs text-[#3B82F6] font-medium">Live</span>
                   </div>
                 )}
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              {campaignData.status === 'Running' && (
-                <Button variant="outline" onClick={handleRefresh} className="px-6">
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh
-                </Button>
-              )}
-              {campaignData.status === 'Completed' && (
-                <Button variant="outline" className="px-6">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download Full Report
-                </Button>
-              )}
-              <Link href="/setup">
-                <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
-                  New Campaign
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        {/* KPI Cards - Move this section up */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-       <Card className="border-0 shadow-lg bg-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-blue-700 mb-1">Calls Placed</p>
-                  <p className="text-3xl font-bold text-blue-900">{campaignData.callsPlaced}</p>
-                  <p className="text-xs text-blue-600 flex items-center mt-1">
-                    <TrendingUp className="h-3 w-3 mr-1" />
-                    {campaignData.progress}% complete
-                  </p>
-                </div>
-                <div className="p-3 bg-blue-600 rounded-xl">
-                  <Phone className="h-6 w-6 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-        <Card className="border-0 shadow-lg bg-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-green-700 mb-1">Answer Rate</p>
-                  <p className="text-3xl font-bold text-green-900">{campaignData.answerRate}%</p>
-                  <p className="text-xs text-green-600 flex items-center mt-1">
-                    <CheckCircle className="h-3 w-3 mr-1" />
-                    Above average
-                  </p>
-                </div>
-                <div className="p-3 bg-green-600 rounded-xl">
-                  <CheckCircle className="h-6 w-6 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="border-0 shadow-lg bg-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-purple-700 mb-1">Appointments</p>
-                  <p className="text-3xl font-bold text-purple-900">{campaignData.appointmentsBooked}</p>
-                  <p className="text-xs text-purple-600 flex items-center mt-1">
-                    <Calendar className="h-3 w-3 mr-1" />
-                    {Math.round((campaignData.appointmentsBooked / campaignData.callsPlaced) * 100) || 0}% conversion
-                  </p>
-                </div>
-                <div className="p-3 bg-purple-600 rounded-xl">
-                  <Calendar className="h-6 w-6 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="border-0 shadow-lg bg-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-orange-700 mb-1">Success Rate</p>
-                  <p className="text-3xl font-bold text-orange-900">{campaignData.successRate}%</p>
-                  <p className="text-xs text-orange-600 flex items-center mt-1">
-                    <TrendingUp className="h-3 w-3 mr-1" />
-                    Excellent
-                  </p>
-                </div>
-                <div className="p-3 bg-orange-600 rounded-xl">
-                  <BarChart3 className="h-6 w-6 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Campaign Overview - More Compact */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* Progress Card */}
-          <Card className="lg:col-span-2 border-0 shadow-lg">
-            <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b border-gray-200 p-4">
-              <CardTitle className="text-lg">
-                {campaignData.status === 'Running' ? 'Campaign Progress' : 'Campaign Results'}
-              </CardTitle>
-              <CardDescription className="text-sm">
-                {campaignData.status === 'Running' 
-                  ? 'Real-time calling progress and metrics' 
-                  : 'Final campaign results and performance'
-                }
-              </CardDescription>
             </CardHeader>
             <CardContent className="p-6">
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="font-semibold text-gray-700 text-base">
-                    Progress: {campaignData.callsPlaced} of {campaignData.totalRecords} calls
-                  </span>
-                  {campaignData.status === 'Running' && (
-                    <span className="text-gray-600 flex items-center text-sm">
-                      <Clock className="h-4 w-4 mr-1" />
-                      ETA: {campaignData.eta}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Progress Section */}
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold text-[#1A1A1A] text-sm leading-[1.5]">
+                      Progress: {campaignData.callsPlaced} of {campaignData.totalRecords} calls
                     </span>
+                    {campaignData.status === 'Running' && (
+                      <span className="text-[#6B7280] flex items-center text-sm bg-[#F4F5F8] px-3 py-1 rounded-full">
+                        <Clock className="h-4 w-4 mr-1" />
+                        ETA: {campaignData.eta}
+                      </span>
+                    )}
+                  </div>
+                  {campaignData.status === 'Running' ? (
+                    <div className="space-y-4">
+                      <div className="relative">
+                        <Progress value={campaignData.progress} className="h-3 bg-[#F4F5F8] rounded-full" />
+                        <div className="absolute inset-0 bg-gradient-to-r from-[#4600F2]/20 to-[#3B82F6]/20 rounded-full"></div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-[#1A1A1A] mb-1">
+                          {campaignData.progress.toFixed(1)}%
+                        </div>
+                        <div className="text-sm text-[#6B7280]">Complete</div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-[#22C55E]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <CheckCircle className="h-8 w-8 text-[#22C55E]" />
+                      </div>
+                      <div className="text-2xl font-bold text-[#22C55E] mb-2">
+                        Campaign Completed
+                      </div>
+                      <div className="text-sm text-[#6B7280]">
+                        All {campaignData.totalRecords} calls have been processed successfully
+                      </div>
+                    </div>
                   )}
                 </div>
-                {campaignData.status === 'Running' ? (
-                  <>
-                    <Progress value={campaignData.progress} className="h-3" />
-                    <div className="text-center text-xl font-bold text-gray-900">
-                      {campaignData.progress.toFixed(2)}% Complete
+
+                {/* Campaign Details Section */}
+                <div className="space-y-4">
+                  <h3 className="text-[16px] font-semibold text-[#1A1A1A] leading-[1.4] mb-4">Campaign Details</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-[#F4F5F8] rounded-lg">
+                      <div>
+                        <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Campaign ID</p>
+                        <p className="text-sm font-mono text-[#1A1A1A] mt-1">{campaignData.id}</p>
+                      </div>
+                      <div className="p-2 bg-[#4600F2]/10 rounded-lg">
+                        <div className="w-4 h-4 bg-[#4600F2] rounded-sm"></div>
+                      </div>
                     </div>
-                  </>
-                ) : (
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600 mb-2">
-                      Campaign Completed
+                    
+                    <div className="flex items-center justify-between p-3 bg-[#F4F5F8] rounded-lg">
+                      <div>
+                        <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Created</p>
+                        <p className="text-sm text-[#1A1A1A] mt-1">{formatDate(campaignData.createdAt)}</p>
+                      </div>
+                      <div className="p-2 bg-[#22C55E]/10 rounded-lg">
+                        <Calendar className="h-4 w-4 text-[#22C55E]" />
+                      </div>
                     </div>
-                    <div className="text-sm text-gray-600">
-                      All {campaignData.totalRecords} calls have been processed
+                    
+                    <div className="flex items-center justify-between p-3 bg-[#F4F5F8] rounded-lg">
+                      <div>
+                        <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Started</p>
+                        <p className="text-sm text-[#1A1A1A] mt-1">{formatDate(campaignData.startedAt)}</p>
+                      </div>
+                      <div className="p-2 bg-[#F59E0B]/10 rounded-lg">
+                        <Clock className="h-4 w-4 text-[#F59E0B]" />
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-3 bg-[#F4F5F8] rounded-lg">
+                      <div>
+                        <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Total Records</p>
+                        <p className="text-sm text-[#1A1A1A] mt-1">{campaignData.totalRecords}</p>
+                      </div>
+                      <div className="p-2 bg-[#3B82F6]/10 rounded-lg">
+                        <Users className="h-4 w-4 text-[#3B82F6]" />
+                      </div>
                     </div>
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Campaign Info */}
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 p-4">
-              <CardTitle className="text-lg">Campaign Details</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 space-y-3">
-              <div>
-                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Campaign ID</p>
-                <p className="text-sm font-mono text-gray-900 mt-1">{campaignData.id}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Created</p>
-                <p className="text-sm text-gray-900 mt-1">{formatDate(campaignData.createdAt)}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Started</p>
-                <p className="text-sm text-gray-900 mt-1">{formatDate(campaignData.startedAt)}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Total Records</p>
-                <p className="text-sm text-gray-900 mt-1">{campaignData.totalRecords}</p>
+                </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Call Details */}
-        <Card className="border-0 shadow-xl">
-          <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 p-4">
+        <Card className="border-0 shadow-xl bg-white rounded-lg">
+          <CardHeader className="bg-[#F4F5F8] border-b border-[#E5E7EB] p-6">
             <div className="flex justify-between items-center">
               <div>
-                <CardTitle className="text-xl">Call Details</CardTitle>
-                <CardDescription className="text-sm">Individual call results and outcomes</CardDescription>
+                <CardTitle className="text-[20px] font-semibold text-[#1A1A1A] leading-[1.4]">Call Details</CardTitle>
+                <CardDescription className="text-sm text-[#6B7280] leading-[1.5]">Individual call results and outcomes</CardDescription>
               </div>
               {campaignData.status === 'Completed' && (
-                <Button variant="outline" size="sm" className="px-4">
+                <Button variant="outline" size="sm" className="h-9 px-4 text-sm border-[#E5E7EB] text-[#1A1A1A] hover:bg-[#F4F5F8] rounded-lg">
                   <Download className="h-4 w-4 mr-2" />
                   Download Full Report
                 </Button>
@@ -388,18 +382,18 @@ export default function CampaignDetail() {
             <div className="flex flex-col sm:flex-row gap-4 mb-8">
               <div className="flex-1">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[#6B7280]" />
                   <Input
                     placeholder="Search by customer, phone, or VIN..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 h-12 text-lg"
+                    className="pl-10 h-12 text-sm border-[#E5E7EB] rounded-md focus:border-[#4600F2] focus:ring-[#4600F2]"
                   />
                 </div>
               </div>
               
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-48 h-12">
+                <SelectTrigger className="w-full sm:w-48 h-12 border-[#E5E7EB] rounded-md focus:border-[#4600F2] focus:ring-[#4600F2]">
                   <SelectValue placeholder="All Statuses" />
                 </SelectTrigger>
                 <SelectContent>
@@ -411,7 +405,7 @@ export default function CampaignDetail() {
               </Select>
               
               <Select value={outcomeFilter} onValueChange={setOutcomeFilter}>
-                <SelectTrigger className="w-full sm:w-48 h-12">
+                <SelectTrigger className="w-full sm:w-48 h-12 border-[#E5E7EB] rounded-md focus:border-[#4600F2] focus:ring-[#4600F2]">
                   <SelectValue placeholder="All Outcomes" />
                 </SelectTrigger>
                 <SelectContent>
@@ -424,45 +418,45 @@ export default function CampaignDetail() {
             </div>
 
             {/* Table */}
-            <div className="border border-gray-200 rounded-xl overflow-hidden">
+            <div className="border border-[#E5E7EB] rounded-lg overflow-hidden">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-gray-50">
-                    <TableHead className="font-semibold text-gray-900">Customer</TableHead>
-                    <TableHead className="font-semibold text-gray-900">Phone</TableHead>
-                    <TableHead className="font-semibold text-gray-900">Vehicle</TableHead>
-                    <TableHead className="font-semibold text-gray-900">VIN</TableHead>
-                    <TableHead className="font-semibold text-gray-900">Status</TableHead>
-                    <TableHead className="font-semibold text-gray-900">Outcome</TableHead>
-                    <TableHead className="font-semibold text-gray-900">Appointment</TableHead>
-                    <TableHead className="font-semibold text-gray-900">Call Time</TableHead>
-                    <TableHead className="font-semibold text-gray-900">Duration</TableHead>
+                  <TableRow className="bg-[#F4F5F8]">
+                    <TableHead className="font-semibold text-[#1A1A1A] text-sm">Customer</TableHead>
+                    <TableHead className="font-semibold text-[#1A1A1A] text-sm">Phone</TableHead>
+                    <TableHead className="font-semibold text-[#1A1A1A] text-sm">Vehicle</TableHead>
+                    <TableHead className="font-semibold text-[#1A1A1A] text-sm">VIN</TableHead>
+                    <TableHead className="font-semibold text-[#1A1A1A] text-sm">Status</TableHead>
+                    <TableHead className="font-semibold text-[#1A1A1A] text-sm">Outcome</TableHead>
+                    <TableHead className="font-semibold text-[#1A1A1A] text-sm">Appointment</TableHead>
+                    <TableHead className="font-semibold text-[#1A1A1A] text-sm">Call Time</TableHead>
+                    <TableHead className="font-semibold text-[#1A1A1A] text-sm">Duration</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredCalls.map((call) => (
-                    <TableRow key={call.id} className="hover:bg-gray-50">
-                      <TableCell className="font-medium text-gray-900">{call.customer}</TableCell>
-                      <TableCell className="text-gray-900">{call.phone}</TableCell>
-                      <TableCell className="text-gray-900">{call.year} {call.make} {call.model}</TableCell>
-                      <TableCell className="font-mono text-sm text-gray-900">{call.vin}</TableCell>
+                    <TableRow key={call.id} className="hover:bg-[#F4F5F8] border-b border-[#E5E7EB]">
+                      <TableCell className="font-medium text-[#1A1A1A] text-sm">{call.customer}</TableCell>
+                      <TableCell className="text-[#1A1A1A] text-sm">{call.phone}</TableCell>
+                      <TableCell className="text-[#1A1A1A] text-sm">{call.year} {call.make} {call.model}</TableCell>
+                      <TableCell className="font-mono text-sm text-[#1A1A1A]">{call.vin}</TableCell>
                       <TableCell>
-                        <Badge className={`${statusColors[call.status]} border font-medium`}>
+                        <Badge className={`${statusColors[call.status]} border font-medium rounded-full text-xs px-2 py-1`}>
                           {call.status}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge className={`${outcomeColors[call.outcome]} border font-medium`}>
+                        <Badge className={`${outcomeColors[call.outcome]} border font-medium rounded-full text-xs px-2 py-1`}>
                           {call.outcome}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={call.appointment === 'Yes' ? 'default' : 'secondary'} className="font-medium">
+                        <Badge variant={call.appointment === 'Yes' ? 'default' : 'secondary'} className="font-medium rounded-full text-xs px-2 py-1">
                           {call.appointment}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-gray-900">{formatDate(call.callTime)}</TableCell>
-                      <TableCell className="font-mono text-gray-900">{call.duration}</TableCell>
+                      <TableCell className="text-[#1A1A1A] text-sm">{formatDate(call.callTime)}</TableCell>
+                      <TableCell className="font-mono text-[#1A1A1A] text-sm">{call.duration}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -471,11 +465,11 @@ export default function CampaignDetail() {
 
             {filteredCalls.length === 0 && (
               <div className="text-center py-16">
-                <div className="text-gray-400 mb-6">
+                <div className="text-[#6B7280] mb-6">
                   <Search className="h-16 w-16 mx-auto" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">No calls found</h3>
-                <p className="text-gray-600 text-lg">
+                <h3 className="text-[20px] font-semibold text-[#1A1A1A] leading-[1.4] mb-3">No calls found</h3>
+                <p className="text-[#6B7280] text-sm leading-[1.5]">
                   Try adjusting your search or filters to see more results
                 </p>
               </div>

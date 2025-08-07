@@ -2130,6 +2130,9 @@ video {
 .text-\[20px\] {
   font-size: 20px;
 }
+.text-\[24px\] {
+  font-size: 24px;
+}
 .text-base {
   font-size: 1rem;
   line-height: 1.5rem;
@@ -2149,9 +2152,6 @@ video {
 .text-xs {
   font-size: 0.75rem;
   line-height: 1rem;
-}
-.text-\[24px\] {
-  font-size: 24px;
 }
 .font-bold {
   font-weight: 700;

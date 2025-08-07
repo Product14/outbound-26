@@ -324,7 +324,7 @@ export default function CampaignDetail() {
                   <>
                     <Progress value={campaignData.progress} className="h-3" />
                     <div className="text-center text-xl font-bold text-gray-900">
-                      {campaignData.progress}% Complete
+                      {campaignData.progress.toFixed(2)}% Complete
                     </div>
                   </>
                 ) : (

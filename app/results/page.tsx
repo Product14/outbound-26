@@ -55,12 +55,12 @@ export default function CampaignResults() {
         
         // Get URL parameters or use defaults for local testing
         const urlParams = extractUrlParams()
-        const enterpriseId = urlParams.enterprise_id || "e2da4572c"
-        const teamId = urlParams.team_id || "bc006ff86d"
+        const enterpriseId = urlParams.enterprise_id
+        const teamId = urlParams.team_id 
         
         console.log('Fetching campaigns for:', { enterpriseId, teamId })
         
-        const response = await fetchCampaignList(enterpriseId, teamId)
+        const response = await fetchCampaignList(enterpriseId || '', teamId || '')
         
         if (response.success) {
           setCampaigns(response.campaigns)

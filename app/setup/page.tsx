@@ -17,6 +17,9 @@ import { useRouter } from 'next/navigation'
 import { cn } from "@/lib/utils"
 import { BarChart3 } from 'lucide-react'
 import confetti from 'canvas-confetti'
+import { extractUrlParams, type UrlParams } from '@/lib/url-utils'
+import { transformCampaignData, launchCampaign, type Customer } from '@/lib/campaign-api'
+import { parseUploadedFile, REQUIRED_CSV_COLUMNS, type ParsedCustomerData } from '@/lib/file-parser'
 
 interface SubCase {
   value: string;
@@ -34,9 +37,7 @@ interface UseCases {
   [key: string]: UseCase;
 }
 
-interface MockDataRow {
-  [key: string]: string;
-}
+
 
 const steps = [
   { id: 1, name: 'Campaign Details', number: '01' },
@@ -67,29 +68,7 @@ const useCases: UseCases = {
   }
 }
 
-const mockData: MockDataRow[] = [
-  { 
-    'Customer Name': 'John Smith', 
-    'Phone': '(555) 123-4567', 
-    'VIN': '1HGBH41JXMN109186', 
-    'Vehicle Make/Model': 'Honda Civic', 
-    'Last Service Date': '2023-08-15',
-  },
-  { 
-    'Customer Name': 'Sarah Johnson', 
-    'Phone': '(555) 234-5678', 
-    'VIN': '2T1BURHE0JC123456', 
-    'Vehicle Make/Model': 'Toyota Corolla', 
-    'Last Service Date': '2023-09-22',
-  },
-  { 
-    'Customer Name': 'Mike Davis', 
-    'Phone': '(555) 345-6789', 
-    'VIN': '3VW2B7AJ8KM123789', 
-    'Vehicle Make/Model': 'Volkswagen Jetta', 
-    'Last Service Date': '2023-07-10',
-  }
-]
+
 
 export default function CampaignSetup() {
   const router = useRouter()
@@ -112,12 +91,17 @@ export default function CampaignSetup() {
     totalRecords: 0
   })
   const [createdCampaignId, setCreatedCampaignId] = useState('')
+  const [urlParams, setUrlParams] = useState<UrlParams>({ enterprise_id: null, team_id: null, auth_key: null })
+  const [uploadedData, setUploadedData] = useState<ParsedCustomerData[]>([])
+  const [isLaunching, setIsLaunching] = useState(false)
+  const [parseErrors, setParseErrors] = useState<string[]>([])
+  const [missingColumns, setMissingColumns] = useState<string[]>([])
   
   // Animation states
   const [isPageLoaded, setIsPageLoaded] = useState(false)
   const [isStepTransitioning, setIsStepTransitioning] = useState(false)
 
-  // Page entrance animation
+  // Page entrance animation and URL params extraction
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsPageLoaded(true)
@@ -125,40 +109,119 @@ export default function CampaignSetup() {
     return () => clearTimeout(timer)
   }, [])
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Extract URL parameters on component mount
+  useEffect(() => {
+    const params = extractUrlParams()
+    setUrlParams(params)
+    console.log('Extracted URL params:', params)
+  }, [])
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (file) {
-      setIsUploading(true)
-      setHasError(false)
-      setUploadComplete(false)
-      setCampaignData(prev => ({ ...prev, fileName: file.name, totalRecords: 156 }))
+    if (!file) return
+
+    console.log('File upload started:', file.name, file.type, file.size)
+
+    setIsUploading(true)
+    setHasError(false)
+    setUploadComplete(false)
+    setParseErrors([])
+    setMissingColumns([])
+    setCampaignData(prev => ({ ...prev, fileName: file.name, totalRecords: 0 }))
     
-      let progress = 0
-      const interval = setInterval(() => {
-        progress += 10
-        setUploadProgress(progress)
+    // Simulate progress during parsing
+    let progress = 0
+    const progressInterval = setInterval(() => {
+      progress += 20
+      setUploadProgress(progress)
       
-        if (progress >= 100) {
-          clearInterval(interval)
-          setIsUploading(false)
-          setUploadComplete(true)
+      if (progress >= 80) {
+        clearInterval(progressInterval)
+      }
+    }, 200)
+
+    try {
+      console.log('Starting file parsing...')
+      
+      // Test the import
+      console.log('parseUploadedFile function:', typeof parseUploadedFile)
+      
+      // Parse the uploaded file
+      const parseResult = await parseUploadedFile(file)
+      console.log('Parse result:', parseResult)
+      
+      // Complete the progress
+      clearInterval(progressInterval)
+      setUploadProgress(100)
+      setTimeout(() => {
+        setIsUploading(false)
         
-          // Simulate validation error occasionally (20% chance)
-          if (Math.random() > 0.8) {
-            setHasError(true)
-            setUploadComplete(false)
-          }
+        if (parseResult.success) {
+          console.log('File parsed successfully:', parseResult.totalRecords, 'records')
+          setUploadComplete(true)
+          setUploadedData(parseResult.data)
+          setCampaignData(prev => ({ ...prev, totalRecords: parseResult.totalRecords }))
+        } else {
+          console.log('File parsing failed:', parseResult.errors)
+          setHasError(true)
+          setParseErrors(parseResult.errors)
+          setMissingColumns(parseResult.missingColumns)
+          setUploadedData([])
         }
-      }, 150)
+      }, 500)
+      
+    } catch (error) {
+      console.error('File upload error:', error)
+      clearInterval(progressInterval)
+      setUploadProgress(100)
+      setTimeout(() => {
+        setIsUploading(false)
+        setHasError(true)
+        setParseErrors([`File parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`])
+        setUploadedData([])
+      }, 500)
     }
   }
 
-  const nextStep = () => {
+  const nextStep = async () => {
     if (currentStep < 4) {
       // If we're launching the campaign (moving from step 3 to 4), create and save the campaign
       if (currentStep === 3) {
-        // Create the new campaign object
-        const campaignId = `camp_${Date.now()}`
+        await handleLaunchCampaign()
+      } else {
+        setCurrentStep(currentStep + 1)
+      }
+    }
+  }
+
+  const handleLaunchCampaign = async () => {
+    // For local testing, we'll use default values if URL params are missing
+    const effectiveEnterpriseId = urlParams.enterprise_id || "e2da4572c" // Default from API example
+    const effectiveTeamId = urlParams.team_id || "bc006ff86d" // Default from API example
+    
+    if (!urlParams.enterprise_id || !urlParams.team_id) {
+      console.log('🚀 Local Testing Mode: Using default enterprise_id and team_id')
+    }
+    console.log('Using enterprise_id:', effectiveEnterpriseId, 'team_id:', effectiveTeamId)
+
+    try {
+      setIsLaunching(true)
+      
+      // Transform campaign data to the required payload format
+      const payload = transformCampaignData(
+        { ...campaignData, uploadedData },
+        effectiveEnterpriseId,
+        effectiveTeamId
+      )
+
+      console.log('Launching campaign with payload:', payload)
+      
+      // Call the launch campaign API
+      const response = await launchCampaign(payload)
+      
+      if (response.success) {
+        // Create the new campaign object for local storage
+        const campaignId = response.campaignId || `camp_${Date.now()}`
         const newCampaign = {
           id: campaignId,
           name: campaignData.campaignName,
@@ -175,7 +238,8 @@ export default function CampaignSetup() {
           createdAt: new Date(),
           startedAt: campaignData.schedule === 'now' ? new Date() : null,
           scheduledFor: campaignData.schedule === 'scheduled' ? new Date(`${campaignData.scheduledDate}T${campaignData.scheduledTime}`) : null,
-          fileName: campaignData.fileName
+          fileName: campaignData.fileName,
+          payload: payload // Store the API payload for reference
         }
 
         // Save to localStorage
@@ -190,7 +254,8 @@ export default function CampaignSetup() {
 
         // Store the campaign ID for the analytics button
         setCreatedCampaignId(campaignId)
-        // Trigger confetti animation from bottom of the page
+        
+        // Trigger confetti animation
         confetti({
           particleCount: 150,
           spread: 180,
@@ -198,7 +263,6 @@ export default function CampaignSetup() {
           colors: ['#4600F2', '#22C55E', '#FACC15', '#3B82F6', '#EF4444', '#8B5CF6']
         })
         
-        // Add multiple bursts from different positions for full page coverage
         setTimeout(() => {
           confetti({
             particleCount: 100,
@@ -216,9 +280,19 @@ export default function CampaignSetup() {
             colors: ['#4600F2', '#22C55E', '#FACC15', '#3B82F6', '#EF4444', '#8B5CF6']
           })
         }, 300)
+
+        // Move to next step
+        setCurrentStep(currentStep + 1)
+        
+      } else {
+        throw new Error(response.message || 'Failed to launch campaign')
       }
       
-      setCurrentStep(currentStep + 1)
+    } catch (error) {
+      console.error('Error launching campaign:', error)
+      alert(`Failed to launch campaign: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setIsLaunching(false)
     }
   }
 
@@ -234,10 +308,7 @@ export default function CampaignSetup() {
   }
 
   const getRequiredFields = () => {
-    if (!campaignData.useCase || !campaignData.subUseCase) return []
-    const useCase = useCases[campaignData.useCase]
-    const subCase = useCase?.subCases.find(sc => sc.value === campaignData.subUseCase)
-    return subCase?.requiredFields || []
+    return REQUIRED_CSV_COLUMNS
   }
 
   const resetUpload = () => {
@@ -245,6 +316,9 @@ export default function CampaignSetup() {
     setUploadComplete(false)
     setHasError(false)
     setUploadProgress(0)
+    setUploadedData([])
+    setParseErrors([])
+    setMissingColumns([])
     setCampaignData(prev => ({ ...prev, fileName: '', totalRecords: 0 }))
   }
 
@@ -392,7 +466,25 @@ export default function CampaignSetup() {
               )}
 
               <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
-                <div className="border-2 border-dashed border-[#E5E7EB] rounded-lg p-8 text-center hover:border-[#4600F2] hover:bg-[#4600F214] transition-all duration-300 bg-[#F4F5F8]">
+                <div 
+                  className="border-2 border-dashed border-[#E5E7EB] rounded-lg p-8 text-center hover:border-[#4600F2] hover:bg-[#4600F214] transition-all duration-300 bg-[#F4F5F8]"
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    const files = e.dataTransfer.files
+                    if (files.length > 0) {
+                      console.log('File dropped:', files[0].name)
+                      const mockEvent = {
+                        target: { files }
+                      } as React.ChangeEvent<HTMLInputElement>
+                      handleFileUpload(mockEvent)
+                    }
+                  }}
+                >
                   <Upload className="h-12 w-12 text-[#6B7280] mx-auto mb-4" />
                   <div className="space-y-3">
                     <p className="text-[14px] font-semibold text-[#1A1A1A]">Drag and drop your file here</p>
@@ -403,6 +495,10 @@ export default function CampaignSetup() {
                         variant="outline" 
                         className="mt-2 h-9 px-3 text-[12px] border-[#4600F2] text-[#4600F2] hover:bg-[#4600F214] rounded-lg font-medium" 
                         size="sm"
+                        onClick={() => {
+                          console.log('Browse Files button clicked')
+                          document.getElementById('file-upload')?.click()
+                        }}
                       >
                         Browse Files
                       </Button>
@@ -411,7 +507,10 @@ export default function CampaignSetup() {
                         type="file"
                         accept=".xlsx,.csv"
                         className="hidden"
-                        onChange={handleFileUpload}
+                        onChange={(e) => {
+                          console.log('File input change event triggered', e.target.files)
+                          handleFileUpload(e)
+                        }}
                       />
                     </Label>
                   </div>
@@ -439,35 +538,51 @@ export default function CampaignSetup() {
                     </div>
                   </div>
 
-                  {/* Field Mapping Preview */}
+                  {/* Complete Uploaded Data Preview - All 12 Columns */}
                   <div className="border border-[#E5E7EB] rounded-lg bg-white">
                     <div className="bg-[#F4F5F8] border-b border-[#E5E7EB] px-6 py-4">
-                      <h3 className="text-[16px] font-semibold text-[#1A1A1A]">Field Mapping Preview</h3>
-                      <p className="text-[14px] text-[#6B7280]">First 3 rows with field mapping</p>
+                      <h3 className="text-[16px] font-semibold text-[#1A1A1A]">Uploaded Data Preview</h3>
+                      <p className="text-[14px] text-[#6B7280]">All {uploadedData.length} rows with {REQUIRED_CSV_COLUMNS.length} columns uploaded successfully</p>
                     </div>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-[#E5E7EB]">
-                        <thead className="bg-[#F4F5F8]">
+                    <div className="max-h-96 overflow-auto">
+                      <table className="min-w-full divide-y divide-[#E5E7EB] text-[13px]">
+                        <thead className="bg-[#F4F5F8] sticky top-0">
                           <tr>
-                            {getRequiredFields().slice(0, 6).map((field) => (
-                              <th key={field} className="px-6 py-4 text-left text-[12px] font-semibold text-[#6B7280] uppercase tracking-wider">
-                                {field}
+                            <th className="px-2 py-3 text-left text-[11px] font-semibold text-[#6B7280] uppercase tracking-wider whitespace-nowrap">
+                              #
+                            </th>
+                            {REQUIRED_CSV_COLUMNS.map((field) => (
+                              <th key={field} className="px-2 py-3 text-left text-[11px] font-semibold text-[#6B7280] uppercase tracking-wider whitespace-nowrap min-w-[120px]">
+                                {field.replace(/([A-Z])/g, ' $1').trim()}
                               </th>
                             ))}
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-[#E5E7EB]">
-                          {mockData.slice(0, 3).map((row, index) => (
+                          {uploadedData.map((row, index) => (
                             <tr key={index} className="hover:bg-[#F4F5F8]">
-                              {getRequiredFields().slice(0, 6).map((field) => (
-                                <td key={field} className="px-6 py-4 whitespace-nowrap text-[14px] text-[#1A1A1A]">
-                                  {row[field] || 'N/A'}
+                              <td className="px-2 py-3 whitespace-nowrap text-[#6B7280] font-medium">
+                                {index + 1}
+                              </td>
+                              {REQUIRED_CSV_COLUMNS.map((field) => (
+                                <td key={field} className="px-2 py-3 text-[#1A1A1A] max-w-[150px]">
+                                  <div className="truncate" title={row[field as keyof typeof row]}>
+                                    {row[field as keyof typeof row] || 'N/A'}
+                                  </div>
                                 </td>
                               ))}
                             </tr>
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                    
+                    {/* Data Summary Footer */}
+                    <div className="border-t border-[#E5E7EB] bg-[#F4F5F8] px-6 py-3">
+                      <div className="flex items-center justify-between text-[12px] text-[#6B7280]">
+                        <span>Showing all {uploadedData.length} records with {REQUIRED_CSV_COLUMNS.length} required fields</span>
+                        <span>Scroll horizontally to view all columns →</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -478,16 +593,50 @@ export default function CampaignSetup() {
                   <div className="flex items-start p-6 bg-[#EF4444]/10 border-2 border-[#EF4444] rounded-lg">
                     <AlertCircle className="h-6 w-6 text-[#EF4444] mr-4 mt-0.5" />
                     <div className="flex-1">
-                      <p className="font-semibold text-[#1A1A1A] text-[16px]">Field Mapping Error</p>
-                      <p className="text-[#6B7280] text-[14px] mb-4">Missing required fields: {getRequiredFields().slice(-2).join(', ')}</p>
+                      <p className="font-semibold text-[#1A1A1A] text-[16px]">
+                        {missingColumns.length > 0 ? 'Missing Required Columns' : 'File Validation Error'}
+                      </p>
+                      
+                      {missingColumns.length > 0 && (
+                        <div className="mb-4">
+                          <p className="text-[#6B7280] text-[14px] mb-2">The following required columns are missing:</p>
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {missingColumns.map((column) => (
+                              <Badge key={column} variant="outline" className="border-[#EF4444] text-[#EF4444] bg-white">
+                                {column}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {parseErrors.length > 0 && (
+                        <div className="mb-4">
+                          <p className="text-[#6B7280] text-[14px] mb-2">Validation errors:</p>
+                          <div className="max-h-32 overflow-y-auto">
+                            {parseErrors.slice(0, 5).map((error, index) => (
+                              <p key={index} className="text-[13px] text-[#EF4444] mb-1">• {error}</p>
+                            ))}
+                            {parseErrors.length > 5 && (
+                              <p className="text-[13px] text-[#6B7280]">... and {parseErrors.length - 5} more errors</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
                       <Button 
                         variant="outline" 
                         size="sm" 
                         className="h-9 px-3 text-[12px] border-[#EF4444] text-[#EF4444] hover:bg-[#EF4444]/10 rounded-lg font-medium"
                         onClick={() => {
-                          setHasError(false)
-                          setUploadComplete(false)
-                          setCampaignData(prev => ({ ...prev, fileName: '', totalRecords: 0 }))
+                          // Download the CSV template
+                          const link = document.createElement('a')
+                          link.href = '/csv-template.csv'
+                          link.download = 'campaign-template.csv'
+                          document.body.appendChild(link)
+                          link.click()
+                          document.body.removeChild(link)
+                          resetUpload()
                         }}
                       >
                         <Download className="h-4 w-4 mr-2" />
@@ -498,31 +647,7 @@ export default function CampaignSetup() {
                 </div>
               )}
 
-              {!uploadComplete && !isUploading && (
-                <div className="text-center mt-4">
-                  <Button 
-                    onClick={() => {
-                      setCampaignData(prev => ({ ...prev, fileName: 'test-data.csv', totalRecords: 156 }))
-                      setIsUploading(true)
-                      let progress = 0
-                      const interval = setInterval(() => {
-                        progress += 10
-                        setUploadProgress(progress)
-                        if (progress >= 100) {
-                          clearInterval(interval)
-                          setIsUploading(false)
-                          setUploadComplete(true)
-                        }
-                      }, 150)
-                    }}
-                    variant="outline"
-                    size="sm"
-                    className="h-9 px-3 text-[12px] text-[#6B7280] border-[#E5E7EB] hover:bg-[#4600F214] rounded-lg font-medium"
-                  >
-                    Test Upload (Demo)
-                  </Button>
-                </div>
-              )}
+
             </div>
           </div>
         )
@@ -716,6 +841,10 @@ export default function CampaignSetup() {
                     setHasError(false)
                     setNeedsAgent(false)
                     setCreatedCampaignId('')
+                    setUploadedData([])
+                    setIsLaunching(false)
+                    setParseErrors([])
+                    setMissingColumns([])
                     // Reset to first step
                     setCurrentStep(1)
                   }}
@@ -833,13 +962,18 @@ export default function CampaignSetup() {
                     disabled={
                       (currentStep === 1 && (!campaignData.campaignName || !campaignData.useCase || !campaignData.subUseCase)) ||
                       (currentStep === 2 && !uploadComplete) ||
-                      (currentStep === 3 && campaignData.schedule === 'scheduled' && (!campaignData.scheduledDate || !campaignData.scheduledTime))
+                      (currentStep === 3 && campaignData.schedule === 'scheduled' && (!campaignData.scheduledDate || !campaignData.scheduledTime)) ||
+                      isLaunching
                     }
                     size="lg"
                     className="h-11 px-4 text-[14px] bg-[#4600F2] hover:bg-[#4600F2]/90 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                   >
-                    {currentStep === 3 ? 'Launch Campaign' : 'Continue'}
-                    <ArrowRight className="h-5 w-5 ml-2" />
+                    {isLaunching ? 'Launching...' : currentStep === 3 ? 'Launch Campaign' : 'Continue'}
+                    {isLaunching ? (
+                      <div className="animate-spin h-5 w-5 ml-2 border-2 border-white border-t-transparent rounded-full" />
+                    ) : (
+                      <ArrowRight className="h-5 w-5 ml-2" />
+                    )}
                   </Button>
                 </div>
               </div>

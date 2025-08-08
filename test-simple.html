@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test CSV Upload</title>
+</head>
+<body>
+    <h1>Test CSV Upload</h1>
+    <input type="file" id="fileInput" accept=".csv,.xlsx" />
+    <div id="result"></div>
+    
+    <script type="module">
+        import { parseUploadedFile } from '/lib/file-parser.ts';
+        
+        document.getElementById('fileInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                console.log('File selected:', file.name);
+                try {
+                    const result = await parseUploadedFile(file);
+                    console.log('Parse result:', result);
+                    document.getElementById('result').innerHTML = `
+                        <h2>Parse Result:</h2>
+                        <p>Success: ${result.success}</p>
+                        <p>Records: ${result.totalRecords}</p>
+                        <p>Errors: ${result.errors.length}</p>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    `;
+                } catch (error) {
+                    console.error('Error:', error);
+                    document.getElementById('result').innerHTML = `<p>Error: ${error.message}</p>`;
+                }
+            }
+        });
+    </script>
+</body>
+</html>

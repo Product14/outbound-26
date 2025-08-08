@@ -1,0 +1,4 @@
+CustomerFullName,ContactPhoneNumber,VIN,RecallDescription,VehicleMake,VehicleModel,VehicleYear,PartsAvailabilityFlag,LoanerEligibility,Symptom,RiskDetails,RemedySteps
+John Smith,+17021833803,1HGBH41JXMN109186,Airbag deployment issue,Honda,Civic,2020,Available,Eligible,Airbag warning light,Safety risk - potential injury,Replace airbag module
+Sarah Johnson,+17021833913,2T1BURHE0JC123456,Engine oil leak,Toyota,Corolla,2019,Backordered,Not Eligible,Oil spots under vehicle,Engine damage risk,Replace oil pan gasket
+Mike Davis,+17021833805,3VW2B7AJ8KM123789,Brake pad wear,Volkswagen,Jetta,2021,Available,Eligible,Squeaking noise when braking,Safety risk - reduced braking,Replace brake pads and rotors

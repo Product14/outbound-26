@@ -8,11 +8,16 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Download, Phone, CheckCircle, Clock, AlertCircle, Calendar, BarChart3, Plus } from 'lucide-react'
+import { Search, Download, Phone, CheckCircle, Clock, AlertCircle, Calendar, BarChart3, Plus, Loader2 } from 'lucide-react'
 import Link from "next/link"
+import { fetchCampaignList, type CampaignListItem } from '@/lib/campaign-api'
+import { extractUrlParams } from '@/lib/url-utils'
 
-// No demo campaigns - start with empty array
-const mockCampaigns: any[] = []
+// Map API campaign type to display format
+const mapCampaignType = (campaignType: string): string => {
+  if (campaignType === 'recall') return 'Service'
+  return campaignType // 'Sales', 'Service', etc.
+}
 
 const useCaseColors: Record<string, string> = {
   'Sales': 'bg-green-100 text-green-800 border-green-200',
@@ -34,36 +39,58 @@ const statusIcons: Record<string, any> = {
 }
 
 export default function CampaignResults() {
-  const [campaigns, setCampaigns] = useState(mockCampaigns)
+  const [campaigns, setCampaigns] = useState<CampaignListItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [useCaseFilter, setUseCaseFilter] = useState('all')
 
-  // Load campaigns from localStorage on component mount
+  // Load campaigns from API on component mount
   useEffect(() => {
-    const storedCampaigns = localStorage.getItem('outbound-campaigns')
-    if (storedCampaigns) {
+    const loadCampaigns = async () => {
       try {
-        const parsed = JSON.parse(storedCampaigns)
-        setCampaigns(parsed)
+        setLoading(true)
+        setError(null)
+        
+        // Get URL parameters or use defaults for local testing
+        const urlParams = extractUrlParams()
+        const enterpriseId = urlParams.enterprise_id || "e2da4572c"
+        const teamId = urlParams.team_id || "bc006ff86d"
+        
+        console.log('Fetching campaigns for:', { enterpriseId, teamId })
+        
+        const response = await fetchCampaignList(enterpriseId, teamId)
+        
+        if (response.success) {
+          setCampaigns(response.campaigns)
+          console.log('Loaded campaigns:', response.campaigns)
+        } else {
+          throw new Error('Failed to fetch campaigns')
+        }
       } catch (error) {
-        console.error('Error loading campaigns from localStorage:', error)
+        console.error('Error loading campaigns:', error)
+        setError(error instanceof Error ? error.message : 'Failed to load campaigns')
         setCampaigns([])
+      } finally {
+        setLoading(false)
       }
-    } else {
-      setCampaigns([])
     }
+
+    loadCampaigns()
   }, [])
 
   const filteredCampaigns = campaigns.filter(campaign => {
     const matchesSearch = campaign.name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === 'all' || campaign.status.toLowerCase() === statusFilter
-    const matchesUseCase = useCaseFilter === 'all' || campaign.useCase.toLowerCase() === useCaseFilter
+    const campaignType = mapCampaignType(campaign.campaignType)
+    const matchesUseCase = useCaseFilter === 'all' || campaignType.toLowerCase() === useCaseFilter
     
     return matchesSearch && matchesStatus && matchesUseCase
   })
 
-  const formatDate = (date: Date) => {
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -139,117 +166,119 @@ export default function CampaignResults() {
           </CardContent>
         </Card>
 
+        {/* Loading State */}
+        {loading && (
+          <div className="flex items-center justify-center py-12">
+            <div className="flex items-center space-x-3">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <p className="text-body text-text-secondary">Loading campaigns...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <div className="w-20 h-20 mx-auto mb-6 bg-error/10 rounded-full flex items-center justify-center">
+                <AlertCircle className="h-10 w-10 text-error" />
+              </div>
+              <h3 className="text-page-heading text-text-primary mb-3">Failed to load campaigns</h3>
+              <p className="text-body text-text-secondary mb-8 max-w-md mx-auto">
+                {error}
+              </p>
+              <Button onClick={() => window.location.reload()} className="btn-primary">
+                Try Again
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Campaign List */}
-        <div className="space-y-6">
-          {filteredCampaigns.map((campaign) => {
-            const StatusIcon = statusIcons[campaign.status]
-            
-            return (
-              <Card key={campaign.id} className="group hover:shadow-lg transition-all duration-200 cursor-pointer overflow-hidden rounded-xl">
-                <Link href={`/results/${campaign.id}`}>
-                  <CardContent className="p-6">
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-6 gap-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                        <h3 className="text-page-heading text-text-primary group-hover:text-primary transition-colors duration-200">
-                          {campaign.name}
-                        </h3>
-                        <div className="flex items-center gap-3">
-                          <Badge className={`${useCaseColors[campaign.useCase]} border px-3 py-1 text-small`}>
-                            {campaign.useCase}
-                          </Badge>
+        {!loading && !error && (
+          <div className="space-y-6">
+            {filteredCampaigns.map((campaign) => {
+              const StatusIcon = statusIcons[campaign.status] || CheckCircle
+              const campaignType = mapCampaignType(campaign.campaignType)
+              
+              return (
+                <Card key={campaign.campaignId} className="group hover:shadow-lg transition-all duration-200 cursor-pointer overflow-hidden rounded-xl">
+                  <Link href={`/results/${campaign.campaignId}`}>
+                    <CardContent className="p-6">
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-6 gap-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                          <h3 className="text-page-heading text-text-primary group-hover:text-primary transition-colors duration-200">
+                            {campaign.name}
+                          </h3>
+                          <div className="flex items-center gap-3">
+                            <Badge className={`${useCaseColors[campaignType]} border px-3 py-1 text-small`}>
+                              {campaignType}
+                            </Badge>
+                          </div>
                         </div>
+                        
                       </div>
-                      
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                        {campaign.status === 'Completed' && (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="btn-secondary"
-                            onClick={(e) => e.preventDefault()}
-                          >
-                            <Download className="icon-small mr-2" />
-                            Download Report
-                          </Button>
-                        )}
-                        <div className="text-small text-text-secondary bg-muted px-3 py-2 rounded-md">
-                          {campaign.status === 'Running' && `ETA: ${campaign.eta}`}
-                          {campaign.status === 'Completed' && campaign.completedAt && `Completed: ${formatDate(campaign.completedAt)}`}
-                          {campaign.status === 'Scheduled' && campaign.scheduledFor && `Scheduled: ${formatDate(campaign.scheduledFor)}`}
-                        </div>
-                      </div>
-                    </div>
 
-                    <div className="mb-6">
-                      <p className="text-body text-text-secondary bg-muted px-4 py-2 rounded-md inline-block">
-                        {campaign.subUseCase}
-                      </p>
-                    </div>
+                      {campaign.campaignUseCase && (
+                        <div className="mb-6">
+                          <p className="text-body text-text-secondary bg-muted px-4 py-2 rounded-md inline-block">
+                            {campaign.campaignUseCase.replace('_', ' ').replace('notificaiton', 'notification')}
+                          </p>
+                        </div>
+                      )}
 
-                    {campaign.status === 'Running' && (
-                      <div className="mb-6">
-                        <div className="flex justify-between text-small text-text-secondary mb-3">
-                          <span>Progress: {campaign.progress}%</span>
-                          <span className="flex items-center">
-                            <Clock className="h-4 w-4 mr-1 text-warning" />
-                            ETA: {campaign.eta}
-                          </span>
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="flex items-center space-x-3 p-4 bg-info/5 rounded-lg border border-info/10">
+                          <div className="p-2 bg-info rounded-lg">
+                            <Phone className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-small text-text-secondary uppercase tracking-wide">Calls Placed</p>
+                            <p className="text-body font-medium text-text-primary">{campaign.totalCallPlaced}</p>
+                          </div>
                         </div>
-                        <Progress value={campaign.progress} className="h-2 bg-muted" />
+                        <div className="flex items-center space-x-3 p-4 bg-success/5 rounded-lg border border-success/10">
+                          <div className="p-2 bg-success rounded-lg">
+                            <BarChart3 className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-small text-text-secondary uppercase tracking-wide">Answer Rate</p>
+                            <p className="text-body font-medium text-text-primary">{campaign.answerRate}%</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3 p-4 rounded-lg border border-border">
+                          <div className="p-2 bg-primary rounded-lg">
+                            <Calendar className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-small text-text-secondary uppercase tracking-wide">Appointments</p>
+                            <p className="text-body font-medium text-text-primary">{campaign.appointmentScheduled}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3 p-4 rounded-lg border border-border">
+                          <div className={`p-2 rounded-lg ${
+                            campaign.status === 'running' ? 'bg-info' :
+                            campaign.status === 'completed' ? 'bg-success' :
+                            campaign.status === 'scheduled' ? 'bg-warning' :
+                            'bg-gray-500'
+                          }`}>
+                            <StatusIcon className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-small text-text-secondary uppercase tracking-wide">Status</p>
+                            <p className="text-small font-medium text-text-primary capitalize">{campaign.status}</p>
+                          </div>
+                        </div>
                       </div>
-                    )}
+                    </CardContent>
+                  </Link>
+                </Card>
+              )
+            })}
+          </div>
+        )}
 
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                      <div className="flex items-center space-x-3 p-4 bg-info/5 rounded-lg border border-info/10">
-                        <div className="p-2 bg-info rounded-lg">
-                          <Phone className="h-5 w-5 text-white" />
-                        </div>
-                        <div>
-                          <p className="text-small text-text-secondary uppercase tracking-wide">Calls Placed</p>
-                          <p className="text-body font-medium text-text-primary">{campaign.callsPlaced}/{campaign.totalRecords}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3 p-4 bg-success/5 rounded-lg border border-success/10">
-                        <div className="p-2 bg-success rounded-lg">
-                          <BarChart3 className="h-5 w-5 text-white" />
-                        </div>
-                        <div>
-                          <p className="text-small text-text-secondary uppercase tracking-wide">Answer Rate</p>
-                          <p className="text-body font-medium text-text-primary">{campaign.answerRate}%</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3 p-4 rounded-lg border border-border">
-                        <div className="p-2 bg-primary rounded-lg">
-                          <Calendar className="h-5 w-5 text-white" />
-                        </div>
-                        <div>
-                          <p className="text-small text-text-secondary uppercase tracking-wide">Appointments</p>
-                          <p className="text-body font-medium text-text-primary">{campaign.appointmentsBooked}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3 p-4 rounded-lg border border-border">
-                        <div className={`p-2 rounded-lg ${
-                          campaign.status === 'Running' ? 'bg-info' :
-                          campaign.status === 'Completed' ? 'bg-success' :
-                          campaign.status === 'Scheduled' ? 'bg-warning' :
-                          'bg-error'
-                        }`}>
-                          <StatusIcon className="h-5 w-5 text-white" />
-                        </div>
-                        <div>
-                          <p className="text-small text-text-secondary uppercase tracking-wide">Status</p>
-                          <p className="text-small font-medium text-text-primary">{campaign.status}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Link>
-              </Card>
-            )
-          })}
-        </div>
-
-        {filteredCampaigns.length === 0 && (
+        {!loading && !error && filteredCampaigns.length === 0 && (
           <Card>
             <CardContent className="p-12 text-center">
               <div className="w-20 h-20 mx-auto mb-6 bg-muted rounded-full flex items-center justify-center">

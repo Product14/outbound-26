@@ -10,103 +10,41 @@ import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Download, Search, Phone, CheckCircle, Clock, AlertCircle, Calendar, BarChart3, TrendingUp, Users, ArrowLeft, RefreshCw } from 'lucide-react'
+import { Download, Search, Phone, CheckCircle, Clock, AlertCircle, Calendar, BarChart3, TrendingUp, Users, ArrowLeft, RefreshCw, Loader2 } from 'lucide-react'
 import Link from "next/link"
+import { fetchCampaignDetails, type CampaignDetailResponse, type CallDetail } from '@/lib/campaign-api'
 
-// Function to load campaign data by ID
-const loadCampaignById = (campaignId: string) => {
-  try {
-    // Check localStorage for user-created campaigns
-    const storedCampaigns = localStorage.getItem('outbound-campaigns')
-    if (storedCampaigns) {
-      const campaigns = JSON.parse(storedCampaigns)
-      const userCampaign = campaigns.find((c: any) => c.id === campaignId)
-      if (userCampaign) {
-        return userCampaign
-      }
-    }
-    
-    // If not found, return null
-    return null
-  } catch (error) {
-    console.error('Error loading campaign:', error)
-    return null
-  }
+// Map API campaign type to display format
+const mapCampaignType = (campaignType: string): string => {
+  if (campaignType === 'recall') return 'Service'
+  return campaignType // 'Sales', 'Service', etc.
 }
 
-// Mock call detail data
-const callDetails = [
-  {
-    id: 1,
-    customer: 'John Smith',
-    phone: '(555) 123-4567',
-    vin: '1HGBH41JXMN109186',
-    make: 'Honda',
-    model: 'Civic',
-    year: '2021',
-    status: 'Connected',
+// Map call details to display format for table
+const formatCallDetailsForTable = (callDetails: CallDetail[]) => {
+  return callDetails.map((call, index) => ({
+    id: index + 1,
+    customer: call.customerName,
+    phone: call.customerNumber,
+    vin: call.vin,
+    make: call.vehicleMake,
+    model: call.vehicleModel,
+    year: call.vehicleYear,
+    vehicle: call.vehicle,
+    recallDescription: call.recallDescription,
+    symptom: call.symptom,
+    riskDetails: call.riskDetails,
+    remedySteps: call.remedySteps,
+    partsAvailable: call.partsAvailabilityFlag ? 'Yes' : 'No',
+    loanerEligible: call.loanerEligibility ? 'Yes' : 'No',
+    // Mock status data since API doesn't provide call status yet
+    status: 'Connected', // Default to connected for completed campaigns
     outcome: 'Success',
     appointment: 'Yes',
-    callTime: '2024-01-15T11:15:00',
+    callTime: new Date().toISOString(),
     duration: '3:45'
-  },
-  {
-    id: 2,
-    customer: 'Sarah Johnson',
-    phone: '(555) 234-5678',
-    vin: '2T1BURHE0JC123456',
-    make: 'Toyota',
-    model: 'Corolla',
-    year: '2020',
-    status: 'Voicemail',
-    outcome: 'Pending',
-    appointment: 'No',
-    callTime: '2024-01-15T11:20:00',
-    duration: '0:30'
-  },
-  {
-    id: 3,
-    customer: 'Mike Davis',
-    phone: '(555) 345-6789',
-    vin: '3VW2B7AJ8KM123789',
-    make: 'Volkswagen',
-    model: 'Jetta',
-    year: '2019',
-    status: 'Connected',
-    outcome: 'Success',
-    appointment: 'Yes',
-    callTime: '2024-01-15T11:25:00',
-    duration: '4:12'
-  },
-  {
-    id: 4,
-    customer: 'Lisa Wilson',
-    phone: '(555) 456-7890',
-    vin: '1FA6P8TH0J5123456',
-    make: 'Ford',
-    model: 'Mustang',
-    year: '2022',
-    status: 'No Answer',
-    outcome: 'Failure',
-    appointment: 'No',
-    callTime: '2024-01-15T11:30:00',
-    duration: '0:00'
-  },
-  {
-    id: 5,
-    customer: 'David Brown',
-    phone: '(555) 567-8901',
-    vin: '1G1ZD5ST8JF123456',
-    make: 'Chevrolet',
-    model: 'Malibu',
-    year: '2021',
-    status: 'Connected',
-    outcome: 'Failure',
-    appointment: 'No',
-    callTime: '2024-01-15T11:35:00',
-    duration: '2:18'
-  }
-]
+  }))
+}
 
 const statusColors: Record<string, string> = {
   Connected: 'bg-[#22C55E] text-white border-[#22C55E]',
@@ -128,49 +66,51 @@ export default function CampaignDetail() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [outcomeFilter, setOutcomeFilter] = useState('all')
-  const [campaignData, setCampaignData] = useState<any>(null)
+  const [campaignData, setCampaignData] = useState<CampaignDetailResponse | null>(null)
+  const [callDetails, setCallDetails] = useState<any[]>([])
   const [lastRefresh, setLastRefresh] = useState(new Date())
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [campaignNotFound, setCampaignNotFound] = useState(false)
 
   // Load campaign data when component mounts or campaignId changes
   useEffect(() => {
-    if (campaignId) {
-      const campaign = loadCampaignById(campaignId)
-      if (campaign) {
-        setCampaignData(campaign)
-        setCampaignNotFound(false)
-      } else {
+    const loadCampaignData = async () => {
+      if (!campaignId) return
+      
+      try {
+        setIsLoading(true)
+        setError(null)
+        
+        console.log('Fetching campaign details for:', campaignId)
+        const response = await fetchCampaignDetails(campaignId)
+        
+        if (response.success) {
+          setCampaignData(response)
+          const formattedCallDetails = formatCallDetailsForTable(response.callDetails)
+          setCallDetails(formattedCallDetails)
+          setCampaignNotFound(false)
+          console.log('Loaded campaign details:', response)
+        } else {
+          throw new Error('Failed to fetch campaign details')
+        }
+      } catch (error) {
+        console.error('Error loading campaign:', error)
+        setError(error instanceof Error ? error.message : 'Failed to load campaign')
         setCampaignNotFound(true)
+        setCampaignData(null)
+        setCallDetails([])
+      } finally {
+        setIsLoading(false)
       }
-      setIsLoading(false)
     }
+
+    loadCampaignData()
   }, [campaignId])
 
-  // Auto-refresh every 5 seconds for running campaigns
-  useEffect(() => {
-    if (campaignData && campaignData.status === 'Running') {
-      const interval = setInterval(() => {
-        setCampaignData((prev: any) => {
-          const newProgress = Math.min(prev.progress + Math.random() * 3, 100)
-          const newStatus = newProgress >= 100 ? 'Completed' : 'Running'
-          return {
-            ...prev,
-            progress: newProgress,
-            status: newStatus,
-            callsPlaced: Math.floor((newProgress / 100) * prev.totalRecords),
-            answerRate: Math.max(65, Math.min(85, prev.answerRate + (Math.random() - 0.5) * 2)),
-            appointmentsBooked: Math.floor((newProgress / 100) * (prev.totalRecords * 0.15)),
-            eta: newStatus === 'Completed' ? null : `${Math.ceil((100 - newProgress) / 10)} hours`
-          }
-        })
-        setLastRefresh(new Date())
-      }, 5000)
-
-      return () => clearInterval(interval)
-    }
-  }, [campaignData?.status])
-
+  // Auto-refresh logic removed since API data doesn't change in real-time
+  // For completed campaigns, we don't need to refresh
+  
   const filteredCalls = callDetails.filter(call => {
     const matchesSearch = call.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          call.phone.includes(searchTerm) ||
@@ -191,14 +131,23 @@ export default function CampaignDetail() {
     })
   }
 
-  const handleRefresh = () => {
-    if (campaignId) {
-      const refreshedCampaign = loadCampaignById(campaignId)
-      if (refreshedCampaign) {
-        setCampaignData(refreshedCampaign)
+  const handleRefresh = async () => {
+    if (!campaignId) return
+    
+    try {
+      setError(null)
+      const response = await fetchCampaignDetails(campaignId)
+      
+      if (response.success) {
+        setCampaignData(response)
+        const formattedCallDetails = formatCallDetailsForTable(response.callDetails)
+        setCallDetails(formattedCallDetails)
+        setLastRefresh(new Date())
       }
+    } catch (error) {
+      console.error('Error refreshing campaign:', error)
+      setError(error instanceof Error ? error.message : 'Failed to refresh campaign')
     }
-    setLastRefresh(new Date())
   }
 
   // Loading state
@@ -258,9 +207,9 @@ export default function CampaignDetail() {
             <Link href="/results" className="flex items-center text-[#6B7280] hover:text-[#1A1A1A] transition-colors">
               <ArrowLeft className="h-5 w-5" />
             </Link>
-            <h1 className="text-[20px] font-semibold text-[#1A1A1A] leading-[1.4]">{campaignData.name}</h1>
+            <h1 className="text-[20px] font-semibold text-[#1A1A1A] leading-[1.4]">{campaignData.campaign.name}</h1>
           </div>
-          <p className="text-sm text-[#6B7280] leading-[1.5] ml-9">{campaignData.useCase} - {campaignData.subUseCase}</p>
+          <p className="text-sm text-[#6B7280] leading-[1.5] ml-9">{mapCampaignType(campaignData.campaign.campaignType)} - {campaignData.campaign.campaignUseCase?.replace('_', ' ').replace('notificaiton', 'notification')}</p>
         </div>
 
         {/* KPI Cards */}
@@ -274,7 +223,7 @@ export default function CampaignDetail() {
                 <div className="flex-1 min-w-0">
                   <h3 className="text-[#1A1A1A]/60 font-semibold text-sm leading-[1.4] mb-1">Calls Placed</h3>
                   <p className="text-[#1A1A1A] text-[26px] font-bold leading-[1.4]">
-                    {campaignData.callsPlaced}
+                    {campaignData.campaign.totalCallPlaced}
                   </p>
                 </div>
               </div>
@@ -290,7 +239,7 @@ export default function CampaignDetail() {
                 <div className="flex-1 min-w-0">
                   <h3 className="text-[#1A1A1A]/60 font-semibold text-sm leading-[1.4] mb-1">Answer Rate</h3>
                   <p className="text-[#1A1A1A] text-[26px] font-bold leading-[1.4]">
-                    {campaignData.answerRate}%
+                    {campaignData.campaign.answerRate}%
                   </p>
                 </div>
               </div>
@@ -306,7 +255,7 @@ export default function CampaignDetail() {
                 <div className="flex-1 min-w-0">
                   <h3 className="text-[#1A1A1A]/60 font-semibold text-sm leading-[1.4] mb-1">Appointments</h3>
                   <p className="text-[#1A1A1A] text-[26px] font-bold leading-[1.4]">
-                    {campaignData.appointmentsBooked}
+                    {campaignData.campaign.appointmentScheduled}
                   </p>
                 </div>
               </div>
@@ -320,9 +269,9 @@ export default function CampaignDetail() {
                   <BarChart3 className="h-6 w-6 text-[#3B82F6]" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-[#1A1A1A]/60 font-semibold text-sm leading-[1.4] mb-1">Success Rate</h3>
+                  <h3 className="text-[#1A1A1A]/60 font-semibold text-sm leading-[1.4] mb-1">Total Customers</h3>
                   <p className="text-[#1A1A1A] text-[26px] font-bold leading-[1.4]">
-                    {campaignData.successRate}%
+                    {campaignData.campaign.totalCustomers}
                   </p>
                 </div>
               </div>
@@ -348,7 +297,7 @@ export default function CampaignDetail() {
                 <div className="flex items-center justify-between p-3 bg-[#F4F5F8] rounded-lg">
                   <div>
                     <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Campaign ID</p>
-                    <p className="text-sm font-mono text-[#1A1A1A] mt-1">{campaignData.id}</p>
+                    <p className="text-sm font-mono text-[#1A1A1A] mt-1">{campaignData.campaign.campaignId}</p>
                   </div>
                   <div className="p-2 bg-[#4600F2]/10 rounded-lg">
                     <div className="w-4 h-4 bg-[#4600F2] rounded-sm"></div>
@@ -358,7 +307,7 @@ export default function CampaignDetail() {
                 <div className="flex items-center justify-between p-3 bg-[#F4F5F8] rounded-lg">
                   <div>
                     <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Created</p>
-                    <p className="text-sm text-[#1A1A1A] mt-1">{formatDate(campaignData.createdAt)}</p>
+                    <p className="text-sm text-[#1A1A1A] mt-1">{formatDate(campaignData.campaign.startDate)}</p>
                   </div>
                   <div className="p-2 bg-[#22C55E]/10 rounded-lg">
                     <Calendar className="h-4 w-4 text-[#22C55E]" />
@@ -368,7 +317,7 @@ export default function CampaignDetail() {
                 <div className="flex items-center justify-between p-3 bg-[#F4F5F8] rounded-lg">
                   <div>
                     <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Started</p>
-                    <p className="text-sm text-[#1A1A1A] mt-1">{formatDate(campaignData.startedAt)}</p>
+                    <p className="text-sm text-[#1A1A1A] mt-1">{formatDate(campaignData.campaign.startDate)}</p>
                   </div>
                   <div className="p-2 bg-[#F59E0B]/10 rounded-lg">
                     <Clock className="h-4 w-4 text-[#F59E0B]" />
@@ -378,7 +327,7 @@ export default function CampaignDetail() {
                 <div className="flex items-center justify-between p-3 bg-[#F4F5F8] rounded-lg">
                   <div>
                     <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Total Records</p>
-                    <p className="text-sm text-[#1A1A1A] mt-1">{campaignData.totalRecords}</p>
+                    <p className="text-sm text-[#1A1A1A] mt-1">{campaignData.campaign.totalCustomers}</p>
                   </div>
                   <div className="p-2 bg-[#3B82F6]/10 rounded-lg">
                     <Users className="h-4 w-4 text-[#3B82F6]" />
@@ -396,16 +345,16 @@ export default function CampaignDetail() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-[20px] font-semibold text-[#1A1A1A] leading-[1.4]">
-                    {campaignData.status === 'Running' ? 'Campaign Progress' : 'Campaign Results'}
+                    {campaignData.campaign.status === 'running' ? 'Campaign Progress' : 'Campaign Results'}
                   </CardTitle>
                   <CardDescription className="text-sm text-[#6B7280] leading-[1.5] mt-1">
-                    {campaignData.status === 'Running' 
+                    {campaignData.campaign.status === 'running' 
                       ? 'Real-time calling progress and metrics' 
                       : 'Final campaign results and performance'
                     }
                   </CardDescription>
                 </div>
-                {campaignData.status === 'Running' && (
+                {campaignData.campaign.status === 'Running' && (
                   <div className="flex items-center gap-2 px-3 py-1 bg-[#3B82F6]/10 rounded-full">
                     <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-pulse"></div>
                     <span className="text-xs text-[#3B82F6] font-medium">Live</span>
@@ -417,24 +366,24 @@ export default function CampaignDetail() {
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-[#1A1A1A] text-sm leading-[1.5]">
-                    Progress: {campaignData.callsPlaced} of {campaignData.totalRecords} calls
+                    Progress: {campaignData.campaign.totalCallPlaced} of {campaignData.campaign.totalCustomers} calls
                   </span>
-                  {campaignData.status === 'Running' && (
+                  {campaignData.campaign.status === 'Running' && (
                     <span className="text-[#6B7280] flex items-center text-sm bg-[#F4F5F8] px-3 py-1 rounded-full">
                       <Clock className="h-4 w-4 mr-1" />
-                      ETA: {campaignData.eta}
+                      Status: {campaignData.campaign.status}
                     </span>
                   )}
                 </div>
-                {campaignData.status === 'Running' ? (
+                {campaignData.campaign.status === 'Running' ? (
                   <div className="space-y-4">
                     <div className="relative">
-                      <Progress value={campaignData.progress} className="h-3 bg-[#F4F5F8] rounded-full" />
+                      <Progress value={100} className="h-3 bg-[#F4F5F8] rounded-full" />
                       <div className="absolute inset-0 bg-gradient-to-r from-[#4600F2]/20 to-[#3B82F6]/20 rounded-full"></div>
                     </div>
                     <div className="text-center">
                       <div className="text-3xl font-bold text-[#1A1A1A] mb-1">
-                        {campaignData.progress.toFixed(1)}%
+                        100.0%
                       </div>
                       <div className="text-sm text-[#6B7280]">Complete</div>
                     </div>
@@ -448,7 +397,7 @@ export default function CampaignDetail() {
                       Campaign Completed
                     </div>
                     <div className="text-sm text-[#6B7280]">
-                      All {campaignData.totalRecords} calls have been processed successfully
+                      All {campaignData.campaign.totalCustomers} calls have been processed successfully
                     </div>
                   </div>
                 )}
@@ -465,12 +414,6 @@ export default function CampaignDetail() {
                 <CardTitle className="text-[20px] font-semibold text-[#1A1A1A] leading-[1.4]">Call Details</CardTitle>
                 <CardDescription className="text-sm text-[#6B7280] leading-[1.5]">Individual call results and outcomes</CardDescription>
               </div>
-              {campaignData.status === 'Completed' && (
-                <Button variant="outline" size="sm" className="h-9 px-4 text-sm border-[#E5E7EB] text-[#1A1A1A] hover:bg-[#F4F5F8] rounded-lg">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download Full Report
-                </Button>
-              )}
             </div>
           </CardHeader>
           <CardContent className="p-6">

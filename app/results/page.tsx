@@ -12,6 +12,7 @@ import { Search, Download, Phone, CheckCircle, Clock, AlertCircle, Calendar, Bar
 import Link from "next/link"
 import { fetchCampaignList, type CampaignListItem } from '@/lib/campaign-api'
 import { extractUrlParams } from '@/lib/url-utils'
+import { toast } from 'sonner'
 
 // Map API campaign type to display format
 const mapCampaignType = (campaignType: string): string => {
@@ -45,20 +46,25 @@ export default function CampaignResults() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [useCaseFilter, setUseCaseFilter] = useState('all')
+        
+  // Get URL parameters or use defaults for local testing
+  const urlParams = extractUrlParams();
+
+  const [enterpriseId, setEnterpriseId] = useState(urlParams.enterprise_id)
+  const [teamId, setTeamId] = useState(urlParams.team_id)
+
+  useEffect(() => {
+    setEnterpriseId(urlParams.enterprise_id)
+    setTeamId(urlParams.team_id)
+  }, [urlParams.enterprise_id, urlParams.team_id])
 
   // Load campaigns from API on component mount
   useEffect(() => {
     const loadCampaigns = async () => {
+      if (!enterpriseId || !teamId) return;
       try {
         setLoading(true)
         setError(null)
-        
-        // Get URL parameters or use defaults for local testing
-        const urlParams = extractUrlParams()
-        const enterpriseId = urlParams.enterprise_id
-        const teamId = urlParams.team_id 
-        
-        console.log('Fetching campaigns for:', { enterpriseId, teamId })
         
         const response = await fetchCampaignList(enterpriseId || '', teamId || '')
         
@@ -78,7 +84,7 @@ export default function CampaignResults() {
     }
 
     loadCampaigns()
-  }, [])
+  }, [enterpriseId, teamId])
 
   const filteredCampaigns = campaigns.filter(campaign => {
     const matchesSearch = campaign.name.toLowerCase().includes(searchTerm.toLowerCase())

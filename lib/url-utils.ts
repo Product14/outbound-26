@@ -14,6 +14,8 @@ export function extractUrlParams(): UrlParams {
   }
 
   const urlParams = new URLSearchParams(window.location.search);
+
+  console.log(urlParams.get('auth_key'))
   
   return {
     enterprise_id: urlParams.get('enterprise_id'),

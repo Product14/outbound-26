@@ -1040,7 +1040,7 @@ export default function CampaignSetup() {
                 <div className="space-y-4">
                   <div>
                     <p className="text-[14px] font-medium text-[#1A1A1A] mb-1">Campaign ID</p>
-                    <p className="text-[16px] font-mono text-[#1A1A1A]">CAMP_2024_001</p>
+                    <p className="text-[16px] font-mono text-[#1A1A1A]">{createdCampaignId || 'Loading...'}</p>
                   </div>
                   <div>
                     <p className="text-[14px] font-medium text-[#1A1A1A] mb-2">Status</p>

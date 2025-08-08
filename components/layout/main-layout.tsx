@@ -1,5 +1,7 @@
 'use client'
 
+import { Toaster } from "@/components/ui/toaster"
+
 interface MainLayoutProps {
   children: React.ReactNode
 }
@@ -10,6 +12,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       <main className="w-full">
         {children}
       </main>
+      <Toaster />
     </div>
   )
 }

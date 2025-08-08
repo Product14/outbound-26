@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,7 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowRight, ArrowLeft, Upload, FileText, Calendar, CheckCircle, Download, AlertCircle, Zap, Clock, Users, Database, Plus, X } from 'lucide-react'
+import { ArrowRight, ArrowLeft, Upload, FileText, Calendar, CheckCircle, Download, AlertCircle, Zap, Clock, Users, Database, Plus, X, TrendingUp, Wrench } from 'lucide-react'
 import Link from "next/link"
 import { useRouter } from 'next/navigation'
 import { cn } from "@/lib/utils"
@@ -20,16 +20,19 @@ import confetti from 'canvas-confetti'
 import { extractUrlParams, type UrlParams } from '@/lib/url-utils'
 import { transformCampaignData, launchCampaign, type Customer } from '@/lib/campaign-api'
 import { parseUploadedFile, REQUIRED_CSV_COLUMNS, type ParsedCustomerData } from '@/lib/file-parser'
+import { useToast } from "@/hooks/use-toast"
 
 interface SubCase {
   value: string;
   label: string;
   requiredFields: string[];
+  disabled?: boolean;
 }
 
 interface UseCase {
   label: string;
   color: string;
+  disabled?: boolean;
   subCases: SubCase[];
 }
 
@@ -50,20 +53,20 @@ const useCases: UseCases = {
   sales: {
     label: 'Sales',
     color: 'bg-green-lighter text-green-darker border-green-8',
-    subCases: [
-      { value: 'follow-up-leads', label: 'Follow-up on Leads', requiredFields: ['Customer Name', 'Phone', 'Lead Source', 'Vehicle Interest'] },
-      { value: 'inventory-promotion', label: 'Inventory Promotion', requiredFields: ['Customer Name', 'Phone', 'Previous Purchase', 'Preferred Vehicle Type'] },
-      { value: 'trade-in-offers', label: 'Trade-in Offers', requiredFields: ['Customer Name', 'Phone', 'Current Vehicle', 'VIN', 'Mileage'] }
-    ]
+    disabled: true,
+    subCases: []
   },
   service: {
     label: 'Service',
     color: 'bg-blue-lighter text-blue-purple border-blue-8',
+    disabled: false,
     subCases: [
-      { value: 'maintenance-reminder', label: 'Maintenance Reminder', requiredFields: ['Customer Name', 'Phone', 'VIN', 'Last Service Date', 'Vehicle Make/Model'] },
-      { value: 'recall-notification', label: 'Recall Notification', requiredFields: ['Customer Name', 'Phone', 'VIN', 'Vehicle Make/Model/Year'] },
-      { value: 'warranty-expiration', label: 'Warranty Expiration', requiredFields: ['Customer Name', 'Phone', 'VIN', 'Warranty End Date', 'Vehicle Make/Model'] },
-      { value: 'seasonal-service', label: 'Seasonal Service', requiredFields: ['Customer Name', 'Phone', 'VIN', 'Service Type', 'Vehicle Make/Model'] }
+      { value: 'maintenance-reminder', label: 'Maintenance Reminder', requiredFields: ['Customer Name', 'Phone', 'VIN', 'Last Service Date', 'Vehicle Make/Model'], disabled: true },
+      { value: 'recall-notification', label: 'Recall Notification', requiredFields: ['Customer Name', 'Phone', 'VIN', 'Vehicle Make/Model/Year'], disabled: false },
+      { value: 'warranty-expiration', label: 'Warranty Expiration', requiredFields: ['Customer Name', 'Phone', 'VIN', 'Warranty End Date', 'Vehicle Make/Model'], disabled: true },
+      { value: 'seasonal-service', label: 'Seasonal Service', requiredFields: ['Customer Name', 'Phone', 'VIN', 'Service Type', 'Vehicle Make/Model'], disabled: true },
+      { value: 'service-appointment-booking', label: 'Service Appointment Booking', requiredFields: ['Customer Name', 'Phone', 'VIN', 'Vehicle Make/Model', 'Preferred Service Type'], disabled: true },
+      { value: 'customer-satisfaction-followup', label: 'Customer Satisfaction Follow-up', requiredFields: ['Customer Name', 'Phone', 'VIN', 'Last Service Date', 'Service Type'], disabled: true }
     ]
   }
 }
@@ -72,6 +75,7 @@ const useCases: UseCases = {
 
 export default function CampaignSetup() {
   const router = useRouter()
+  const { toast } = useToast()
   const [currentStep, setCurrentStep] = useState(1)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
@@ -80,7 +84,7 @@ export default function CampaignSetup() {
   const [needsAgent, setNeedsAgent] = useState(false)
   const [campaignData, setCampaignData] = useState({
     campaignName: '',
-    useCase: '',
+    useCase: 'service',
     subUseCase: '',
     bcdDetails: '',
     fileName: '',
@@ -100,6 +104,22 @@ export default function CampaignSetup() {
   // Animation states
   const [isPageLoaded, setIsPageLoaded] = useState(false)
   const [isStepTransitioning, setIsStepTransitioning] = useState(false)
+  
+  // Error states for form validation
+  const [errors, setErrors] = useState({
+    campaignName: false,
+    useCase: false,
+    subUseCase: false,
+    fileUpload: false,
+    scheduledDate: false,
+    scheduledTime: false
+  })
+  
+  // Refs for scrolling to sections
+  const campaignNameRef = useRef<HTMLDivElement | null>(null)
+  const useCaseRef = useRef<HTMLDivElement | null>(null)
+  const fileUploadRef = useRef<HTMLDivElement | null>(null)
+  const scheduleRef = useRef<HTMLDivElement | null>(null)
 
   // Page entrance animation and URL params extraction
   useEffect(() => {
@@ -183,8 +203,89 @@ export default function CampaignSetup() {
     }
   }
 
+  const validateStep = (step: number) => {
+    const newErrors = { ...errors }
+    let isValid = true
+    let missingFields: string[] = []
+    let scrollTarget: React.RefObject<HTMLDivElement | null> | null = null
+
+    // Reset errors for current step
+    if (step === 1) {
+      newErrors.campaignName = false
+      newErrors.useCase = false
+      newErrors.subUseCase = false
+    } else if (step === 2) {
+      newErrors.fileUpload = false
+    } else if (step === 3) {
+      newErrors.scheduledDate = false
+      newErrors.scheduledTime = false
+    }
+
+    if (step === 1) {
+      if (!campaignData.campaignName.trim()) {
+        newErrors.campaignName = true
+        missingFields.push('Campaign Name')
+        if (!scrollTarget) scrollTarget = campaignNameRef
+        isValid = false
+      }
+      if (!campaignData.useCase) {
+        newErrors.useCase = true
+        missingFields.push('Use Case')
+        if (!scrollTarget) scrollTarget = useCaseRef
+        isValid = false
+      }
+      if (!campaignData.subUseCase) {
+        newErrors.subUseCase = true
+        missingFields.push('Campaign Type')
+        if (!scrollTarget) scrollTarget = useCaseRef
+        isValid = false
+      }
+    } else if (step === 2) {
+      if (!uploadComplete) {
+        newErrors.fileUpload = true
+        missingFields.push('File Upload')
+        if (!scrollTarget) scrollTarget = fileUploadRef
+        isValid = false
+      }
+    } else if (step === 3) {
+      if (campaignData.schedule === 'scheduled') {
+        if (!campaignData.scheduledDate) {
+          newErrors.scheduledDate = true
+          missingFields.push('Scheduled Date')
+          if (!scrollTarget) scrollTarget = scheduleRef
+          isValid = false
+        }
+        if (!campaignData.scheduledTime) {
+          newErrors.scheduledTime = true
+          missingFields.push('Scheduled Time')
+          if (!scrollTarget) scrollTarget = scheduleRef
+          isValid = false
+        }
+      }
+    }
+
+    setErrors(newErrors)
+
+    if (!isValid) {
+      // Scroll to the first missing field
+      if (scrollTarget?.current) {
+        scrollTarget.current.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        })
+      }
+    }
+
+    return isValid
+  }
+
   const nextStep = async () => {
     if (currentStep < 4) {
+      // Validate current step before proceeding
+      if (!validateStep(currentStep)) {
+        return // Stop if validation fails
+      }
+
       // If we're launching the campaign (moving from step 3 to 4), create and save the campaign
       if (currentStep === 3) {
         await handleLaunchCampaign()
@@ -337,65 +438,160 @@ export default function CampaignSetup() {
               <div className="space-y-6">
                 
                 {/* Campaign Name Section */}
-                <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
+                <div ref={campaignNameRef} className={`bg-white border rounded-lg p-6 transition-colors ${
+                  errors.campaignName ? 'border-red-500' : 'border-[#E5E7EB]'
+                }`}>
                   <div className="space-y-3">
-                    <Label htmlFor="campaign-name" className="text-[16px] font-bold text-[#1A1A1A]">
-                      Campaign Name
+                    <Label htmlFor="campaign-name" className={`text-[16px] font-bold ${
+                      errors.campaignName ? 'text-red-600' : 'text-[#1A1A1A]'
+                    }`}>
+                      Campaign Name {errors.campaignName && <span className="text-red-500">*</span>}
                     </Label>
                     <Input
                       id="campaign-name"
                       placeholder="Enter a descriptive campaign name"
                       value={campaignData.campaignName}
-                      onChange={(e) => setCampaignData(prev => ({ ...prev, campaignName: e.target.value }))}
-                      className="h-11 text-[14px] border-[#E5E7EB] rounded-md focus:border-[#4600F2] focus:ring-[#4600F2] transition-colors"
+                      onChange={(e) => {
+                        setCampaignData(prev => ({ ...prev, campaignName: e.target.value }))
+                        if (errors.campaignName && e.target.value.trim()) {
+                          setErrors(prev => ({ ...prev, campaignName: false }))
+                        }
+                      }}
+                      className={`h-11 text-[14px] rounded-md focus:ring-[#4600F2] transition-colors ${
+                        errors.campaignName 
+                          ? 'border-red-500 focus:border-red-500' 
+                          : 'border-[#E5E7EB] focus:border-[#4600F2]'
+                      }`}
                     />
+                    {errors.campaignName && (
+                      <p className="text-sm text-red-600 flex items-center mt-1">
+                        <AlertCircle className="h-4 w-4 mr-1" />
+                        Campaign name is required
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 {/* Use Case Section */}
-                <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
+                <div ref={useCaseRef} className={`bg-white border rounded-lg p-6 transition-colors ${
+                  errors.useCase || errors.subUseCase ? 'border-red-500' : 'border-[#E5E7EB]'
+                }`}>
                   <div className="space-y-4">
-                    <Label className="text-[16px] font-bold text-[#1A1A1A]">
-                      Select Use Case
+                    <Label className={`text-[16px] font-bold ${
+                      errors.useCase || errors.subUseCase ? 'text-red-600' : 'text-[#1A1A1A]'
+                    }`}>
+                      Select Use Case {(errors.useCase || errors.subUseCase) && <span className="text-red-500">*</span>}
                     </Label>
+                    {(errors.useCase || errors.subUseCase) && (
+                      <p className="text-sm text-red-600 flex items-center">
+                        <AlertCircle className="h-4 w-4 mr-1" />
+                        Please select a use case and campaign type
+                      </p>
+                    )}
                     <RadioGroup 
                       value={campaignData.subUseCase} 
                       onValueChange={(value) => {
                         const selectedUseCase = Object.entries(useCases).find(([_, useCase]) => 
                           useCase.subCases.some(subCase => subCase.value === value)
                         );
-                        if (selectedUseCase) {
+                        const selectedSubCase = selectedUseCase?.[1].subCases.find(subCase => subCase.value === value);
+                        if (selectedUseCase && !selectedUseCase[1].disabled && selectedSubCase && !selectedSubCase.disabled) {
                           setCampaignData(prev => ({ 
                             ...prev, 
                             useCase: selectedUseCase[0], 
                             subUseCase: value 
                           }));
                           setNeedsAgent(value === 'follow-up-leads' || value === 'trade-in-offers');
+                          // Clear errors when valid selection is made
+                          if (errors.useCase || errors.subUseCase) {
+                            setErrors(prev => ({ ...prev, useCase: false, subUseCase: false }))
+                          }
                         }
                       }}
                       className="space-y-4"
                     >
                       {Object.entries(useCases).map(([categoryKey, useCase]) => (
-                        <div key={categoryKey} className="space-y-3">
-                          <div className="flex items-center space-x-2 mb-3">
-                            <div className={`w-3 h-3 rounded-full ${
-                              categoryKey === 'sales' ? 'bg-[#22C55E]' : 'bg-[#3B82F6]'
-                            }`} />
-                            <h3 className="text-[14px] font-medium text-[#1A1A1A] leading-[1.5]">{useCase.label}</h3>
-                          </div>
-                          <div className="space-y-2 ml-5">
-                            {useCase.subCases.map((subCase) => (
-                              <div key={subCase.value} className="flex items-center space-x-3">
-                                <RadioGroupItem value={subCase.value} id={subCase.value} className="border-[#E5E7EB]" />
-                                <Label 
-                                  htmlFor={subCase.value} 
-                                  className="flex-1 cursor-pointer p-3 border border-[#E5E7EB] rounded-lg hover:bg-[#4600F214] transition-colors"
-                                >
-                                  <span className="text-[14px] text-[#1A1A1A] leading-[1.5]">{subCase.label}</span>
-                                </Label>
+                        <div key={categoryKey} className={`space-y-4 p-4 rounded-lg border transition-all ${
+                          'border-[#E5E7EB] bg-white hover:border-[#D1D5DB]'
+                        } ${useCase.disabled ? 'opacity-85' : ''}`}>
+                          {/* Category Header */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                                categoryKey === 'sales' 
+                                  ? 'bg-[#22C55E]/10 text-[#22C55E]' 
+                                  : 'bg-[#3B82F6]/10 text-[#3B82F6]'
+                              } ${useCase.disabled ? 'opacity-70' : ''}`}>
+                                {categoryKey === 'sales' ? (
+                                  <TrendingUp className="w-4 h-4" />
+                                ) : (
+                                  <Wrench className="w-4 h-4" />
+                                )}
                               </div>
-                            ))}
+                              <h3 className={`text-[16px] font-semibold leading-[1.4] ${
+                                useCase.disabled ? 'text-[#9CA3AF]' : 'text-[#1A1A1A]'
+                              }`}>
+                                {useCase.label}
+                              </h3>
+                            </div>
+                            {useCase.disabled && (
+                              <Badge variant="secondary" className="text-[11px] px-3 py-1 bg-[#F3F4F6] text-[#6B7280] border">
+                                Coming Soon
+                              </Badge>
+                            )}
                           </div>
+
+                          {/* Category Description */}
+                          <p className={`text-[13px] leading-[1.5] ${
+                            useCase.disabled ? 'text-[#9CA3AF]' : 'text-[#6B7280]'
+                          }`}>
+                            {categoryKey === 'sales' 
+                              ? 'AI-powered outreach campaigns for lead generation and sales conversion'
+                              : 'Automated customer service communications and maintenance reminders'
+                            }
+                          </p>
+
+                          {/* Sub-options */}
+                          {useCase.subCases.length > 0 && (
+                            <div className="space-y-3">
+                              <div className={`text-[12px] font-medium uppercase tracking-wider ${
+                                useCase.disabled ? 'text-[#9CA3AF]' : 'text-[#6B7280]'
+                              }`}>
+                                Select Campaign Type
+                              </div>
+                              <div className="grid gap-2">
+                                {useCase.subCases.map((subCase) => (
+                                  <div key={subCase.value} className="flex items-center space-x-3">
+                                    <RadioGroupItem 
+                                      value={subCase.value} 
+                                      id={subCase.value} 
+                                      className="border-[#E5E7EB]" 
+                                      disabled={useCase.disabled || subCase.disabled}
+                                    />
+                                    <Label 
+                                      htmlFor={subCase.value} 
+                                      className={`flex-1 p-3 border border-[#E5E7EB] rounded-md transition-all duration-200 ${
+                                        useCase.disabled || subCase.disabled
+                                          ? 'opacity-50 cursor-not-allowed bg-[#F9FAFB]' 
+                                          : 'cursor-pointer hover:bg-white hover:border-[#3B82F6]/40 hover:shadow-sm'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <span className={`text-[14px] font-medium leading-[1.4] ${
+                                          useCase.disabled || subCase.disabled ? 'text-[#9CA3AF]' : 'text-[#1A1A1A]'
+                                        }`}>{subCase.label}</span>
+                                        {subCase.disabled && (
+                                          <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-[#F3F4F6] text-[#6B7280] border ml-2">
+                                            Coming Soon
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </Label>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </RadioGroup>
@@ -465,27 +661,25 @@ export default function CampaignSetup() {
                 </div>
               )}
 
-              <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
-                <div 
-                  className="border-2 border-dashed border-[#E5E7EB] rounded-lg p-8 text-center hover:border-[#4600F2] hover:bg-[#4600F214] transition-all duration-300 bg-[#F4F5F8]"
-                  onDragOver={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    const files = e.dataTransfer.files
-                    if (files.length > 0) {
-                      console.log('File dropped:', files[0].name)
-                      const mockEvent = {
-                        target: { files }
-                      } as React.ChangeEvent<HTMLInputElement>
-                      handleFileUpload(mockEvent)
-                    }
-                  }}
-                >
-                  <Upload className="h-12 w-12 text-[#6B7280] mx-auto mb-4" />
+              <div ref={fileUploadRef} className={`bg-white border rounded-lg p-6 transition-colors ${
+                errors.fileUpload ? 'border-red-500' : 'border-[#E5E7EB]'
+              }`}>
+                {errors.fileUpload && (
+                  <div className="mb-4">
+                    <p className="text-sm text-red-600 flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      Please upload a customer data file to continue
+                    </p>
+                  </div>
+                )}
+                <div className={`border-2 border-dashed rounded-lg p-8 text-center hover:border-[#4600F2] hover:bg-[#4600F214] transition-all duration-300 ${
+                  errors.fileUpload 
+                    ? 'border-red-400' 
+                    : 'border-[#E5E7EB]'
+                } bg-[#F4F5F8]`}>
+                  <Upload className={`h-12 w-12 mx-auto mb-4 ${
+                    errors.fileUpload ? 'text-red-400' : 'text-[#6B7280]'
+                  }`} />
                   <div className="space-y-3">
                     <p className="text-[14px] font-semibold text-[#1A1A1A]">Drag and drop your file here</p>
                     <p className="text-[14px] text-[#6B7280]">or</p>
@@ -493,7 +687,11 @@ export default function CampaignSetup() {
                       <Button 
                         type="button"
                         variant="outline" 
-                        className="mt-2 h-9 px-3 text-[12px] border-[#4600F2] text-[#4600F2] hover:bg-[#4600F214] rounded-lg font-medium" 
+                        className={`mt-2 h-9 px-3 text-[12px] rounded-lg font-medium ${
+                          errors.fileUpload
+                            ? 'border-red-500 text-red-600 hover:bg-[#4600F214]'
+                            : 'border-[#4600F2] text-[#4600F2] hover:bg-[#4600F214]'
+                        }`}
                         size="sm"
                         onClick={() => {
                           console.log('Browse Files button clicked')
@@ -508,8 +706,10 @@ export default function CampaignSetup() {
                         accept=".xlsx,.csv"
                         className="hidden"
                         onChange={(e) => {
-                          console.log('File input change event triggered', e.target.files)
                           handleFileUpload(e)
+                          if (errors.fileUpload) {
+                            setErrors(prev => ({ ...prev, fileUpload: false }))
+                          }
                         }}
                       />
                     </Label>
@@ -701,10 +901,22 @@ export default function CampaignSetup() {
               </div>
 
               {/* Schedule Options */}
-              <div className="bg-white border border-[#E5E7EB] rounded-lg">
+              <div ref={scheduleRef} className={`bg-white border rounded-lg transition-colors ${
+                errors.scheduledDate || errors.scheduledTime ? 'border-red-500' : 'border-[#E5E7EB]'
+              }`}>
                 <div className="bg-[#F4F5F8] border-b border-[#E5E7EB] px-6 py-4">
-                  <h3 className="text-[16px] font-semibold text-[#1A1A1A]">Schedule Campaign</h3>
+                  <h3 className={`text-[16px] font-semibold ${
+                    errors.scheduledDate || errors.scheduledTime ? 'text-red-600' : 'text-[#1A1A1A]'
+                  }`}>
+                    Schedule Campaign {(errors.scheduledDate || errors.scheduledTime) && <span className="text-red-500">*</span>}
+                  </h3>
                   <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Choose when to launch your AI-powered calling campaign</p>
+                  {(errors.scheduledDate || errors.scheduledTime) && (
+                    <p className="text-sm text-red-600 flex items-center mt-2">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      Please select both date and time for scheduled campaigns
+                    </p>
+                  )}
                 </div>
                 <div className="p-6">
                   <RadioGroup
@@ -746,24 +958,62 @@ export default function CampaignSetup() {
                   {campaignData.schedule === 'scheduled' && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6 p-4 bg-[#F4F5F8] rounded-lg border border-[#E5E7EB]">
                       <div>
-                        <Label htmlFor="date" className="text-[16px] font-bold text-[#1A1A1A] mb-2 block">Campaign Date</Label>
+                        <Label htmlFor="date" className={`text-[16px] font-bold mb-2 block ${
+                          errors.scheduledDate ? 'text-red-600' : 'text-[#1A1A1A]'
+                        }`}>
+                          Campaign Date {errors.scheduledDate && <span className="text-red-500">*</span>}
+                        </Label>
                         <Input
                           id="date"
                           type="date"
                           value={campaignData.scheduledDate}
-                          onChange={(e) => setCampaignData(prev => ({ ...prev, scheduledDate: e.target.value }))}
-                          className="h-11 text-[14px] border-[#E5E7EB] rounded-md focus:border-[#4600F2] focus:ring-[#4600F2]"
+                          onChange={(e) => {
+                            setCampaignData(prev => ({ ...prev, scheduledDate: e.target.value }))
+                            if (errors.scheduledDate && e.target.value) {
+                              setErrors(prev => ({ ...prev, scheduledDate: false }))
+                            }
+                          }}
+                          className={`h-11 text-[14px] rounded-md focus:ring-[#4600F2] transition-colors ${
+                            errors.scheduledDate 
+                              ? 'border-red-500 focus:border-red-500' 
+                              : 'border-[#E5E7EB] focus:border-[#4600F2]'
+                          }`}
                         />
+                        {errors.scheduledDate && (
+                          <p className="text-sm text-red-600 flex items-center mt-1">
+                            <AlertCircle className="h-4 w-4 mr-1" />
+                            Date is required
+                          </p>
+                        )}
                       </div>
                       <div>
-                        <Label htmlFor="time" className="text-[16px] font-bold text-[#1A1A1A] mb-2 block">Campaign Time</Label>
+                        <Label htmlFor="time" className={`text-[16px] font-bold mb-2 block ${
+                          errors.scheduledTime ? 'text-red-600' : 'text-[#1A1A1A]'
+                        }`}>
+                          Campaign Time {errors.scheduledTime && <span className="text-red-500">*</span>}
+                        </Label>
                         <Input
                           id="time"
                           type="time"
                           value={campaignData.scheduledTime}
-                          onChange={(e) => setCampaignData(prev => ({ ...prev, scheduledTime: e.target.value }))}
-                          className="h-11 text-[14px] border-[#E5E7EB] rounded-md focus:border-[#4600F2] focus:ring-[#4600F2]"
+                          onChange={(e) => {
+                            setCampaignData(prev => ({ ...prev, scheduledTime: e.target.value }))
+                            if (errors.scheduledTime && e.target.value) {
+                              setErrors(prev => ({ ...prev, scheduledTime: false }))
+                            }
+                          }}
+                          className={`h-11 text-[14px] rounded-md focus:ring-[#4600F2] transition-colors ${
+                            errors.scheduledTime 
+                              ? 'border-red-500 focus:border-red-500' 
+                              : 'border-[#E5E7EB] focus:border-[#4600F2]'
+                          }`}
                         />
+                        {errors.scheduledTime && (
+                          <p className="text-sm text-red-600 flex items-center mt-1">
+                            <AlertCircle className="h-4 w-4 mr-1" />
+                            Time is required
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
@@ -865,9 +1115,9 @@ export default function CampaignSetup() {
 
   return (
     <MainLayout>
-      <div className="min-h-screen flex flex-col lg:flex-row bg-[#F4F5F8]">
-        {/* Vertical Stepper Sidebar - Now on Left */}
-        <div className="w-full lg:w-64 bg-white border-b lg:border-b-0 lg:border-r border-[#E5E7EB] p-6 order-first">
+      <div className="h-screen flex flex-col lg:flex-row bg-[#F4F5F8]">
+        {/* Vertical Stepper Sidebar - Fixed on Left */}
+        <div className="w-full lg:w-64 bg-white border-b lg:border-b-0 lg:border-r border-[#E5E7EB] p-6 order-first lg:fixed lg:left-0 lg:top-0 lg:h-full lg:overflow-hidden">
           <div className="space-y-8">
             <div>
               <h3 className="text-[20px] font-semibold text-[#1A1A1A] mb-6 leading-[1.4]">Setup Progress</h3>
@@ -922,16 +1172,16 @@ export default function CampaignSetup() {
           </div>
         </div>
 
-        {/* Main Content Area - Now on Right */}
-        <div className="flex-1 flex flex-col bg-[#F4F5F8]">
-          {/* Content */}
-          <div className="flex-1 px-12 py-8 pb-32">
+        {/* Main Content Area - Scrollable on Right */}
+        <div className="flex-1 flex flex-col bg-[#F4F5F8] lg:ml-64">
+          {/* Content - Scrollable */}
+          <div className="flex-1 px-12 py-8 pb-32 overflow-y-auto">
             {renderStepContent()}
           </div>
 
           {/* Sticky Navigation */}
           {currentStep < 4 && (
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E7EB] z-50 shadow-lg" style={{ paddingTop: '16px', paddingBottom: '16px', paddingLeft: '24px', paddingRight: '24px' }}>
+            <div className="fixed bottom-0 bg-white border-t border-[#E5E7EB] z-50 shadow-lg lg:left-64 left-0 right-0" style={{ paddingTop: '16px', paddingBottom: '16px', paddingLeft: '24px', paddingRight: '24px' }}>
               <div className="flex justify-between items-center">
                 {/* Cancel Button - Left Side */}
                 <Button
@@ -966,7 +1216,7 @@ export default function CampaignSetup() {
                       isLaunching
                     }
                     size="lg"
-                    className="h-11 px-4 text-[14px] bg-[#4600F2] hover:bg-[#4600F2]/90 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                    className="h-11 px-4 text-[14px] bg-[#4600F2] hover:bg-[#4600F2]/90 text-white rounded-lg font-medium"
                   >
                     {isLaunching ? 'Launching...' : currentStep === 3 ? 'Launch Campaign' : 'Continue'}
                     {isLaunching ? (

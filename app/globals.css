@@ -75,18 +75,18 @@
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-border font-sans;
   }
   
   body {
-    @apply bg-background text-foreground;
-    font-family: 'Inter', sans-serif;
+    @apply bg-background text-foreground font-sans;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
   
   /* Typography System */
   .text-page-heading {
+    @apply font-sans;
     font-size: 20px;
     font-weight: 600;
     line-height: 1.4;
@@ -94,24 +94,33 @@
   }
   
   .text-subheading {
+    @apply font-sans;
     font-size: 14px;
     font-weight: 400;
     line-height: 1.5;
   }
   
   .text-body {
+    @apply font-sans;
     font-size: 14px;
     line-height: 1.5;
   }
   
   .text-small {
+    @apply font-sans;
     font-size: 12px;
     line-height: 1.4;
   }
   
-  /* Ensure headings don't have white backgrounds */
+  /* Ensure headings use Inter and don't have white backgrounds */
   h1, h2, h3, h4, h5, h6 {
+    @apply font-sans;
     background: transparent !important;
+  }
+  
+  /* Ensure form elements use Inter */
+  input, textarea, select, button {
+    @apply font-sans;
   }
   
   /* Material Symbols Base Class */
@@ -135,31 +144,31 @@
 @layer components {
   /* Button System */
   .btn-large {
+    @apply font-sans;
     height: 44px;
     padding: 0 16px;
     font-size: 16px;
     border-radius: 8px;
-    font-family: 'Inter', sans-serif;
     font-weight: 500;
     transition: all 150ms ease-in-out;
   }
   
   .btn-medium {
+    @apply font-sans;
     height: 40px;
     padding: 0 14px;
     font-size: 14px;
     border-radius: 8px;
-    font-family: 'Inter', sans-serif;
     font-weight: 500;
     transition: all 150ms ease-in-out;
   }
   
   .btn-small {
+    @apply font-sans;
     height: 36px;
     padding: 0 12px;
     font-size: 12px;
     border-radius: 8px;
-    font-family: 'Inter', sans-serif;
     font-weight: 500;
     transition: all 150ms ease-in-out;
   }

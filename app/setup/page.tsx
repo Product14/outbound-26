@@ -20,6 +20,7 @@ import confetti from 'canvas-confetti'
 import { extractUrlParams, type UrlParams } from '@/lib/url-utils'
 import { transformCampaignData, launchCampaign, type Customer } from '@/lib/campaign-api'
 import { parseUploadedFile, REQUIRED_CSV_COLUMNS, type ParsedCustomerData } from '@/lib/file-parser'
+import { fetchAgentList, type Agent } from '@/lib/agent-api'
 import { useToast } from "@/hooks/use-toast"
 
 interface SubCase {
@@ -101,6 +102,12 @@ export default function CampaignSetup() {
   const [parseErrors, setParseErrors] = useState<string[]>([])
   const [missingColumns, setMissingColumns] = useState<string[]>([])
   
+  // Agent state
+  const [availableAgents, setAvailableAgents] = useState<Agent[]>([])
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
+  const [isLoadingAgents, setIsLoadingAgents] = useState(false)
+  const [agentError, setAgentError] = useState<string | null>(null)
+  
   // Animation states
   const [isPageLoaded, setIsPageLoaded] = useState(false)
   const [isStepTransitioning, setIsStepTransitioning] = useState(false)
@@ -110,6 +117,7 @@ export default function CampaignSetup() {
     campaignName: false,
     useCase: false,
     subUseCase: false,
+    agentSelection: false,
     fileUpload: false,
     scheduledDate: false,
     scheduledTime: false
@@ -135,6 +143,50 @@ export default function CampaignSetup() {
     setUrlParams(params)
     console.log('Extracted URL params:', params)
   }, [])
+
+  // Fetch agents when recall notification is selected
+  const loadAgents = async () => {
+    if (!urlParams.enterprise_id || !urlParams.team_id) {
+      console.error('Missing enterprise_id or team_id in URL params')
+      setAgentError('Missing enterprise or team ID')
+      return
+    }
+
+    setIsLoadingAgents(true)
+    setAgentError(null)
+    
+    try {
+      const agents = await fetchAgentList(
+        urlParams.enterprise_id,
+        urlParams.team_id,
+        'recall_notification',
+        'Service',
+        'outbound'
+      )
+      setAvailableAgents(agents)
+      
+      // Auto-select the first available agent if any
+      if (agents.length > 0 && agents[0].available) {
+        setSelectedAgent(agents[0])
+      }
+    } catch (error) {
+      console.error('Error loading agents:', error)
+      setAgentError('Failed to load agents')
+    } finally {
+      setIsLoadingAgents(false)
+    }
+  }
+
+  // Load agents when recall notification is selected and URL params are available
+  useEffect(() => {
+    if (campaignData.subUseCase === 'recall-notification' && urlParams.enterprise_id && urlParams.team_id) {
+      loadAgents()
+    } else {
+      setAvailableAgents([])
+      setSelectedAgent(null)
+      setAgentError(null)
+    }
+  }, [campaignData.subUseCase, urlParams.enterprise_id, urlParams.team_id])
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -214,6 +266,7 @@ export default function CampaignSetup() {
       newErrors.campaignName = false
       newErrors.useCase = false
       newErrors.subUseCase = false
+      newErrors.agentSelection = false
     } else if (step === 2) {
       newErrors.fileUpload = false
     } else if (step === 3) {
@@ -237,6 +290,13 @@ export default function CampaignSetup() {
       if (!campaignData.subUseCase) {
         newErrors.subUseCase = true
         missingFields.push('Campaign Type')
+        if (!scrollTarget) scrollTarget = useCaseRef
+        isValid = false
+      }
+      // Check agent selection for recall notifications
+      if (campaignData.subUseCase === 'recall-notification' && !selectedAgent) {
+        newErrors.agentSelection = true
+        missingFields.push('Agent Selection')
         if (!scrollTarget) scrollTarget = useCaseRef
         isValid = false
       }
@@ -312,10 +372,12 @@ export default function CampaignSetup() {
       setIsLaunching(true)
       
       // Transform campaign data to the required payload format
+      const agentId = selectedAgent?.id || "agent234" // Use selected agent ID or fallback
       const payload = transformCampaignData(
         { ...campaignData, uploadedData },
         effectiveEnterpriseId,
-        effectiveTeamId
+        effectiveTeamId,
+        agentId
       )
 
       console.log('Launching campaign with payload:', payload)
@@ -600,6 +662,141 @@ export default function CampaignSetup() {
                     </RadioGroup>
                   </div>
                 </div>
+
+                {/* Agent Selection for Recall Notification */}
+                {campaignData.subUseCase === 'recall-notification' && (
+                  <div className={`bg-white border rounded-lg p-6 transition-colors ${
+                    errors.agentSelection ? 'border-red-500' : 'border-[#E5E7EB]'
+                  }`}>
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 rounded-lg bg-[#3B82F6]/10 text-[#3B82F6] flex items-center justify-center">
+                          <Users className="w-4 h-4" />
+                        </div>
+                        <h3 className={`text-[16px] font-semibold ${
+                          errors.agentSelection ? 'text-red-600' : 'text-[#1A1A1A]'
+                        }`}>
+                          Select Service Agent {errors.agentSelection && <span className="text-red-500">*</span>}
+                        </h3>
+                      </div>
+                      <p className="text-[14px] text-[#6B7280] leading-[1.5]">
+                        Choose the AI agent that will handle your recall notification calls
+                      </p>
+                      {errors.agentSelection && (
+                        <div className="flex items-center text-sm text-red-600">
+                          <AlertCircle className="h-4 w-4 mr-1" />
+                          Please select an agent to continue
+                        </div>
+                      )}
+
+                      {isLoadingAgents && (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin h-6 w-6 border-2 border-[#3B82F6] border-t-transparent rounded-full" />
+                          <span className="ml-3 text-[14px] text-[#6B7280]">Loading agents...</span>
+                        </div>
+                      )}
+
+                      {agentError && (
+                        <div className="flex items-center p-4 bg-[#EF4444]/10 border border-[#EF4444] rounded-lg">
+                          <AlertCircle className="h-5 w-5 text-[#EF4444] mr-3" />
+                          <span className="text-[14px] text-[#EF4444]">{agentError}</span>
+                        </div>
+                      )}
+
+                      {!isLoadingAgents && !agentError && availableAgents.length === 0 && (
+                        <div className="flex items-center p-4 bg-[#FACC15]/10 border border-[#FACC15] rounded-lg">
+                          <AlertCircle className="h-5 w-5 text-[#FACC15] mr-3" />
+                          <span className="text-[14px] text-[#6B7280]">No agents available for recall notifications</span>
+                        </div>
+                      )}
+
+                      {!isLoadingAgents && availableAgents.length > 0 && (
+                        <div className="space-y-3">
+                          <RadioGroup
+                            value={selectedAgent?.id || ''}
+                            onValueChange={(value) => {
+                              const agent = availableAgents.find(a => a.id === value)
+                              setSelectedAgent(agent || null)
+                              // Clear agent selection error when an agent is selected
+                              if (errors.agentSelection && agent) {
+                                setErrors(prev => ({ ...prev, agentSelection: false }))
+                              }
+                            }}
+                            className="space-y-3"
+                          >
+                            {availableAgents.map((agent) => (
+                              <div key={agent.id} className="flex items-center space-x-3">
+                                <RadioGroupItem 
+                                  value={agent.id} 
+                                  id={agent.id} 
+                                  className="border-[#E5E7EB]" 
+                                  disabled={!agent.available}
+                                />
+                                <Label 
+                                  htmlFor={agent.id} 
+                                  className={`flex-1 p-4 border border-[#E5E7EB] rounded-lg transition-all duration-200 ${
+                                    agent.available
+                                      ? 'cursor-pointer hover:bg-white hover:border-[#3B82F6]/40 hover:shadow-sm'
+                                      : 'opacity-50 cursor-not-allowed bg-[#F9FAFB]'
+                                  }`}
+                                >
+                                  <div className="flex items-center space-x-4">
+                                    <div className="flex-shrink-0">
+                                      <img
+                                        src={agent.imageUrl}
+                                        alt={agent.name}
+                                        className="w-12 h-12 rounded-full object-cover border-2 border-[#E5E7EB]"
+                                        onError={(e) => {
+                                          // Fallback to default avatar if image fails to load
+                                          e.currentTarget.src = '/placeholder-user.jpg'
+                                        }}
+                                      />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center justify-between">
+                                        <h4 className={`text-[16px] font-medium leading-[1.4] ${
+                                          agent.available ? 'text-[#1A1A1A]' : 'text-[#9CA3AF]'
+                                        }`}>
+                                          {agent.name}
+                                        </h4>
+                                        <div className="flex items-center space-x-2">
+                                          {agent.available ? (
+                                            <Badge variant="outline" className="bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]">
+                                              Available
+                                            </Badge>
+                                          ) : (
+                                            <Badge variant="outline" className="bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]">
+                                              Unavailable
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <p className={`text-[14px] mt-1 leading-[1.5] ${
+                                        agent.available ? 'text-[#6B7280]' : 'text-[#9CA3AF]'
+                                      }`}>
+                                        {agent.description}
+                                      </p>
+                                      <div className="flex items-center mt-2 space-x-4 text-[12px] text-[#6B7280]">
+                                        <span>Type: {agent.type}</span>
+                                        
+                                        {agent.lastCallDate && (
+                                          <>
+                                            <span>•</span>
+                                            <span>Last Call: {new Date(agent.lastCallDate).toLocaleDateString()}</span>
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </Label>
+                              </div>
+                            ))}
+                          </RadioGroup>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Agent Creation Notice */}
                 {needsAgent && (
@@ -899,6 +1096,25 @@ export default function CampaignSetup() {
                       <p className="text-[14px] font-medium text-[#1A1A1A] mb-1">File</p>
                       <p className="text-[16px] text-[#1A1A1A]">{campaignData.fileName}</p>
                     </div>
+                    {selectedAgent && campaignData.subUseCase === 'recall-notification' && (
+                      <div className="col-span-2">
+                        <p className="text-[14px] font-medium text-[#1A1A1A] mb-2">Selected Agent</p>
+                        <div className="flex items-center space-x-3 p-3 bg-[#F4F5F8] rounded-lg border border-[#E5E7EB]">
+                          <img
+                            src={selectedAgent.imageUrl}
+                            alt={selectedAgent.name}
+                            className="w-10 h-10 rounded-full object-cover border-2 border-[#E5E7EB]"
+                            onError={(e) => {
+                              e.currentTarget.src = '/placeholder-user.jpg'
+                            }}
+                          />
+                          <div>
+                            <p className="text-[14px] font-medium text-[#1A1A1A]">{selectedAgent.name}</p>
+                            <p className="text-[12px] text-[#6B7280]">{selectedAgent.description}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1213,7 +1429,7 @@ export default function CampaignSetup() {
                   <Button
                     onClick={nextStep}
                     disabled={
-                      (currentStep === 1 && (!campaignData.campaignName || !campaignData.useCase || !campaignData.subUseCase)) ||
+                      (currentStep === 1 && (!campaignData.campaignName || !campaignData.useCase || !campaignData.subUseCase || (campaignData.subUseCase === 'recall-notification' && !selectedAgent))) ||
                       (currentStep === 2 && !uploadComplete) ||
                       (currentStep === 3 && campaignData.schedule === 'scheduled' && (!campaignData.scheduledDate || !campaignData.scheduledTime)) ||
                       isLaunching

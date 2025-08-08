@@ -123,8 +123,8 @@ export interface CampaignData {
 
 export function transformCampaignData(
   campaignData: CampaignData, 
-  enterpriseId: string | null, 
-  teamId: string | null,
+  enterpriseId: string, 
+  teamId: string,
   teamAgentMappingId: string = "agent234" // Default value from your API example
 ): LaunchCampaignPayload {
   // Transform the use case to campaign type
@@ -172,8 +172,8 @@ export function transformCampaignData(
     campaignType,
     campaignUseCase,
     teamAgentMappingId,
-    enterpriseId: enterpriseId || "e2da4572c", // Default from your API example
-    teamId: teamId || "bc006ff86d", // Default from your API example  
+    enterpriseId: enterpriseId, 
+    teamId: teamId, 
     customers
   };
 }
@@ -207,7 +207,7 @@ export async function fetchCampaignList(enterpriseId: string, teamId: string): P
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    return response.json();
   } catch (error) {
     console.error('Error fetching campaign list:', error);
     throw error;

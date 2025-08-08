@@ -296,13 +296,16 @@ export default function CampaignSetup() {
   }
 
   const handleLaunchCampaign = async () => {
-    // For local testing, we'll use default values if URL params are missing
-    const effectiveEnterpriseId = urlParams.enterprise_id || "e2da4572c" // Default from API example
-    const effectiveTeamId = urlParams.team_id || "bc006ff86d" // Default from API example
-    
     if (!urlParams.enterprise_id || !urlParams.team_id) {
-      console.log('🚀 Local Testing Mode: Using default enterprise_id and team_id')
+      console.error('Please set enterprise_id and team_id in the URL')
+      return
     }
+    
+    // For local testing, we'll use default values if URL params are missing
+    const effectiveEnterpriseId = urlParams.enterprise_id 
+    const effectiveTeamId = urlParams.team_id 
+    
+
     console.log('Using enterprise_id:', effectiveEnterpriseId, 'team_id:', effectiveTeamId)
 
     try {

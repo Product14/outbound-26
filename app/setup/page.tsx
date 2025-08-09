@@ -11,7 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowRight, ArrowLeft, Upload, FileText, Calendar, CheckCircle, Download, AlertCircle, Zap, Clock, Users, Database, Plus, X, TrendingUp, Wrench } from 'lucide-react'
+import { ArrowRight, ArrowLeft, Upload, FileText, Calendar, CheckCircle, Download, AlertCircle, Zap, Clock, Users, Database, Plus, X, TrendingUp, Wrench, Play, Pause } from 'lucide-react'
 import Link from "next/link"
 import { useRouter } from 'next/navigation'
 import { cn } from "@/lib/utils"
@@ -54,20 +54,25 @@ const useCases: UseCases = {
   sales: {
     label: 'Sales',
     color: 'bg-green-lighter text-green-darker border-green-8',
-    disabled: true,
-    subCases: []
+    disabled: false,
+    subCases: [
+      { value: 'lead-follow-up', label: 'Lead Follow-up', requiredFields: ['Customer Name', 'Phone', 'Lead Source', 'Interest Level'], disabled: false },
+      { value: 'trade-in-offers', label: 'Trade-in Offers', requiredFields: ['Customer Name', 'Phone', 'Current Vehicle', 'Vehicle Year', 'Mileage'], disabled: false },
+      { value: 'promotional-offers', label: 'Promotional Offers', requiredFields: ['Customer Name', 'Phone', 'Vehicle Interest', 'Budget Range'], disabled: false },
+      { value: 'appointment-booking', label: 'Test Drive Appointment', requiredFields: ['Customer Name', 'Phone', 'Vehicle Interest', 'Preferred Time'], disabled: false }
+    ]
   },
   service: {
     label: 'Service',
     color: 'bg-blue-lighter text-blue-purple border-blue-8',
     disabled: false,
     subCases: [
-      { value: 'maintenance-reminder', label: 'Maintenance Reminder', requiredFields: ['Customer Name', 'Phone', 'VIN', 'Last Service Date', 'Vehicle Make/Model'], disabled: true },
+      { value: 'maintenance-reminder', label: 'Maintenance Reminder', requiredFields: ['Customer Name', 'Phone', 'VIN', 'Last Service Date', 'Vehicle Make/Model'], disabled: false },
       { value: 'recall-notification', label: 'Recall Notification', requiredFields: ['Customer Name', 'Phone', 'VIN', 'Vehicle Make/Model/Year'], disabled: false },
-      { value: 'warranty-expiration', label: 'Warranty Expiration', requiredFields: ['Customer Name', 'Phone', 'VIN', 'Warranty End Date', 'Vehicle Make/Model'], disabled: true },
-      { value: 'seasonal-service', label: 'Seasonal Service', requiredFields: ['Customer Name', 'Phone', 'VIN', 'Service Type', 'Vehicle Make/Model'], disabled: true },
-      { value: 'service-appointment-booking', label: 'Service Appointment Booking', requiredFields: ['Customer Name', 'Phone', 'VIN', 'Vehicle Make/Model', 'Preferred Service Type'], disabled: true },
-      { value: 'customer-satisfaction-followup', label: 'Customer Satisfaction Follow-up', requiredFields: ['Customer Name', 'Phone', 'VIN', 'Last Service Date', 'Service Type'], disabled: true }
+      { value: 'warranty-expiration', label: 'Warranty Expiration', requiredFields: ['Customer Name', 'Phone', 'VIN', 'Warranty End Date', 'Vehicle Make/Model'], disabled: false },
+      { value: 'seasonal-service', label: 'Seasonal Service', requiredFields: ['Customer Name', 'Phone', 'VIN', 'Service Type', 'Vehicle Make/Model'], disabled: false },
+      { value: 'service-appointment-booking', label: 'Service Appointment Booking', requiredFields: ['Customer Name', 'Phone', 'VIN', 'Vehicle Make/Model', 'Preferred Service Type'], disabled: false },
+      { value: 'customer-satisfaction-followup', label: 'Customer Satisfaction Follow-up', requiredFields: ['Customer Name', 'Phone', 'VIN', 'Last Service Date', 'Service Type'], disabled: false }
     ]
   }
 }
@@ -85,7 +90,7 @@ export default function CampaignSetup() {
   const [needsAgent, setNeedsAgent] = useState(false)
   const [campaignData, setCampaignData] = useState({
     campaignName: '',
-    useCase: 'service',
+    useCase: '',
     subUseCase: '',
     bcdDetails: '',
     fileName: '',
@@ -95,6 +100,7 @@ export default function CampaignSetup() {
     estimatedTime: '2-3 hours',
     totalRecords: 0
   })
+  const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [createdCampaignId, setCreatedCampaignId] = useState('')
   const [urlParams, setUrlParams] = useState<UrlParams>({ enterprise_id: null, team_id: null, auth_key: null })
   const [uploadedData, setUploadedData] = useState<ParsedCustomerData[]>([])
@@ -107,6 +113,7 @@ export default function CampaignSetup() {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
   const [isLoadingAgents, setIsLoadingAgents] = useState(false)
   const [agentError, setAgentError] = useState<string | null>(null)
+  const [playingAgentId, setPlayingAgentId] = useState<string | null>(null)
   
   // Animation states
   const [isPageLoaded, setIsPageLoaded] = useState(false)
@@ -125,7 +132,18 @@ export default function CampaignSetup() {
   
   // Refs for scrolling to sections
   const campaignNameRef = useRef<HTMLDivElement | null>(null)
+  
+  // Function to download sample file
+  const downloadSampleFile = () => {
+    const link = document.createElement('a')
+    link.href = '/csv-template.csv'
+    link.download = 'sample-customer-data.csv'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
   const useCaseRef = useRef<HTMLDivElement | null>(null)
+  const agentSelectionRef = useRef<HTMLDivElement | null>(null)
   const fileUploadRef = useRef<HTMLDivElement | null>(null)
   const scheduleRef = useRef<HTMLDivElement | null>(null)
 
@@ -146,8 +164,13 @@ export default function CampaignSetup() {
 
   // Fetch agents when recall notification is selected
   const loadAgents = async () => {
+    console.log('loadAgents called with URL params:', urlParams)
+    
     if (!urlParams.enterprise_id || !urlParams.team_id) {
-      console.error('Missing enterprise_id or team_id in URL params')
+      console.error('Missing enterprise_id or team_id in URL params:', {
+        enterprise_id: urlParams.enterprise_id,
+        team_id: urlParams.team_id
+      })
       setAgentError('Missing enterprise or team ID')
       return
     }
@@ -156,6 +179,14 @@ export default function CampaignSetup() {
     setAgentError(null)
     
     try {
+      console.log('Fetching agents with params:', {
+        enterpriseId: urlParams.enterprise_id,
+        teamId: urlParams.team_id,
+        agentUseCase: 'recall_notification',
+        agentType: 'Service',
+        agentCallType: 'outbound'
+      })
+      
       const agents = await fetchAgentList(
         urlParams.enterprise_id,
         urlParams.team_id,
@@ -163,6 +194,8 @@ export default function CampaignSetup() {
         'Service',
         'outbound'
       )
+      
+      console.log('Fetched agents:', agents)
       setAvailableAgents(agents)
       
       // Auto-select the first available agent if any
@@ -171,7 +204,7 @@ export default function CampaignSetup() {
       }
     } catch (error) {
       console.error('Error loading agents:', error)
-      setAgentError('Failed to load agents')
+      setAgentError(`Failed to load agents: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsLoadingAgents(false)
     }
@@ -281,7 +314,7 @@ export default function CampaignSetup() {
         if (!scrollTarget) scrollTarget = campaignNameRef
         isValid = false
       }
-      if (!campaignData.useCase) {
+      if (!selectedCategory) {
         newErrors.useCase = true
         missingFields.push('Use Case')
         if (!scrollTarget) scrollTarget = useCaseRef
@@ -297,7 +330,7 @@ export default function CampaignSetup() {
       if (campaignData.subUseCase === 'recall-notification' && !selectedAgent) {
         newErrors.agentSelection = true
         missingFields.push('Agent Selection')
-        if (!scrollTarget) scrollTarget = useCaseRef
+        if (!scrollTarget) scrollTarget = agentSelectionRef
         isValid = false
       }
     } else if (step === 2) {
@@ -391,8 +424,8 @@ export default function CampaignSetup() {
         const newCampaign = {
           id: campaignId,
           name: campaignData.campaignName,
-          useCase: useCases[campaignData.useCase]?.label || campaignData.useCase,
-          subUseCase: useCases[campaignData.useCase]?.subCases.find(sc => sc.value === campaignData.subUseCase)?.label || campaignData.subUseCase,
+          useCase: useCases[selectedCategory]?.label || selectedCategory,
+          subUseCase: useCases[selectedCategory]?.subCases.find(sc => sc.value === campaignData.subUseCase)?.label || campaignData.subUseCase,
           status: campaignData.schedule === 'now' ? 'Running' : 'Scheduled',
           progress: campaignData.schedule === 'now' ? 0 : 0,
           eta: campaignData.schedule === 'now' ? campaignData.estimatedTime : null,
@@ -545,7 +578,7 @@ export default function CampaignSetup() {
                     <Label className={`text-[16px] font-bold ${
                       errors.useCase || errors.subUseCase ? 'text-red-600' : 'text-[#1A1A1A]'
                     }`}>
-                      Select Use Case {(errors.useCase || errors.subUseCase) && <span className="text-red-500">*</span>}
+                      Select Campaign Type {(errors.useCase || errors.subUseCase) && <span className="text-red-500">*</span>}
                     </Label>
                     {(errors.useCase || errors.subUseCase) && (
                       <p className="text-sm text-red-600 flex items-center">
@@ -553,121 +586,112 @@ export default function CampaignSetup() {
                         Please select a use case and campaign type
                       </p>
                     )}
-                    <RadioGroup 
-                      value={campaignData.subUseCase} 
-                      onValueChange={(value) => {
-                        const selectedUseCase = Object.entries(useCases).find(([_, useCase]) => 
-                          useCase.subCases.some(subCase => subCase.value === value)
-                        );
-                        const selectedSubCase = selectedUseCase?.[1].subCases.find(subCase => subCase.value === value);
-                        if (selectedUseCase && !selectedUseCase[1].disabled && selectedSubCase && !selectedSubCase.disabled) {
-                          setCampaignData(prev => ({ 
-                            ...prev, 
-                            useCase: selectedUseCase[0], 
-                            subUseCase: value 
-                          }));
-                          setNeedsAgent(value === 'follow-up-leads' || value === 'trade-in-offers');
-                          // Clear errors when valid selection is made
-                          if (errors.useCase || errors.subUseCase) {
-                            setErrors(prev => ({ ...prev, useCase: false, subUseCase: false }))
-                          }
-                        }
-                      }}
-                      className="space-y-4"
-                    >
+                    {/* Category Selection */}
+                    <div className="grid grid-cols-2 gap-4 mb-6">
                       {Object.entries(useCases).map(([categoryKey, useCase]) => (
-                        <div key={categoryKey} className={`space-y-4 p-4 rounded-lg border transition-all ${
-                          'border-[#E5E7EB] bg-white hover:border-[#D1D5DB]'
-                        } ${useCase.disabled ? 'opacity-85' : ''}`}>
+                        <div 
+                          key={categoryKey} 
+                          className={`p-4 rounded-lg border transition-all cursor-pointer ${
+                            selectedCategory === categoryKey
+                              ? 'border-[#3B82F6] bg-[#3B82F6]/5 shadow-sm'
+                              : 'border-[#E5E7EB] bg-white hover:border-[#D1D5DB] hover:shadow-sm'
+                          }`}
+                          onClick={() => {
+                            setSelectedCategory(categoryKey);
+                            setCampaignData(prev => ({ 
+                              ...prev, 
+                              useCase: categoryKey, 
+                              subUseCase: '' 
+                            }));
+                            // Clear errors when category is selected
+                            if (errors.useCase || errors.subUseCase) {
+                              setErrors(prev => ({ ...prev, useCase: false, subUseCase: false }))
+                            }
+                          }}
+                        >
                           {/* Category Header */}
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                                categoryKey === 'sales' 
-                                  ? 'bg-[#22C55E]/10 text-[#22C55E]' 
-                                  : 'bg-[#3B82F6]/10 text-[#3B82F6]'
-                              } ${useCase.disabled ? 'opacity-70' : ''}`}>
-                                {categoryKey === 'sales' ? (
-                                  <TrendingUp className="w-4 h-4" />
-                                ) : (
-                                  <Wrench className="w-4 h-4" />
-                                )}
-                              </div>
-                              <h3 className={`text-[16px] font-semibold leading-[1.4] ${
-                                useCase.disabled ? 'text-[#9CA3AF]' : 'text-[#1A1A1A]'
-                              }`}>
-                                {useCase.label}
-                              </h3>
+                          <div className="flex items-center space-x-3 mb-3">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                              categoryKey === 'sales' 
+                                ? 'bg-[#22C55E]/10 text-[#22C55E]' 
+                                : 'bg-[#3B82F6]/10 text-[#3B82F6]'
+                            }`}>
+                              {categoryKey === 'sales' ? (
+                                <TrendingUp className="w-4 h-4" />
+                              ) : (
+                                <Wrench className="w-4 h-4" />
+                              )}
                             </div>
-                            {useCase.disabled && (
-                              <Badge variant="secondary" className="text-[11px] px-3 py-1 bg-[#F3F4F6] text-[#6B7280] border">
-                                Coming Soon
-                              </Badge>
-                            )}
+                            <h3 className="text-[16px] font-semibold leading-[1.4] text-[#1A1A1A]">
+                              {useCase.label}
+                            </h3>
                           </div>
 
                           {/* Category Description */}
-                          <p className={`text-[13px] leading-[1.5] ${
-                            useCase.disabled ? 'text-[#9CA3AF]' : 'text-[#6B7280]'
-                          }`}>
+                          <p className="text-[13px] leading-[1.5] text-[#6B7280]">
                             {categoryKey === 'sales' 
                               ? 'AI-powered outreach campaigns for lead generation and sales conversion'
                               : 'Automated customer service communications and maintenance reminders'
                             }
                           </p>
-
-                          {/* Sub-options */}
-                          {useCase.subCases.length > 0 && (
-                            <div className="space-y-3">
-                              <div className={`text-[12px] font-medium uppercase tracking-wider ${
-                                useCase.disabled ? 'text-[#9CA3AF]' : 'text-[#6B7280]'
-                              }`}>
-                                Select Campaign Type
-                              </div>
-                              <div className="grid gap-2">
-                                {useCase.subCases.map((subCase) => (
-                                  <div key={subCase.value} className="flex items-center space-x-3">
-                                    <RadioGroupItem 
-                                      value={subCase.value} 
-                                      id={subCase.value} 
-                                      className="border-[#E5E7EB]" 
-                                      disabled={useCase.disabled || subCase.disabled}
-                                    />
-                                    <Label 
-                                      htmlFor={subCase.value} 
-                                      className={`flex-1 p-3 border border-[#E5E7EB] rounded-md transition-all duration-200 ${
-                                        useCase.disabled || subCase.disabled
-                                          ? 'opacity-50 cursor-not-allowed bg-[#F9FAFB]' 
-                                          : 'cursor-pointer hover:bg-white hover:border-[#3B82F6]/40 hover:shadow-sm'
-                                      }`}
-                                    >
-                                      <div className="flex items-center justify-between">
-                                        <span className={`text-[14px] font-medium leading-[1.4] ${
-                                          useCase.disabled || subCase.disabled ? 'text-[#9CA3AF]' : 'text-[#1A1A1A]'
-                                        }`}>{subCase.label}</span>
-                                        {subCase.disabled && (
-                                          <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-[#F3F4F6] text-[#6B7280] border ml-2">
-                                            Coming Soon
-                                          </Badge>
-                                        )}
-                                      </div>
-                                    </Label>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
                         </div>
                       ))}
-                    </RadioGroup>
+                    </div>
+
+                    {/* Sub-options for selected category */}
+                    {selectedCategory && useCases[selectedCategory] && (
+                      <div className="space-y-3">
+                        <div className="text-[12px] font-medium text-[#6B7280] mt-6 mb-4">
+                          What type of campaign would you like to run?
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                          {useCases[selectedCategory].subCases.map((subCase) => (
+                            <button
+                              key={subCase.value}
+                              type="button"
+                              onClick={() => {
+                                setCampaignData(prev => ({ 
+                                  ...prev, 
+                                  subUseCase: subCase.value 
+                                }));
+                                setNeedsAgent(subCase.value === 'trade-in-offers' || subCase.value === 'lead-follow-up');
+                                // Clear errors when valid selection is made
+                                if (errors.subUseCase) {
+                                  setErrors(prev => ({ ...prev, subUseCase: false }))
+                                }
+                                // Scroll to agent selection for recall notification
+                                if (subCase.value === 'recall-notification') {
+                                  setTimeout(() => {
+                                    agentSelectionRef.current?.scrollIntoView({ 
+                                      behavior: 'smooth', 
+                                      block: 'center' 
+                                    });
+                                  }, 100); // Small delay to ensure element is rendered
+                                }
+                              }}
+                              className={`px-4 py-2 rounded-full border transition-all duration-200 text-[14px] font-medium whitespace-nowrap ${
+                                campaignData.subUseCase === subCase.value
+                                  ? 'border-[#3B82F6] bg-[#3B82F6] text-white shadow-sm'
+                                  : 'border-[#E5E7EB] bg-white text-[#1A1A1A] hover:border-[#3B82F6]/40 hover:bg-[#3B82F6]/5 hover:shadow-sm'
+                              }`}
+                            >
+                              {subCase.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* Agent Selection for Recall Notification */}
                 {campaignData.subUseCase === 'recall-notification' && (
-                  <div className={`bg-white border rounded-lg p-6 transition-colors ${
-                    errors.agentSelection ? 'border-red-500' : 'border-[#E5E7EB]'
-                  }`}>
+                  <div 
+                    ref={agentSelectionRef}
+                    className={`bg-white border rounded-lg p-6 transition-colors ${
+                      errors.agentSelection ? 'border-red-500' : 'border-[#E5E7EB]'
+                    }`}
+                  >
                     <div className="space-y-4">
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 rounded-lg bg-[#3B82F6]/10 text-[#3B82F6] flex items-center justify-center">
@@ -676,12 +700,10 @@ export default function CampaignSetup() {
                         <h3 className={`text-[16px] font-semibold ${
                           errors.agentSelection ? 'text-red-600' : 'text-[#1A1A1A]'
                         }`}>
-                          Select Service Agent {errors.agentSelection && <span className="text-red-500">*</span>}
+                          Select recall agent {errors.agentSelection && <span className="text-red-500">*</span>}
                         </h3>
                       </div>
-                      <p className="text-[14px] text-[#6B7280] leading-[1.5]">
-                        Choose the AI agent that will handle your recall notification calls
-                      </p>
+
                       {errors.agentSelection && (
                         <div className="flex items-center text-sm text-red-600">
                           <AlertCircle className="h-4 w-4 mr-1" />
@@ -711,87 +733,114 @@ export default function CampaignSetup() {
                       )}
 
                       {!isLoadingAgents && availableAgents.length > 0 && (
-                        <div className="space-y-3">
-                          <RadioGroup
-                            value={selectedAgent?.id || ''}
-                            onValueChange={(value) => {
-                              const agent = availableAgents.find(a => a.id === value)
-                              setSelectedAgent(agent || null)
-                              // Clear agent selection error when an agent is selected
-                              if (errors.agentSelection && agent) {
-                                setErrors(prev => ({ ...prev, agentSelection: false }))
-                              }
-                            }}
-                            className="space-y-3"
-                          >
-                            {availableAgents.map((agent) => (
-                              <div key={agent.id} className="flex items-center space-x-3">
-                                <RadioGroupItem 
-                                  value={agent.id} 
-                                  id={agent.id} 
-                                  className="border-[#E5E7EB]" 
-                                  disabled={!agent.available}
-                                />
-                                <Label 
-                                  htmlFor={agent.id} 
-                                  className={`flex-1 p-4 border border-[#E5E7EB] rounded-lg transition-all duration-200 ${
-                                    agent.available
-                                      ? 'cursor-pointer hover:bg-white hover:border-[#3B82F6]/40 hover:shadow-sm'
-                                      : 'opacity-50 cursor-not-allowed bg-[#F9FAFB]'
-                                  }`}
-                                >
-                                  <div className="flex items-center space-x-4">
-                                    <div className="flex-shrink-0">
-                                      <img
-                                        src={agent.imageUrl}
-                                        alt={agent.name}
-                                        className="w-12 h-12 rounded-full object-cover border-2 border-[#E5E7EB]"
-                                        onError={(e) => {
-                                          // Fallback to default avatar if image fails to load
-                                          e.currentTarget.src = '/placeholder-user.jpg'
-                                        }}
-                                      />
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                          {availableAgents.map((agent) => (
+                            <div 
+                              key={agent.id} 
+                              onClick={() => {
+                                if (agent.available) {
+                                  setSelectedAgent(agent)
+                                  // Clear agent selection error when an agent is selected
+                                  if (errors.agentSelection) {
+                                    setErrors(prev => ({ ...prev, agentSelection: false }))
+                                  }
+                                }
+                              }}
+                              className={`p-4 border rounded-lg transition-all duration-200 ${
+                                !agent.available
+                                  ? 'opacity-50 cursor-not-allowed bg-[#F9FAFB] border-[#E5E7EB]'
+                                  : selectedAgent?.id === agent.id
+                                  ? 'cursor-pointer border-[#4600F2] bg-[#4600F2]/5 shadow-sm'
+                                  : 'cursor-pointer border-[#E5E7EB] bg-white hover:border-[#4600F2]/40 hover:bg-[#4600F2]/5 hover:shadow-sm'
+                              }`}
+                            >
+                              <div className="flex items-start space-x-4">
+                                <div className="flex-shrink-0">
+                                  <img
+                                    src={agent.imageUrl}
+                                    alt={agent.name}
+                                    className="w-[55px] h-[55px] rounded-lg object-cover object-[50%_20%] border-2 border-[#E5E7EB]"
+                                    onError={(e) => {
+                                      // Fallback to default avatar if image fails to load
+                                      e.currentTarget.src = '/placeholder-user.jpg'
+                                    }}
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-start justify-between">
+                                    <div>
+                                      <h4 className={`text-[18px] font-semibold leading-[1.4] ${
+                                        !agent.available
+                                          ? 'text-[#9CA3AF]'
+                                          : 'text-black'
+                                      }`}>
+                                        {agent.name}
+                                      </h4>
+                                      <div className="mt-1">
+                                        <span className="text-[14px] font-bold text-[#4600F2] cursor-pointer hover:text-[#4600F2]/80 transition-colors group inline-flex items-center">
+                                          Talk to agent
+                                          <svg 
+                                            className="w-3 h-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" 
+                                            fill="currentColor" 
+                                            viewBox="0 0 20 20"
+                                          >
+                                            <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                                          </svg>
+                                        </span>
+                                      </div>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center justify-between">
-                                        <h4 className={`text-[16px] font-medium leading-[1.4] ${
-                                          agent.available ? 'text-[#1A1A1A]' : 'text-[#9CA3AF]'
-                                        }`}>
-                                          {agent.name}
-                                        </h4>
+                                    <div className="flex items-center space-x-2">
+                                      {agent.available ? (
                                         <div className="flex items-center space-x-2">
-                                          {agent.available ? (
-                                            <Badge variant="outline" className="bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]">
-                                              Available
-                                            </Badge>
-                                          ) : (
-                                            <Badge variant="outline" className="bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]">
-                                              Unavailable
-                                            </Badge>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              if (playingAgentId === agent.id) {
+                                                setPlayingAgentId(null)
+                                              } else {
+                                                setPlayingAgentId(agent.id)
+                                              }
+                                            }}
+                                            className="flex items-center justify-center w-6 h-6 rounded-full bg-[#4600F2] hover:bg-[#4600F2]/90 transition-colors shadow-md"
+                                          >
+                                            {playingAgentId === agent.id ? (
+                                              <Pause className="w-3 h-3 text-white fill-current" />
+                                            ) : (
+                                              <div className="w-0 h-0 border-l-[6px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-0.5" />
+                                            )}
+                                          </button>
+                                          {playingAgentId === agent.id && (
+                                            <div className="flex items-center space-x-1">
+                                              {[...Array(4)].map((_, i) => (
+                                                <div
+                                                  key={i}
+                                                  className="w-1 bg-[#22C55E] rounded-full animate-pulse"
+                                                  style={{
+                                                    height: `${Math.random() * 16 + 8}px`,
+                                                    animationDelay: `${i * 0.15}s`,
+                                                    animationDuration: '0.6s'
+                                                  }}
+                                                />
+                                              ))}
+                                            </div>
                                           )}
                                         </div>
-                                      </div>
-                                      <p className={`text-[14px] mt-1 leading-[1.5] ${
-                                        agent.available ? 'text-[#6B7280]' : 'text-[#9CA3AF]'
-                                      }`}>
-                                        {agent.description}
-                                      </p>
-                                      <div className="flex items-center mt-2 space-x-4 text-[12px] text-[#6B7280]">
-                                        <span>Type: {agent.type}</span>
-                                        
-                                        {agent.lastCallDate && (
-                                          <>
-                                            <span>•</span>
-                                            <span>Last Call: {new Date(agent.lastCallDate).toLocaleDateString()}</span>
-                                          </>
-                                        )}
-                                      </div>
+                                      ) : (
+                                        <Badge variant="outline" className="bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]">
+                                          Unavailable
+                                        </Badge>
+                                      )}
                                     </div>
                                   </div>
-                                </Label>
+                                  {agent.lastCallDate && (
+                                    <div className="flex items-center mt-2 text-[12px] text-[#6B7280]">
+                                      <span>Last Call: {new Date(agent.lastCallDate).toLocaleDateString()}</span>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            ))}
-                          </RadioGroup>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -847,7 +896,7 @@ export default function CampaignSetup() {
                     <div className="mb-3">
                       <h3 className="text-[#3B82F6] flex items-center text-[14px] font-medium">
                         <Database className="h-4 w-4 mr-2" />
-                        Required Fields for {useCases[campaignData.useCase]?.subCases.find(sc => sc.value === campaignData.subUseCase)?.label}
+                        Required Fields for {useCases[selectedCategory]?.subCases.find(sc => sc.value === campaignData.subUseCase)?.label}
                       </h3>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -886,11 +935,10 @@ export default function CampaignSetup() {
                     <Label htmlFor="file-upload" className="cursor-pointer">
                       <Button 
                         type="button"
-                        variant="outline" 
                         className={`mt-2 h-9 px-3 text-[12px] rounded-lg font-medium ${
                           errors.fileUpload
-                            ? 'border-red-500 text-red-600 hover:bg-[#4600F214]'
-                            : 'border-[#4600F2] text-[#4600F2] hover:bg-[#4600F214]'
+                            ? 'bg-red-500 text-white hover:bg-red-600'
+                            : 'bg-[#4600F2] text-white hover:bg-[#4600F2]/90'
                         }`}
                         size="sm"
                         onClick={() => {
@@ -915,6 +963,17 @@ export default function CampaignSetup() {
                     </Label>
                   </div>
                   <p className="text-[12px] text-[#6B7280] mt-4">Supports .xlsx and .csv files up to 10MB</p>
+                </div>
+                
+                {/* Download sample file CTA below upload area */}
+                <div className="mt-2">
+                  <button 
+                    onClick={downloadSampleFile}
+                    className="inline-flex items-center text-[12px] font-medium text-[#4600F2] hover:text-[#4600F2]/80 transition-colors"
+                  >
+                    <Download className="w-3 h-3 mr-1" />
+                    Download sample file
+                  </button>
                 </div>
               </div>
 
@@ -1080,7 +1139,7 @@ export default function CampaignSetup() {
                       <p className="text-[14px] font-medium text-[#1A1A1A] mb-1">Use Case</p>
                       <div className="mt-1">
                         <Badge className="bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]">
-                          {useCases[campaignData.useCase]?.label} - {useCases[campaignData.useCase]?.subCases.find(sc => sc.value === campaignData.subUseCase)?.label}
+                          {useCases[selectedCategory]?.label} - {useCases[selectedCategory]?.subCases.find(sc => sc.value === campaignData.subUseCase)?.label}
                         </Badge>
                       </div>
                     </div>
@@ -1099,18 +1158,80 @@ export default function CampaignSetup() {
                     {selectedAgent && campaignData.subUseCase === 'recall-notification' && (
                       <div className="col-span-2">
                         <p className="text-[14px] font-medium text-[#1A1A1A] mb-2">Selected Agent</p>
-                        <div className="flex items-center space-x-3 p-3 bg-[#F4F5F8] rounded-lg border border-[#E5E7EB]">
-                          <img
-                            src={selectedAgent.imageUrl}
-                            alt={selectedAgent.name}
-                            className="w-10 h-10 rounded-full object-cover border-2 border-[#E5E7EB]"
-                            onError={(e) => {
-                              e.currentTarget.src = '/placeholder-user.jpg'
-                            }}
-                          />
-                          <div>
-                            <p className="text-[14px] font-medium text-[#1A1A1A]">{selectedAgent.name}</p>
-                            <p className="text-[12px] text-[#6B7280]">{selectedAgent.description}</p>
+                        <div className="bg-white border border-[#E5E7EB] rounded-lg p-4 hover:border-[#4600F2]/40 hover:bg-[#4600F2]/5 hover:shadow-sm">
+                          <div className="flex items-start space-x-4">
+                            <div className="flex-shrink-0">
+                              <img
+                                src={selectedAgent.imageUrl}
+                                alt={selectedAgent.name}
+                                className="w-[55px] h-[55px] rounded-lg object-cover object-[50%_20%] border-2 border-[#E5E7EB]"
+                                onError={(e) => {
+                                  e.currentTarget.src = '/placeholder-user.jpg'
+                                }}
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <h4 className="text-[18px] font-semibold leading-[1.4] text-black">
+                                    {selectedAgent.name}
+                                  </h4>
+                                  <div className="mt-1">
+                                    <span className="text-[14px] font-bold text-[#4600F2] cursor-pointer hover:text-[#4600F2]/80 transition-colors group inline-flex items-center">
+                                      Talk to agent
+                                      <svg 
+                                        className="w-3 h-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" 
+                                        fill="currentColor" 
+                                        viewBox="0 0 20 20"
+                                      >
+                                        <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                                      </svg>
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <div className="flex items-center space-x-2">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        if (playingAgentId === selectedAgent.id) {
+                                          setPlayingAgentId(null)
+                                        } else {
+                                          setPlayingAgentId(selectedAgent.id)
+                                        }
+                                      }}
+                                      className="flex items-center justify-center w-6 h-6 rounded-full bg-[#4600F2] hover:bg-[#4600F2]/90 transition-colors shadow-md"
+                                    >
+                                      {playingAgentId === selectedAgent.id ? (
+                                        <Pause className="w-3 h-3 text-white fill-current" />
+                                      ) : (
+                                        <div className="w-0 h-0 border-l-[6px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-0.5" />
+                                      )}
+                                    </button>
+                                    {playingAgentId === selectedAgent.id && (
+                                      <div className="flex items-center space-x-1">
+                                        {[...Array(4)].map((_, i) => (
+                                          <div
+                                            key={i}
+                                            className="w-1 bg-[#22C55E] rounded-full animate-pulse"
+                                            style={{
+                                              height: `${Math.random() * 16 + 8}px`,
+                                              animationDelay: `${i * 0.15}s`,
+                                              animationDuration: '0.6s'
+                                            }}
+                                          />
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              {selectedAgent.lastCallDate && (
+                                <div className="flex items-center mt-2 text-[12px] text-[#6B7280]">
+                                  <span>Last Call: {new Date(selectedAgent.lastCallDate).toLocaleDateString()}</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1246,9 +1367,9 @@ export default function CampaignSetup() {
         return (
           <div className="max-w-3xl">
             <div className="space-y-6">
-              <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
+              <div className="bg-transparent border-0 p-0">
                 <div className="mb-4">
-                  <h1 className="text-[20px] font-semibold text-[#1A1A1A] leading-[1.4]">Campaign Started!</h1>
+                  <h1 className="text-[24px] font-bold text-[#1A1A1A] leading-[1.4]">Campaign Started!</h1>
                   <p className="text-[14px] text-[#6B7280] mt-2 leading-[1.5]">
                     Your AI-powered outbound calling campaign is now active and running
                   </p>
@@ -1429,7 +1550,7 @@ export default function CampaignSetup() {
                   <Button
                     onClick={nextStep}
                     disabled={
-                      (currentStep === 1 && (!campaignData.campaignName || !campaignData.useCase || !campaignData.subUseCase || (campaignData.subUseCase === 'recall-notification' && !selectedAgent))) ||
+                      (currentStep === 1 && (!campaignData.campaignName || !selectedCategory || !campaignData.subUseCase || (campaignData.subUseCase === 'recall-notification' && !selectedAgent))) ||
                       (currentStep === 2 && !uploadComplete) ||
                       (currentStep === 3 && campaignData.schedule === 'scheduled' && (!campaignData.scheduledDate || !campaignData.scheduledTime)) ||
                       isLaunching

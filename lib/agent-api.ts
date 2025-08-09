@@ -30,13 +30,21 @@ export async function fetchAgentList(
   try {
     const url = `https://beta-api.spyne.xyz/conversation/agents/fetch-agent-list?enterpriseId=${enterpriseId}&teamId=${teamId}&agentUseCase=${agentUseCase}&agentType=${agentType}&agentCallType=${agentCallType}`;
     
+    console.log('Fetching agents from URL:', url);
+    
     const response = await fetch(url);
 
+    console.log('API Response status:', response.status);
+    console.log('API Response ok:', response.ok);
+
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      console.error('API Error response:', errorText);
+      throw new Error(`HTTP error! status: ${response.status}, response: ${errorText}`);
     }
 
     const agents: Agent[] = await response.json();
+    console.log('API Response data:', agents);
     return agents;
   } catch (error) {
     console.error('Error fetching agent list:', error);

@@ -17,10 +17,15 @@ export function extractUrlParams(): UrlParams {
 
   console.log(urlParams.get('auth_key'))
   
+  // Handle both camelCase and underscore formats
+  const enterpriseId = urlParams.get('enterprise_id') || urlParams.get('enterpriseId');
+  const teamId = urlParams.get('team_id') || urlParams.get('teamId');
+  const authKey = urlParams.get('auth_key') || urlParams.get('authKey');
+  
   return {
-    enterprise_id: urlParams.get('enterprise_id'),
-    team_id: urlParams.get('team_id'),
-    auth_key: urlParams.get('auth_key'),
+    enterprise_id: enterpriseId,
+    team_id: teamId,
+    auth_key: authKey,
   };
 }
 

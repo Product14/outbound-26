@@ -13,6 +13,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Download, Search, Phone, CheckCircle, Clock, AlertCircle, Calendar, BarChart3, TrendingUp, Users, ArrowLeft, RefreshCw, Loader2 } from 'lucide-react'
 import Link from "next/link"
 import { fetchCampaignDetails, type CampaignDetailResponse, type CallDetail } from '@/lib/campaign-api'
+import { calculateAndFormatEstimatedTime, getShortEstimatedTime } from '@/lib/time-utils'
+import { generateCallStatus, generateCallTime, generateCallDuration, calculateCampaignStats } from '@/lib/call-status-utils'
 
 // Map API campaign type to display format
 const mapCampaignType = (campaignType: string): string => {
@@ -20,42 +22,53 @@ const mapCampaignType = (campaignType: string): string => {
   return campaignType // 'Sales', 'Service', etc.
 }
 
-// Map call details to display format for table
-const formatCallDetailsForTable = (callDetails: CallDetail[]) => {
-  return callDetails.map((call, index) => ({
-    id: index + 1,
-    customer: call.customerName,
-    phone: call.customerNumber,
-    vin: call.vin,
-    make: call.vehicleMake,
-    model: call.vehicleModel,
-    year: call.vehicleYear,
-    vehicle: call.vehicle,
-    recallDescription: call.recallDescription,
-    symptom: call.symptom,
-    riskDetails: call.riskDetails,
-    remedySteps: call.remedySteps,
-    partsAvailable: call.partsAvailabilityFlag ? 'Yes' : 'No',
-    loanerEligible: call.loanerEligibility ? 'Yes' : 'No',
-    // Mock status data since API doesn't provide call status yet
-    status: 'Connected', // Default to connected for completed campaigns
-    outcome: 'Success',
-    appointment: 'Yes',
-    callTime: new Date().toISOString(),
-    duration: '3:45'
-  }))
+// Map call details to display format for table with realistic call statuses
+const formatCallDetailsForTable = (callDetails: CallDetail[], campaignStartDate: string) => {
+  return callDetails.map((call, index) => {
+    // Generate realistic call status based on requirements:
+    // 60% Connected, 20% Voice Mail, 20% Failed
+    // Only Connected calls can have appointments
+    const statusResult = generateCallStatus(index, callDetails.length);
+    const callTime = generateCallTime(index, campaignStartDate);
+    const duration = generateCallDuration(index, statusResult.status);
+
+    return {
+      id: index + 1,
+      customer: call.customerName,
+      phone: call.customerNumber,
+      vin: call.vin,
+      make: call.vehicleMake,
+      model: call.vehicleModel,
+      year: call.vehicleYear,
+      vehicle: call.vehicle,
+      recallDescription: call.recallDescription,
+      symptom: call.symptom,
+      riskDetails: call.riskDetails,
+      remedySteps: call.remedySteps,
+      partsAvailable: call.partsAvailabilityFlag ? 'Yes' : 'No',
+      loanerEligible: call.loanerEligibility ? 'Yes' : 'No',
+      // Use calculated status data
+      status: statusResult.status,
+      outcome: statusResult.outcome,
+      appointment: statusResult.appointment,
+      callTime: callTime,
+      duration: duration
+    }
+  })
 }
 
 const statusColors: Record<string, string> = {
   Connected: 'bg-[#22C55E] text-white border-[#22C55E]',
-  Voicemail: 'bg-[#FACC15] text-[#1A1A1A] border-[#FACC15]',
-  'No Answer': 'bg-[#EF4444] text-white border-[#EF4444]'
+  'Voice Mail': 'bg-[#FACC15] text-[#1A1A1A] border-[#FACC15]',
+  Failed: 'bg-[#EF4444] text-white border-[#EF4444]'
 }
 
 const outcomeColors: Record<string, string> = {
   Success: 'bg-[#22C55E] text-white border-[#22C55E]',
-  Failure: 'bg-[#EF4444] text-white border-[#EF4444]',
-  Pending: 'bg-[#6B7280] text-white border-[#6B7280]'
+  'Callback Requested': 'bg-[#3B82F6] text-white border-[#3B82F6]',
+  'Not Interested': 'bg-[#6B7280] text-white border-[#6B7280]',
+  'Wrong Number': 'bg-[#EF4444] text-white border-[#EF4444]',
+  'No Answer': 'bg-[#F59E0B] text-white border-[#F59E0B]'
 }
 
 export default function CampaignDetail() {
@@ -73,6 +86,9 @@ export default function CampaignDetail() {
   const [error, setError] = useState<string | null>(null)
   const [campaignNotFound, setCampaignNotFound] = useState(false)
 
+  // Calculate realistic campaign stats based on call status logic
+  const calculatedStats = campaignData ? calculateCampaignStats(campaignData.campaign.totalCustomers) : null
+
   // Load campaign data when component mounts or campaignId changes
   useEffect(() => {
     const loadCampaignData = async () => {
@@ -87,7 +103,7 @@ export default function CampaignDetail() {
         
         if (response.success) {
           setCampaignData(response)
-          const formattedCallDetails = formatCallDetailsForTable(response.callDetails)
+          const formattedCallDetails = formatCallDetailsForTable(response.callDetails, response.campaign.startDate)
           setCallDetails(formattedCallDetails)
           setCampaignNotFound(false)
           console.log('Loaded campaign details:', response)
@@ -140,7 +156,7 @@ export default function CampaignDetail() {
       
       if (response.success) {
         setCampaignData(response)
-        const formattedCallDetails = formatCallDetailsForTable(response.callDetails)
+        const formattedCallDetails = formatCallDetailsForTable(response.callDetails, response.campaign.startDate)
         setCallDetails(formattedCallDetails)
         setLastRefresh(new Date())
       }
@@ -239,7 +255,7 @@ export default function CampaignDetail() {
                 <div className="flex-1 min-w-0">
                   <h3 className="text-[#1A1A1A]/60 font-semibold text-sm leading-[1.4] mb-1">Answer Rate</h3>
                   <p className="text-[#1A1A1A] text-[26px] font-bold leading-[1.4]">
-                    {campaignData.campaign.answerRate}%
+                    {calculatedStats?.answerRate ?? campaignData.campaign.answerRate}%
                   </p>
                 </div>
               </div>
@@ -255,7 +271,7 @@ export default function CampaignDetail() {
                 <div className="flex-1 min-w-0">
                   <h3 className="text-[#1A1A1A]/60 font-semibold text-sm leading-[1.4] mb-1">Appointments</h3>
                   <p className="text-[#1A1A1A] text-[26px] font-bold leading-[1.4]">
-                    {campaignData.campaign.appointmentScheduled}
+                    {calculatedStats?.appointmentCount ?? campaignData.campaign.appointmentScheduled}
                   </p>
                 </div>
               </div>
@@ -277,6 +293,7 @@ export default function CampaignDetail() {
               </div>
             </CardContent>
           </Card>
+          
         </div>
 
         {/* Campaign Details */}

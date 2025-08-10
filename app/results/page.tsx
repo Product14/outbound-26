@@ -13,6 +13,7 @@ import Link from "next/link"
 import { fetchCampaignList, type CampaignListItem } from '@/lib/campaign-api'
 import { extractUrlParams } from '@/lib/url-utils'
 import { toast } from 'sonner'
+import { getShortEstimatedTime } from '@/lib/time-utils'
 
 // Map API campaign type to display format
 const mapCampaignType = (campaignType: string): string => {

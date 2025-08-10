@@ -22,6 +22,7 @@ import { transformCampaignData, launchCampaign, type Customer } from '@/lib/camp
 import { parseUploadedFile, REQUIRED_CSV_COLUMNS, type ParsedCustomerData } from '@/lib/file-parser'
 import { fetchAgentList, type Agent } from '@/lib/agent-api'
 import { useToast } from "@/hooks/use-toast"
+import { calculateAndFormatEstimatedTime, getShortEstimatedTime } from '@/lib/time-utils'
 
 interface SubCase {
   value: string;
@@ -97,9 +98,11 @@ export default function CampaignSetup() {
     schedule: 'now',
     scheduledDate: '',
     scheduledTime: '',
-    estimatedTime: '2-3 hours',
     totalRecords: 0
   })
+  
+  // Calculate estimated time dynamically based on total records
+  const estimatedTime = calculateAndFormatEstimatedTime(campaignData.totalRecords)
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [createdCampaignId, setCreatedCampaignId] = useState('')
   const [urlParams, setUrlParams] = useState<UrlParams>({ enterprise_id: null, team_id: null, auth_key: null })
@@ -428,7 +431,7 @@ export default function CampaignSetup() {
           subUseCase: useCases[selectedCategory]?.subCases.find(sc => sc.value === campaignData.subUseCase)?.label || campaignData.subUseCase,
           status: campaignData.schedule === 'now' ? 'Running' : 'Scheduled',
           progress: campaignData.schedule === 'now' ? 0 : 0,
-          eta: campaignData.schedule === 'now' ? campaignData.estimatedTime : null,
+          eta: campaignData.schedule === 'now' ? estimatedTime : null,
           callsPlaced: 0,
           totalRecords: campaignData.totalRecords,
           answerRate: 0,
@@ -1149,7 +1152,7 @@ export default function CampaignSetup() {
                     </div>
                     <div>
                       <p className="text-[14px] font-medium text-[#1A1A1A] mb-1">Estimated Time</p>
-                      <p className="text-[16px] text-[#1A1A1A]">{campaignData.estimatedTime}</p>
+                      <p className="text-[16px] text-[#1A1A1A]">{estimatedTime}</p>
                     </div>
                     <div className="col-span-2">
                       <p className="text-[14px] font-medium text-[#1A1A1A] mb-1">File</p>
@@ -1421,7 +1424,6 @@ export default function CampaignSetup() {
                       schedule: 'now',
                       scheduledDate: '',
                       scheduledTime: '',
-                      estimatedTime: '2-3 hours',
                       totalRecords: 0
                     })
                     // Reset upload states

@@ -340,13 +340,13 @@ export default function CampaignResults() {
 
 
 
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-4 gap-4">
                         <div className="flex items-center space-x-3 p-4 bg-info/5 rounded-lg border border-info/10">
                           <div className="p-2 bg-blue-100 rounded-lg">
                             <Phone className="h-5 w-5 text-blue-500" />
                           </div>
                           <div>
-                            <p className="text-small text-text-secondary uppercase tracking-wide">Calls Placed</p>
+                            <p className="text-small text-text-secondary tracking-wide">Calls Placed</p>
                             <p className="text-body font-medium text-text-primary">{campaign.totalCallPlaced}</p>
                           </div>
                         </div>
@@ -355,7 +355,7 @@ export default function CampaignResults() {
                             <BarChart3 className="h-5 w-5 text-green-500" />
                           </div>
                           <div>
-                            <p className="text-small text-text-secondary uppercase tracking-wide">Answer Rate</p>
+                            <p className="text-small text-text-secondary tracking-wide">Answer Rate</p>
                             <p className="text-body font-medium text-text-primary">{campaign.answerRate}%</p>
                           </div>
                         </div>
@@ -364,7 +364,7 @@ export default function CampaignResults() {
                             <Calendar className="h-5 w-5 text-purple-500" />
                           </div>
                           <div>
-                            <p className="text-small text-text-secondary uppercase tracking-wide">Appointments</p>
+                            <p className="text-small text-text-secondary tracking-wide">Appointments</p>
                             <p className="text-body font-medium text-text-primary">{campaign.appointmentScheduled}</p>
                           </div>
                         </div>
@@ -383,7 +383,7 @@ export default function CampaignResults() {
                             }`} />
                           </div>
                           <div>
-                            <p className="text-small text-text-secondary uppercase tracking-wide">Status</p>
+                            <p className="text-small text-text-secondary tracking-wide">Status</p>
                             <p className="text-small font-medium text-text-primary capitalize">{campaign.status}</p>
                           </div>
                         </div>

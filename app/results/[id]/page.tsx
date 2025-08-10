@@ -199,11 +199,11 @@ export default function CampaignDetail() {
           // Fetch agent data for the campaign
           try {
             setIsLoadingAgent(true)
-            const agentResponse = await fetchAgentList()
-            if (agentResponse.success && agentResponse.agents.length > 0) {
+            const agents = await fetchAgentList('default-enterprise', 'default-team')
+            if (agents.length > 0) {
               // For now, use the first available agent since we don't have agent mapping
               // In a real scenario, you'd match by teamAgentMappingId
-              const agent = agentResponse.agents.find(a => a.available) || agentResponse.agents[0]
+              const agent = agents.find((agent: Agent) => agent.available) || agents[0]
               setCampaignAgent(agent)
             }
           } catch (agentError) {
@@ -430,16 +430,16 @@ export default function CampaignDetail() {
         </div>
 
         {/* Main Content Grid - Key Metrics and Campaign Details */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-8 items-stretch">
+        <div className="grid grid-cols-5 gap-6 mb-8 items-stretch">
           {/* Metrics */}
-          <Card className="border-0 bg-white rounded-[16px] h-full lg:col-span-3 xl:col-span-3">
+          <Card className="border-0 bg-white rounded-[16px] h-full col-span-3">
             <CardHeader className="pb-4">
               <CardTitle className="text-[16px] font-semibold text-[#1A1A1A]">
                 Key Metrics
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="flex items-start space-x-2 p-3 bg-white border border-black/10 rounded-[12px]">
                   <div className="p-2 bg-[#F0F4FF] rounded-[8px] flex-shrink-0">
                     <Phone className="h-4 w-4 text-[#4600F2]" />
@@ -516,7 +516,7 @@ export default function CampaignDetail() {
           </Card>
 
           {/* Campaign Details */}
-          <Card className="border-0 bg-white rounded-[16px] h-full lg:col-span-1 xl:col-span-2">
+          <Card className="border-0 bg-white rounded-[16px] h-full col-span-2">
             <CardHeader className="pb-4">
               <CardTitle className="text-[16px] font-semibold text-[#1A1A1A]">
                 Campaign Details

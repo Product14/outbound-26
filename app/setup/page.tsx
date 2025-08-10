@@ -1477,7 +1477,7 @@ export default function CampaignSetup() {
                         )}
                       </div>
                       {index < steps.length - 1 && (
-                        <div className={`hidden lg:block w-0.5 h-12 mt-4 ${
+                        <div className={`w-0.5 h-12 mt-4 ${
                           currentStep > step.id ? 'bg-[#22C55E]' : 'bg-[#E5E7EB]'
                         }`} />
                       )}

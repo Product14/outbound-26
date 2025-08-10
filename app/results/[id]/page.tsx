@@ -10,9 +10,10 @@ import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Download, Search, Phone, CheckCircle, Clock, AlertCircle, Calendar, BarChart3, TrendingUp, Users, ArrowLeft, RefreshCw, Loader2 } from 'lucide-react'
+import { Download, Search, Phone, CheckCircle, Clock, AlertCircle, Calendar, BarChart3, TrendingUp, Users, ArrowLeft, RefreshCw, Loader2, Target, Timer, Check, X } from 'lucide-react'
 import Link from "next/link"
 import { fetchCampaignDetails, type CampaignDetailResponse, type CallDetail } from '@/lib/campaign-api'
+import { fetchAgentList, type Agent } from '@/lib/agent-api'
 import { calculateAndFormatEstimatedTime, getShortEstimatedTime } from '@/lib/time-utils'
 import { generateCallStatus, generateCallTime, generateCallDuration, calculateCampaignStats } from '@/lib/call-status-utils'
 
@@ -21,6 +22,24 @@ const mapCampaignType = (campaignType: string): string => {
   if (campaignType === 'recall') return 'Service'
   return campaignType // 'Sales', 'Service', etc.
 }
+
+// Generate realistic call quality rating (1-10)
+const generateCallQuality = (index: number, status: string): number => {
+  // Seed random based on index for consistent results
+  const seed = (index * 7 + 13) % 100;
+  
+  // Higher quality for successful calls
+  if (status === 'Connected') {
+    // 70% chance of 7-10, 30% chance of 4-6
+    return seed < 70 ? Math.floor(7 + (seed % 4)) : Math.floor(4 + (seed % 3));
+  } else if (status === 'Voice Mail') {
+    // 50% chance of 5-8, 50% chance of 2-4
+    return seed < 50 ? Math.floor(5 + (seed % 4)) : Math.floor(2 + (seed % 3));
+  } else {
+    // Failed calls: mostly 1-5
+    return Math.floor(1 + (seed % 5));
+  }
+};
 
 // Map call details to display format for table with realistic call statuses
 const formatCallDetailsForTable = (callDetails: CallDetail[], campaignStartDate: string) => {
@@ -31,6 +50,7 @@ const formatCallDetailsForTable = (callDetails: CallDetail[], campaignStartDate:
     const statusResult = generateCallStatus(index, callDetails.length);
     const callTime = generateCallTime(index, campaignStartDate);
     const duration = generateCallDuration(index, statusResult.status);
+    const callQuality = generateCallQuality(index, statusResult.status);
 
     return {
       id: index + 1,
@@ -52,14 +72,15 @@ const formatCallDetailsForTable = (callDetails: CallDetail[], campaignStartDate:
       outcome: statusResult.outcome,
       appointment: statusResult.appointment,
       callTime: callTime,
-      duration: duration
+      duration: duration,
+      callQuality: callQuality
     }
   })
 }
 
 const statusColors: Record<string, string> = {
-  Connected: 'bg-[#22C55E] text-white border-[#22C55E]',
-  'Voice Mail': 'bg-[#FACC15] text-[#1A1A1A] border-[#FACC15]',
+  Connected: 'bg-[#DCFCE7] text-[#16A34A] border-[#BBF7D0]',
+  'Voice Mail': 'bg-[#FCE7F3] text-[#EC4899] border-[#F9A8D4]',
   Failed: 'bg-[#EF4444] text-white border-[#EF4444]'
 }
 
@@ -70,6 +91,69 @@ const outcomeColors: Record<string, string> = {
   'Wrong Number': 'bg-[#EF4444] text-white border-[#EF4444]',
   'No Answer': 'bg-[#F59E0B] text-white border-[#F59E0B]'
 }
+
+// Call Quality Donut Chart Component
+const CallQualityChart = ({ rating }: { rating: number }) => {
+  const getQualityColor = (rating: number): string => {
+    if (rating >= 8) return '#22C55E'; // Green
+    if (rating >= 6) return '#F59E0B'; // Yellow
+    if (rating >= 4) return '#FB923C'; // Orange
+    return '#EF4444'; // Red
+  };
+
+  const getQualityLabel = (rating: number): string => {
+    if (rating >= 8) return 'Excellent';
+    if (rating >= 6) return 'Good';
+    if (rating >= 4) return 'Fair';
+    return 'Poor';
+  };
+
+  const percentage = (rating / 10) * 100;
+  const strokeDasharray = 2 * Math.PI * 16; // circumference of circle with radius 16
+  const strokeDashoffset = strokeDasharray - (strokeDasharray * percentage) / 100;
+  const color = getQualityColor(rating);
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="relative w-10 h-10">
+        <svg className="w-10 h-10 transform -rotate-90" viewBox="0 0 40 40">
+          {/* Background circle */}
+          <circle
+            cx="20"
+            cy="20"
+            r="16"
+            fill="none"
+            stroke="#E5E7EB"
+            strokeWidth="3"
+          />
+          {/* Progress circle */}
+          <circle
+            cx="20"
+            cy="20"
+            r="16"
+            fill="none"
+            stroke={color}
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray={strokeDasharray}
+            strokeDashoffset={strokeDashoffset}
+            className="transition-all duration-500"
+          />
+        </svg>
+        {/* Rating number in center */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-xs font-bold" style={{ color }}>
+            {rating}
+          </span>
+        </div>
+      </div>
+      <div className="text-xs">
+        <div className="font-semibold text-[#1A1A1A]">{getQualityLabel(rating)}</div>
+        <div className="text-[#6B7280]">{rating}/10</div>
+      </div>
+    </div>
+  );
+};
 
 export default function CampaignDetail() {
   const params = useParams()
@@ -85,6 +169,10 @@ export default function CampaignDetail() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [campaignNotFound, setCampaignNotFound] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
+  const [campaignAgent, setCampaignAgent] = useState<Agent | null>(null)
+  const [isLoadingAgent, setIsLoadingAgent] = useState(false)
 
   // Calculate realistic campaign stats based on call status logic
   const calculatedStats = campaignData ? calculateCampaignStats(campaignData.campaign.totalCustomers) : null
@@ -107,6 +195,23 @@ export default function CampaignDetail() {
           setCallDetails(formattedCallDetails)
           setCampaignNotFound(false)
           console.log('Loaded campaign details:', response)
+
+          // Fetch agent data for the campaign
+          try {
+            setIsLoadingAgent(true)
+            const agentResponse = await fetchAgentList()
+            if (agentResponse.success && agentResponse.agents.length > 0) {
+              // For now, use the first available agent since we don't have agent mapping
+              // In a real scenario, you'd match by teamAgentMappingId
+              const agent = agentResponse.agents.find(a => a.available) || agentResponse.agents[0]
+              setCampaignAgent(agent)
+            }
+          } catch (agentError) {
+            console.error('Error fetching agent data:', agentError)
+            // Don't fail the whole page if agent fetch fails
+          } finally {
+            setIsLoadingAgent(false)
+          }
         } else {
           throw new Error('Failed to fetch campaign details')
         }
@@ -136,6 +241,17 @@ export default function CampaignDetail() {
     
     return matchesSearch && matchesStatus && matchesOutcome
   })
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredCalls.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const currentPageCalls = filteredCalls.slice(startIndex, endIndex)
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, statusFilter, outcomeFilter])
 
   const formatDate = (date: string | Date) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -219,305 +335,428 @@ export default function CampaignDetail() {
       <div className="px-12 py-8 bg-[#F4F5F8] min-h-screen">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-4 mb-2">
-            <Link href="/results" className="flex items-center text-[#6B7280] hover:text-[#1A1A1A] transition-colors">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-            <h1 className="text-[20px] font-semibold text-[#1A1A1A] leading-[1.4]">{campaignData.campaign.name}</h1>
-          </div>
-          <p className="text-sm text-[#6B7280] leading-[1.5] ml-9">{mapCampaignType(campaignData.campaign.campaignType)} - {campaignData.campaign.campaignUseCase?.replace('_', ' ').replace('notificaiton', 'notification')}</p>
-        </div>
-
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="border border-[#1A1A1A]/10 bg-white rounded-xl">
-            <CardContent className="p-6">
-              <div className="flex items-start space-x-6">
-                <div className="p-3 bg-[#F0F4FF] rounded-lg flex-shrink-0">
-                  <Phone className="h-6 w-6 text-[#4600F2]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-[#1A1A1A]/60 font-semibold text-sm leading-[1.4] mb-1">Calls Placed</h3>
-                  <p className="text-[#1A1A1A] text-[26px] font-bold leading-[1.4]">
-                    {campaignData.campaign.totalCallPlaced}
-                  </p>
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-4 mb-2">
+                <Link href="/results" className="flex items-center text-[#6B7280] hover:text-[#1A1A1A] transition-colors">
+                  <ArrowLeft className="h-5 w-5" />
+                </Link>
+                <h1 className="text-[20px] font-semibold text-[#1A1A1A] leading-[1.4]">Campaign Details - {campaignData.campaign.name}</h1>
+              </div>
+              <p className="text-[14px] text-[#6B7280] leading-[1.5] ml-9">View comprehensive campaign performance metrics and detailed call results</p>
+            </div>
+            
+            {/* Campaign Progress */}
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col items-end">
+                <div className="text-[12px] font-medium text-[#6B7280] mb-1">Campaign Progress</div>
+                <div className="text-[16px] font-bold text-[#1A1A1A]">
+                  {campaignData ? Math.round((campaignData.campaign.totalCallPlaced / campaignData.campaign.totalCustomers) * 100) : 0}%
                 </div>
               </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="border border-[#1A1A1A]/10 bg-white rounded-xl">
-            <CardContent className="p-6">
-              <div className="flex items-start space-x-6">
-                <div className="p-3 bg-[#F0FDF4] rounded-lg flex-shrink-0">
-                  <CheckCircle className="h-6 w-6 text-[#22C55E]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-[#1A1A1A]/60 font-semibold text-sm leading-[1.4] mb-1">Answer Rate</h3>
-                  <p className="text-[#1A1A1A] text-[26px] font-bold leading-[1.4]">
-                    {calculatedStats?.answerRate ?? campaignData.campaign.answerRate}%
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="border border-[#1A1A1A]/10 bg-white rounded-xl">
-            <CardContent className="p-6">
-              <div className="flex items-start space-x-6">
-                <div className="p-3 bg-[#FEFCE8] rounded-lg flex-shrink-0">
-                  <Calendar className="h-6 w-6 text-[#F59E0B]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-[#1A1A1A]/60 font-semibold text-sm leading-[1.4] mb-1">Appointments</h3>
-                  <p className="text-[#1A1A1A] text-[26px] font-bold leading-[1.4]">
-                    {calculatedStats?.appointmentCount ?? campaignData.campaign.appointmentScheduled}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="border border-[#1A1A1A]/10 bg-white rounded-xl">
-            <CardContent className="p-6">
-              <div className="flex items-start space-x-6">
-                <div className="p-3 bg-[#EFF6FF] rounded-lg flex-shrink-0">
-                  <BarChart3 className="h-6 w-6 text-[#3B82F6]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-[#1A1A1A]/60 font-semibold text-sm leading-[1.4] mb-1">Total Customers</h3>
-                  <p className="text-[#1A1A1A] text-[26px] font-bold leading-[1.4]">
-                    {campaignData.campaign.totalCustomers}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-        </div>
-
-        {/* Campaign Details */}
-        <div className="mb-8">
-          <Card className="border border-[#1A1A1A]/10 bg-white rounded-xl">
-            <CardHeader className="p-6">
-              <div>
-                <CardTitle className="text-[20px] font-semibold text-[#1A1A1A] leading-[1.4]">
-                  Campaign Details
-                </CardTitle>
-                <CardDescription className="text-sm text-[#6B7280] leading-[1.5] mt-1">
-                  Campaign information and configuration
-                </CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-[#F4F5F8] rounded-lg">
-                  <div>
-                    <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Campaign ID</p>
-                    <p className="text-sm font-mono text-[#1A1A1A] mt-1">{campaignData.campaign.campaignId}</p>
-                  </div>
-                  <div className="p-2 bg-[#4600F2]/10 rounded-lg">
-                    <div className="w-4 h-4 bg-[#4600F2] rounded-sm"></div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 bg-[#F4F5F8] rounded-lg">
-                  <div>
-                    <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Created</p>
-                    <p className="text-sm text-[#1A1A1A] mt-1">{formatDate(campaignData.campaign.startDate)}</p>
-                  </div>
-                  <div className="p-2 bg-[#22C55E]/10 rounded-lg">
-                    <Calendar className="h-4 w-4 text-[#22C55E]" />
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 bg-[#F4F5F8] rounded-lg">
-                  <div>
-                    <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Started</p>
-                    <p className="text-sm text-[#1A1A1A] mt-1">{formatDate(campaignData.campaign.startDate)}</p>
-                  </div>
-                  <div className="p-2 bg-[#F59E0B]/10 rounded-lg">
-                    <Clock className="h-4 w-4 text-[#F59E0B]" />
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 bg-[#F4F5F8] rounded-lg">
-                  <div>
-                    <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Total Records</p>
-                    <p className="text-sm text-[#1A1A1A] mt-1">{campaignData.campaign.totalCustomers}</p>
-                  </div>
-                  <div className="p-2 bg-[#3B82F6]/10 rounded-lg">
-                    <Users className="h-4 w-4 text-[#3B82F6]" />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Campaign Progress */}
-        <div className="mb-8">
-          <Card className="border border-[#1A1A1A]/10 bg-white rounded-xl">
-            <CardHeader className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-[20px] font-semibold text-[#1A1A1A] leading-[1.4]">
-                    {campaignData.campaign.status === 'running' ? 'Campaign Progress' : 'Campaign Results'}
-                  </CardTitle>
-                  <CardDescription className="text-sm text-[#6B7280] leading-[1.5] mt-1">
-                    {campaignData.campaign.status === 'running' 
-                      ? 'Real-time calling progress and metrics' 
-                      : 'Final campaign results and performance'
-                    }
-                  </CardDescription>
-                </div>
-                {campaignData.campaign.status === 'Running' && (
-                  <div className="flex items-center gap-2 px-3 py-1 bg-[#3B82F6]/10 rounded-full">
-                    <div className="w-2 h-2 bg-[#3B82F6] rounded-full animate-pulse"></div>
-                    <span className="text-xs text-[#3B82F6] font-medium">Live</span>
-                  </div>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                  <span className="font-semibold text-[#1A1A1A] text-sm leading-[1.5]">
-                    Progress: {campaignData.campaign.totalCallPlaced} of {campaignData.campaign.totalCustomers} calls
-                  </span>
-                  {campaignData.campaign.status === 'Running' && (
-                    <span className="text-[#6B7280] flex items-center text-sm bg-[#F4F5F8] px-3 py-1 rounded-full">
-                      <Clock className="h-4 w-4 mr-1" />
-                      Status: {campaignData.campaign.status}
-                    </span>
+              <div className="relative w-12 h-12">
+                <svg className="w-12 h-12 transform -rotate-90" viewBox="0 0 48 48">
+                  {/* Background circle */}
+                  <circle
+                    cx="24"
+                    cy="24"
+                    r="20"
+                    fill="none"
+                    stroke="#F3F4F6"
+                    strokeWidth="4"
+                  />
+                  {/* Progress circle with animation */}
+                  {campaignData && (
+                    <circle
+                      cx="24"
+                      cy="24"
+                      r="20"
+                      fill="none"
+                      stroke={Math.round((campaignData.campaign.totalCallPlaced / campaignData.campaign.totalCustomers) * 100) === 100 ? "#22C55E" : "#4600F2"}
+                      strokeWidth="4"
+                      strokeLinecap="round"
+                      strokeDasharray={2 * Math.PI * 20}
+                      strokeDashoffset={2 * Math.PI * 20}
+                      className="transition-all duration-1000 ease-out"
+                      style={{
+                        animation: 'progressFill 1.5s ease-out forwards',
+                        strokeDashoffset: 2 * Math.PI * 20 * (1 - (campaignData.campaign.totalCallPlaced / campaignData.campaign.totalCustomers))
+                      }}
+                    />
+                  )}
+                </svg>
+                {/* Agent avatar in center with loading states */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  {isLoadingAgent ? (
+                    // Skeleton loading state
+                    <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse border-2 border-[#E5E7EB]"></div>
+                  ) : (
+                    <div className={`w-8 h-8 rounded-full overflow-hidden border-2 ${
+                      campaignData && Math.round((campaignData.campaign.totalCallPlaced / campaignData.campaign.totalCustomers) * 100) === 100 
+                        ? 'border-[#22C55E]' 
+                        : 'border-[#4600F2]'
+                    }`}>
+                      <img 
+                        src={campaignAgent?.imageUrl || '/placeholder-user.jpg'} 
+                        alt={campaignAgent?.name || 'AI Agent'} 
+                        className="w-full h-full object-cover object-[50%_20%]"
+                        onError={(e) => {
+                          // Fallback to default avatar if image fails to load
+                          e.currentTarget.src = '/placeholder-user.jpg'
+                        }}
+                      />
+                    </div>
                   )}
                 </div>
-                {campaignData.campaign.status === 'Running' ? (
-                  <div className="space-y-4">
-                    <div className="relative">
-                      <Progress value={100} className="h-3 bg-[#F4F5F8] rounded-full" />
-                      <div className="absolute inset-0 bg-gradient-to-r from-[#4600F2]/20 to-[#3B82F6]/20 rounded-full"></div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-3xl font-bold text-[#1A1A1A] mb-1">
-                        100.0%
-                      </div>
-                      <div className="text-sm text-[#6B7280]">Complete</div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <div className="w-16 h-16 bg-[#22C55E]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <CheckCircle className="h-8 w-8 text-[#22C55E]" />
-                    </div>
-                    <div className="text-2xl font-bold text-[#22C55E] mb-2">
-                      Campaign Completed
-                    </div>
-                    <div className="text-sm text-[#6B7280]">
-                      All {campaignData.campaign.totalCustomers} calls have been processed successfully
-                    </div>
-                  </div>
+                
+                {/* Add custom CSS for the progress animation */}
+                {campaignData && (
+                  <style jsx>{`
+                    @keyframes progressFill {
+                      0% {
+                        stroke-dashoffset: ${2 * Math.PI * 20};
+                      }
+                      100% {
+                        stroke-dashoffset: ${2 * Math.PI * 20 * (1 - (campaignData.campaign.totalCallPlaced / campaignData.campaign.totalCustomers))};
+                      }
+                    }
+                  `}</style>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content Grid - Key Metrics and Campaign Details */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 items-stretch">
+          {/* Metrics */}
+          <Card className="border-0 bg-white rounded-[16px] h-full lg:col-span-2">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-[16px] font-semibold text-[#1A1A1A]">
+                Key Metrics
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                  <div className="p-2 bg-[#F0F4FF] rounded-[8px] flex-shrink-0">
+                    <Phone className="h-4 w-4 text-[#4600F2]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-[#1A1A1A]/60 font-semibold text-xs leading-[1.4] mb-1">Calls Placed</h3>
+                    <p className="text-[#1A1A1A] text-[18px] font-bold leading-[1.4]">
+                      {campaignData.campaign.totalCallPlaced}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                  <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0">
+                    <CheckCircle className="h-4 w-4 text-[#22C55E]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-[#1A1A1A]/60 font-semibold text-xs leading-[1.4] mb-1">Answer Rate</h3>
+                    <p className="text-[#1A1A1A] text-[18px] font-bold leading-[1.4]">
+                      {calculatedStats?.answerRate ?? campaignData.campaign.answerRate}%
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                  <div className="p-2 bg-[#FEFCE8] rounded-[8px] flex-shrink-0">
+                    <Calendar className="h-4 w-4 text-[#F59E0B]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-[#1A1A1A]/60 font-semibold text-xs leading-[1.4] mb-1">Appointments</h3>
+                    <p className="text-[#1A1A1A] text-[18px] font-bold leading-[1.4]">
+                      {calculatedStats?.appointmentCount ?? campaignData.campaign.appointmentScheduled}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                  <div className="p-2 bg-[#EFF6FF] rounded-[8px] flex-shrink-0">
+                    <BarChart3 className="h-4 w-4 text-[#3B82F6]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-[#1A1A1A]/60 font-semibold text-xs leading-[1.4] mb-1">Total Customers</h3>
+                    <p className="text-[#1A1A1A] text-[18px] font-bold leading-[1.4]">
+                      {campaignData.campaign.totalCustomers}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                  <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0">
+                    <Target className="h-4 w-4 text-[#22C55E]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-[#1A1A1A]/60 font-semibold text-xs leading-[1.4] mb-1">Success Rate</h3>
+                    <p className="text-[#1A1A1A] text-[18px] font-bold leading-[1.4]">
+                      {calculatedStats ? Math.round((calculatedStats.appointmentCount / campaignData.campaign.totalCallPlaced) * 100) : 0}%
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                  <div className="p-2 bg-[#FDF2F8] rounded-[8px] flex-shrink-0">
+                    <Timer className="h-4 w-4 text-[#EC4899]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-[#1A1A1A]/60 font-semibold text-xs leading-[1.4] mb-1">Avg Call Duration</h3>
+                    <p className="text-[#1A1A1A] text-[18px] font-bold leading-[1.4]">
+                      {calculatedStats?.avgCallDuration ?? '2:45'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Campaign Details */}
+          <Card className="border-0 bg-white rounded-[16px] h-full">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-[16px] font-semibold text-[#1A1A1A]">
+                Campaign Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 py-2 border-b border-[#F4F5F8]">
+                  <div>
+                    <span className="text-sm text-[#6B7280] font-semibold block mb-1">Campaign ID</span>
+                    <span className="text-sm font-bold font-mono text-[#1A1A1A]">{campaignData.campaign.campaignId.substring(0, 12)}</span>
+                  </div>
+                  <div>
+                    <span className="text-sm text-[#6B7280] font-semibold block mb-1">Total Records</span>
+                    <span className="text-sm font-bold text-[#1A1A1A]">{campaignData.campaign.totalCustomers}</span>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 py-2">
+                  <div>
+                    <span className="text-sm text-[#6B7280] font-semibold block mb-1">Created</span>
+                    <span className="text-sm font-bold text-[#1A1A1A]">{formatDate(campaignData.campaign.startDate)}</span>
+                  </div>
+                  <div>
+                    <span className="text-sm text-[#6B7280] font-semibold block mb-1">Started</span>
+                    <span className="text-sm font-bold text-[#1A1A1A]">{formatDate(campaignData.campaign.startDate)}</span>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Call Details */}
-        <Card className="border-0 shadow-xl bg-white rounded-lg">
-          <CardHeader className="p-6">
+        <Card className="border-0 bg-white rounded-[16px]">
+          <CardHeader className="px-6 pt-6 pb-4">
             <div className="flex justify-between items-center">
               <div>
-                <CardTitle className="text-[20px] font-semibold text-[#1A1A1A] leading-[1.4]">Call Details</CardTitle>
-                <CardDescription className="text-sm text-[#6B7280] leading-[1.5]">Individual call results and outcomes</CardDescription>
+                <CardTitle className="text-[16px] font-semibold text-[#1A1A1A]">Call Details</CardTitle>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="p-6">
+          <CardContent className="px-6 pb-6 pt-2">
             {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-8">
-              <div className="flex-1">
+            <div className="flex flex-col sm:flex-row justify-between gap-4 mb-3">
+              <div className="w-full sm:w-80">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[#6B7280]" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#6B7280]" />
                   <Input
                     placeholder="Search by customer, phone, or VIN..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 h-12 text-sm border-[#E5E7EB] rounded-md focus:border-[#4600F2] focus:ring-[#4600F2]"
+                    className="pl-9 h-10 text-sm border-[#E5E7EB] rounded-md focus:border-[#4600F2] focus:ring-[#4600F2] bg-white"
                   />
                 </div>
               </div>
               
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-48 h-12 border-[#E5E7EB] rounded-md focus:border-[#4600F2] focus:ring-[#4600F2]">
-                  <SelectValue placeholder="All Statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="connected">Connected</SelectItem>
-                  <SelectItem value="voicemail">Voicemail</SelectItem>
-                  <SelectItem value="no-answer">No Answer</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select value={outcomeFilter} onValueChange={setOutcomeFilter}>
-                <SelectTrigger className="w-full sm:w-48 h-12 border-[#E5E7EB] rounded-md focus:border-[#4600F2] focus:ring-[#4600F2]">
-                  <SelectValue placeholder="All Outcomes" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Outcomes</SelectItem>
-                  <SelectItem value="success">Success</SelectItem>
-                  <SelectItem value="failure">Failure</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex gap-3">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full sm:w-40 h-10 border-[#E5E7EB] rounded-md focus:border-[#4600F2] focus:ring-[#4600F2] bg-white">
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="connected">Connected</SelectItem>
+                    <SelectItem value="voicemail">Voicemail</SelectItem>
+                    <SelectItem value="no-answer">No Answer</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Select value={outcomeFilter} onValueChange={setOutcomeFilter}>
+                  <SelectTrigger className="w-full sm:w-40 h-10 border-[#E5E7EB] rounded-md focus:border-[#4600F2] focus:ring-[#4600F2] bg-white">
+                    <SelectValue placeholder="All Outcomes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Outcomes</SelectItem>
+                    <SelectItem value="success">Success</SelectItem>
+                    <SelectItem value="failure">Failure</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Table */}
-            <div className="border border-[#E5E7EB] rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-[#F4F5F8]">
-                    <TableHead className="font-semibold text-[#1A1A1A] text-sm">Customer</TableHead>
-                    <TableHead className="font-semibold text-[#1A1A1A] text-sm">Phone</TableHead>
-                    <TableHead className="font-semibold text-[#1A1A1A] text-sm">Vehicle</TableHead>
-                    <TableHead className="font-semibold text-[#1A1A1A] text-sm">VIN</TableHead>
-                    <TableHead className="font-semibold text-[#1A1A1A] text-sm">Status</TableHead>
-                    <TableHead className="font-semibold text-[#1A1A1A] text-sm">Outcome</TableHead>
-                    <TableHead className="font-semibold text-[#1A1A1A] text-sm">Appointment</TableHead>
-                    <TableHead className="font-semibold text-[#1A1A1A] text-sm">Call Time</TableHead>
-                    <TableHead className="font-semibold text-[#1A1A1A] text-sm">Duration</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCalls.map((call) => (
-                    <TableRow key={call.id} className="hover:bg-[#F4F5F8] border-b border-[#E5E7EB]">
-                      <TableCell className="font-medium text-[#1A1A1A] text-sm">{call.customer}</TableCell>
-                      <TableCell className="text-[#1A1A1A] text-sm">{call.phone}</TableCell>
-                      <TableCell className="text-[#1A1A1A] text-sm">{call.year} {call.make} {call.model}</TableCell>
-                      <TableCell className="font-mono text-sm text-[#1A1A1A]">{call.vin}</TableCell>
-                      <TableCell>
-                        <Badge className={`${statusColors[call.status]} border font-medium rounded-full text-xs px-2 py-1`}>
-                          {call.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={`${outcomeColors[call.outcome]} border font-medium rounded-full text-xs px-2 py-1`}>
-                          {call.outcome}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={call.appointment === 'Yes' ? 'default' : 'secondary'} className="font-medium rounded-full text-xs px-2 py-1">
-                          {call.appointment}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-[#1A1A1A] text-sm">{formatDate(call.callTime)}</TableCell>
-                      <TableCell className="font-mono text-[#1A1A1A] text-sm">{call.duration}</TableCell>
+            <div className="relative border border-[#E5E7EB] rounded-lg overflow-hidden">
+              {/* Horizontal scroll indicator - left */}
+              <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white/80 to-transparent z-10 pointer-events-none opacity-0 transition-opacity duration-200" id="scroll-indicator-left"></div>
+              
+              {/* Horizontal scroll indicator - right */}
+              <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white/80 to-transparent z-10 pointer-events-none opacity-100 transition-opacity duration-200" id="scroll-indicator-right"></div>
+              
+              {/* Scrollable table container */}
+              <div 
+                className="overflow-auto max-h-[600px]" 
+                style={{ maxHeight: 'calc(100vh - 400px)' }}
+                onScroll={(e) => {
+                  const target = e.target as HTMLDivElement;
+                  const leftIndicator = document.getElementById('scroll-indicator-left');
+                  const rightIndicator = document.getElementById('scroll-indicator-right');
+                  
+                  if (leftIndicator && rightIndicator) {
+                    // Show/hide left indicator
+                    leftIndicator.style.opacity = target.scrollLeft > 0 ? '1' : '0';
+                    
+                    // Show/hide right indicator
+                    const isScrolledToRight = target.scrollLeft >= (target.scrollWidth - target.clientWidth - 1);
+                    rightIndicator.style.opacity = isScrolledToRight ? '0' : '1';
+                  }
+                }}
+              >
+                <Table>
+                  <TableHeader className="sticky top-0 z-20">
+                    <TableRow className="bg-[#F4F5F8] h-10">
+                      <TableHead className="font-semibold text-[#1A1A1A] text-xs min-w-[200px] sticky left-0 bg-[#F4F5F8] z-30 py-2 px-3">Customer Info</TableHead>
+                      <TableHead className="font-semibold text-[#1A1A1A] text-xs min-w-[180px] py-2 px-3">Vehicle & VIN</TableHead>
+                      <TableHead className="font-semibold text-[#1A1A1A] text-xs min-w-[100px] py-2 px-3">Status</TableHead>
+                      <TableHead className="font-semibold text-[#1A1A1A] text-xs min-w-[120px] py-2 px-3">Outcome</TableHead>
+                      <TableHead className="font-semibold text-[#1A1A1A] text-xs min-w-[100px] py-2 px-3">Appointment</TableHead>
+                      <TableHead className="font-semibold text-[#1A1A1A] text-xs min-w-[150px] py-2 px-3">Call Time & Duration</TableHead>
+                      <TableHead className="font-semibold text-[#1A1A1A] text-xs min-w-[140px] py-2 px-3">Call Quality</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {currentPageCalls.map((call) => (
+                      <TableRow key={call.id} className="hover:bg-[#F4F5F8] border-b border-[#E5E7EB]">
+                        <TableCell className="text-sm min-w-[200px] sticky left-0 bg-white z-10">
+                          <div className="space-y-1">
+                            <div className="font-bold text-[#1A1A1A]">{call.customer}</div>
+                            <div className="text-[#6B7280]">{call.phone}</div>
+                            {call.email && <div className="text-[#6B7280]">{call.email}</div>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm min-w-[180px]">
+                          <div className="space-y-1">
+                            <div className="text-[#1A1A1A] font-medium">{call.year} {call.make} {call.model}</div>
+                            <div className="font-mono text-xs text-[#6B7280]">{call.vin}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="min-w-[100px]">
+                          <div className={`${statusColors[call.status]} border font-medium rounded-full text-xs px-2 py-1 inline-block`}>
+                            {call.status}
+                          </div>
+                        </TableCell>
+                        <TableCell className="min-w-[120px]">
+                          <span className="text-[#1A1A1A] text-sm font-bold">
+                            {call.outcome}
+                          </span>
+                        </TableCell>
+                        <TableCell className="min-w-[100px]">
+                          {call.appointment === 'Yes' ? (
+                            <div className="flex items-center gap-1 text-[#22C55E] font-bold text-sm">
+                              <Check className="h-4 w-4" />
+                              <span>Yes</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 text-[#6B7280] text-sm">
+                              <X className="h-4 w-4" />
+                              <span>No</span>
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm min-w-[150px]">
+                          <div className="space-y-1">
+                            <div className="text-[#1A1A1A]">{formatDate(call.callTime)}</div>
+                            <div className="flex items-center gap-1 text-[#6B7280]">
+                              <Clock className="h-3 w-3" />
+                              <span className="font-mono text-xs">{call.duration}</span>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="min-w-[140px]">
+                          <CallQualityChart rating={call.callQuality} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              
+
             </div>
+            
+            {/* Table info with pagination */}
+            {filteredCalls.length > 0 && (
+              <div className="flex justify-between items-center mt-4 text-sm text-[#6B7280]">
+                <div>
+                  Showing {startIndex + 1}-{Math.min(endIndex, filteredCalls.length)} of {filteredCalls.length} calls
+                </div>
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="h-8 px-3 text-xs"
+                    >
+                      Previous
+                    </Button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(page => {
+                          // Show first page, last page, current page, and pages around current
+                          return page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1
+                        })
+                        .map((page, index, array) => {
+                          const prevPage = array[index - 1]
+                          return (
+                            <div key={page} className="flex items-center">
+                              {prevPage && page - prevPage > 1 && (
+                                <span className="px-2 text-[#6B7280]">...</span>
+                              )}
+                              <Button
+                                variant={currentPage === page ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setCurrentPage(page)}
+                                className={`h-8 w-8 p-0 text-xs ${
+                                  currentPage === page 
+                                    ? "bg-[#4600F2] text-white border-[#4600F2]" 
+                                    : "text-[#6B7280] border-[#E5E7EB]"
+                                }`}
+                              >
+                                {page}
+                              </Button>
+                            </div>
+                          )
+                        })}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="h-8 px-3 text-xs"
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {filteredCalls.length === 0 && (
               <div className="text-center py-16">

@@ -91,12 +91,19 @@ export function generateCallStatus(callIndex: number, totalCalls: number): CallS
 export function calculateCampaignStats(totalCalls: number): {
   answerRate: number;
   appointmentCount: number;
+  avgCallDuration: string;
 } {
   let connectedCalls = 0;
   let appointmentCount = 0;
+  let totalDurationSeconds = 0;
   
   for (let i = 0; i < totalCalls; i++) {
     const result = generateCallStatus(i, totalCalls);
+    const duration = generateCallDuration(i, result.status);
+    
+    // Convert duration string (MM:SS) to seconds
+    const [minutes, seconds] = duration.split(':').map(Number);
+    totalDurationSeconds += (minutes * 60) + seconds;
     
     if (result.status === 'Connected') {
       connectedCalls++;
@@ -109,7 +116,13 @@ export function calculateCampaignStats(totalCalls: number): {
   
   const answerRate = totalCalls > 0 ? Math.round((connectedCalls / totalCalls) * 100) : 0;
   
-  return { answerRate, appointmentCount };
+  // Calculate average duration
+  const avgDurationSeconds = totalCalls > 0 ? Math.round(totalDurationSeconds / totalCalls) : 0;
+  const avgMinutes = Math.floor(avgDurationSeconds / 60);
+  const avgSeconds = avgDurationSeconds % 60;
+  const avgCallDuration = `${avgMinutes}:${avgSeconds.toString().padStart(2, '0')}`;
+  
+  return { answerRate, appointmentCount, avgCallDuration };
 }
 
 /**

@@ -52,6 +52,8 @@ export interface CampaignListItem {
   name: string;
   campaignType: string;
   campaignUseCase?: string;
+  startDate?: string;
+  createdAt?: string;
   completedAt?: string;
   status: string;
   totalCallPlaced: number;

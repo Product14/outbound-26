@@ -1457,9 +1457,9 @@ export default function CampaignSetup() {
 
   return (
     <MainLayout>
-      <div className="h-screen flex flex-col lg:flex-row bg-[#F4F5F8]">
+      <div className="min-h-screen flex flex-col lg:flex-row bg-[#F4F5F8] relative">
         {/* Vertical Stepper Sidebar - Fixed on Left */}
-        <div className="w-full lg:w-64 bg-white border-b lg:border-b-0 lg:border-r border-[#E5E7EB] p-6 order-first lg:fixed lg:left-0 lg:top-0 lg:h-full lg:overflow-hidden">
+        <div className="w-full lg:w-64 bg-white border-b lg:border-b-0 lg:border-r border-[#E5E7EB] p-6 order-first lg:fixed lg:left-[272px] lg:top-0 lg:h-full lg:overflow-hidden">
           <div className="space-y-8">
             <div>
               <h3 className="text-[20px] font-semibold text-[#1A1A1A] mb-6 leading-[1.4]">Setup Progress</h3>
@@ -1515,15 +1515,16 @@ export default function CampaignSetup() {
         </div>
 
         {/* Main Content Area - Scrollable on Right */}
-        <div className="flex-1 flex flex-col bg-[#F4F5F8] lg:ml-64">
+        <div className="flex-1 flex flex-col bg-[#F4F5F8] lg:ml-64 min-h-screen">
           {/* Content - Scrollable */}
-          <div className="flex-1 px-12 py-8 pb-32 overflow-y-auto">
+          <div className="flex-1 px-12 py-8 pb-24 overflow-y-auto">
             {renderStepContent()}
           </div>
+        </div>
 
-          {/* Sticky Navigation */}
-          {currentStep < 4 && (
-            <div className="fixed bottom-0 bg-white border-t border-[#E5E7EB] z-50 shadow-lg lg:left-64 left-0 right-0" style={{ paddingTop: '16px', paddingBottom: '16px', paddingLeft: '24px', paddingRight: '24px' }}>
+        {/* Sticky Navigation - Outside main content for proper positioning */}
+        {currentStep < 4 && (
+          <div className="fixed bottom-0 lg:left-[272px] left-0 right-0 bg-white border-t border-[#E5E7EB] z-50 shadow-lg" style={{ paddingTop: '16px', paddingBottom: '16px', paddingLeft: '24px', paddingRight: '24px' }}>
               <div className="flex justify-between items-center">
                 {/* Cancel Button - Left Side */}
                 <Button
@@ -1571,7 +1572,6 @@ export default function CampaignSetup() {
               </div>
             </div>
           )}
-        </div>
       </div>
     </MainLayout>
   )

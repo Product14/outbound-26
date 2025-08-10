@@ -1,14 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { MainLayout } from '@/components/layout/main-layout'
+import { Toaster } from "@/components/ui/toaster"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Download, Phone, CheckCircle, Clock, AlertCircle, Calendar, BarChart3, Plus, Loader2 } from 'lucide-react'
+import { Search, Download, Phone, CheckCircle, Clock, AlertCircle, Calendar, BarChart3, Plus, Loader2, X } from 'lucide-react'
 import Link from "next/link"
 import { fetchCampaignList, type CampaignListItem } from '@/lib/campaign-api'
 import { extractUrlParams } from '@/lib/url-utils'
@@ -45,8 +45,8 @@ export default function CampaignResults() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [useCaseFilter, setUseCaseFilter] = useState('all')
+  const [activeStatusFilters, setActiveStatusFilters] = useState<string[]>([])
+  const [activeUseCaseFilters, setActiveUseCaseFilters] = useState<string[]>([])
         
   // Get URL parameters or use defaults for local testing
   const urlParams = extractUrlParams();
@@ -72,6 +72,17 @@ export default function CampaignResults() {
         if (response.success) {
           setCampaigns(response.campaigns)
           console.log('Loaded campaigns:', response.campaigns)
+          // Debug: Log the first campaign's date fields
+          if (response.campaigns.length > 0) {
+            const firstCampaign = response.campaigns[0]
+            console.log('First campaign date fields:', {
+              startDate: firstCampaign.startDate,
+              createdAt: firstCampaign.createdAt,
+              completedAt: firstCampaign.completedAt,
+              allFields: Object.keys(firstCampaign),
+              fullCampaign: firstCampaign
+            })
+          }
         } else {
           throw new Error('Failed to fetch campaigns')
         }
@@ -89,15 +100,56 @@ export default function CampaignResults() {
 
   const filteredCampaigns = campaigns.filter(campaign => {
     const matchesSearch = campaign.name.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === 'all' || campaign.status.toLowerCase() === statusFilter
+    const matchesStatus = activeStatusFilters.length === 0 || activeStatusFilters.includes(campaign.status.toLowerCase())
     const campaignType = mapCampaignType(campaign.campaignType)
-    const matchesUseCase = useCaseFilter === 'all' || campaignType.toLowerCase() === useCaseFilter
+    const matchesUseCase = activeUseCaseFilters.length === 0 || activeUseCaseFilters.includes(campaignType.toLowerCase())
     
     return matchesSearch && matchesStatus && matchesUseCase
   })
 
+  // Helper functions for managing filters
+  const addStatusFilter = (status: string) => {
+    if (status !== 'all' && !activeStatusFilters.includes(status)) {
+      setActiveStatusFilters([...activeStatusFilters, status])
+    }
+  }
+
+  const removeStatusFilter = (status: string) => {
+    setActiveStatusFilters(activeStatusFilters.filter(f => f !== status))
+  }
+
+  const addUseCaseFilter = (useCase: string) => {
+    if (useCase !== 'all' && !activeUseCaseFilters.includes(useCase)) {
+      setActiveUseCaseFilters([...activeUseCaseFilters, useCase])
+    }
+  }
+
+  const removeUseCaseFilter = (useCase: string) => {
+    setActiveUseCaseFilters(activeUseCaseFilters.filter(f => f !== useCase))
+  }
+
+  const clearAllFilters = () => {
+    setActiveStatusFilters([])
+    setActiveUseCaseFilters([])
+    setSearchTerm('')
+  }
+
   const formatDate = (dateString: string) => {
+    console.log('Formatting date:', dateString, 'Type:', typeof dateString)
+    
+    if (!dateString) {
+      console.log('Date string is empty or null')
+      return 'No date'
+    }
+    
     const date = new Date(dateString)
+    console.log('Parsed date:', date, 'Is valid:', !isNaN(date.getTime()))
+    
+    if (isNaN(date.getTime())) {
+      console.log('Invalid date detected:', dateString)
+      return 'Invalid date'
+    }
+    
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -108,7 +160,7 @@ export default function CampaignResults() {
   }
 
   return (
-    <MainLayout>
+    <div className="min-h-screen" style={{ backgroundColor: 'hsl(var(--background))' }}>
       <div className="page-container">
         {/* Header */}
         <div className="mb-8">
@@ -129,8 +181,8 @@ export default function CampaignResults() {
         </div>
 
         {/* Filters */}
-        <Card className="mb-8">
-          <CardContent className="p-6">
+        <Card className="mb-8 border-0">
+          <CardContent className="p-2">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="w-full sm:w-80">
                 <div className="relative">
@@ -139,39 +191,101 @@ export default function CampaignResults() {
                     placeholder="Search campaigns..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-12 h-10 text-body border-border bg-surface focus:bg-surface transition-all duration-200"
+                    className="pl-12 h-10 text-[#666666] font-semibold border-border bg-surface focus:bg-surface transition-all duration-200"
                   />
                 </div>
               </div>
               
               <div className="flex gap-4 ml-auto">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full sm:w-52 h-10 text-body border-border bg-surface">
-                    <SelectValue placeholder="All Statuses" />
+                <Select value="" onValueChange={addStatusFilter}>
+                  <SelectTrigger className="w-full sm:w-52 h-10 text-[#666666] font-semibold border-border bg-surface">
+                    <SelectValue placeholder="Add Status Filter" />
                   </SelectTrigger>
                   <SelectContent className="bg-white border-border shadow-lg">
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="running">Running</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="scheduled">Scheduled</SelectItem>
-                    <SelectItem value="failed">Failed</SelectItem>
+                    <SelectItem value="running" disabled={activeStatusFilters.includes('running')}>
+                      Running {activeStatusFilters.includes('running') && '✓'}
+                    </SelectItem>
+                    <SelectItem value="completed" disabled={activeStatusFilters.includes('completed')}>
+                      Completed {activeStatusFilters.includes('completed') && '✓'}
+                    </SelectItem>
+                    <SelectItem value="scheduled" disabled={activeStatusFilters.includes('scheduled')}>
+                      Scheduled {activeStatusFilters.includes('scheduled') && '✓'}
+                    </SelectItem>
+                    <SelectItem value="failed" disabled={activeStatusFilters.includes('failed')}>
+                      Failed {activeStatusFilters.includes('failed') && '✓'}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
                 
-                <Select value={useCaseFilter} onValueChange={setUseCaseFilter}>
-                  <SelectTrigger className="w-full sm:w-52 h-10 text-body border-border bg-surface">
-                    <SelectValue placeholder="All Use Cases" />
+                <Select value="" onValueChange={addUseCaseFilter}>
+                  <SelectTrigger className="w-full sm:w-52 h-10 text-[#666666] font-semibold border-border bg-surface">
+                    <SelectValue placeholder="Add Use Case Filter" />
                   </SelectTrigger>
                   <SelectContent className="bg-white border-border shadow-lg">
-                    <SelectItem value="all">All Use Cases</SelectItem>
-                    <SelectItem value="sales">Sales</SelectItem>
-                    <SelectItem value="service">Service</SelectItem>
+                    <SelectItem value="sales" disabled={activeUseCaseFilters.includes('sales')}>
+                      Sales {activeUseCaseFilters.includes('sales') && '✓'}
+                    </SelectItem>
+                    <SelectItem value="service" disabled={activeUseCaseFilters.includes('service')}>
+                      Service {activeUseCaseFilters.includes('service') && '✓'}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
           </CardContent>
         </Card>
+
+        {/* Active Filters Chips */}
+        {(activeStatusFilters.length > 0 || activeUseCaseFilters.length > 0 || searchTerm) && (
+          <div className="mb-3 mt-3">
+            <div className="flex flex-wrap gap-2 items-center">
+              {searchTerm && (
+                <div className="flex items-center gap-1 px-3 py-1 rounded-full border border-[#4600F2] text-[#4600F2] text-sm">
+                  <span>Search: "{searchTerm}"</span>
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="ml-1 hover:bg-[#4600F2]/10 rounded-full p-0.5"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
+              
+              {activeStatusFilters.map((status) => (
+                <div key={`status-${status}`} className="flex items-center gap-1 px-3 py-1 rounded-full border border-[#4600F2] text-[#4600F2] text-sm">
+                  <span>Status: {status.charAt(0).toUpperCase() + status.slice(1)}</span>
+                  <button
+                    onClick={() => removeStatusFilter(status)}
+                    className="ml-1 hover:bg-[#4600F2]/10 rounded-full p-0.5"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              
+              {activeUseCaseFilters.map((useCase) => (
+                <div key={`usecase-${useCase}`} className="flex items-center gap-1 px-3 py-1 rounded-full border border-[#4600F2] text-[#4600F2] text-sm">
+                  <span>Use Case: {useCase.charAt(0).toUpperCase() + useCase.slice(1)}</span>
+                  <button
+                    onClick={() => removeUseCaseFilter(useCase)}
+                    className="ml-1 hover:bg-[#4600F2]/10 rounded-full p-0.5"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              
+              {(activeStatusFilters.length > 0 || activeUseCaseFilters.length > 0 || searchTerm) && (
+                <button
+                  onClick={clearAllFilters}
+                  className="px-3 py-1 text-sm text-gray-500 hover:text-gray-700 underline ml-2"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Loading State */}
         {loading && (
@@ -209,7 +323,7 @@ export default function CampaignResults() {
               const campaignType = mapCampaignType(campaign.campaignType)
               
               return (
-                <Card key={campaign.campaignId} className="group hover:shadow-lg transition-all duration-200 cursor-pointer overflow-hidden rounded-xl">
+                <Card key={campaign.campaignId} className="group hover:shadow-lg transition-all duration-200 cursor-pointer overflow-hidden" style={{borderRadius: '16px'}}>
                   <Link href={`/results/${campaign.campaignId}`}>
                     <CardContent className="p-6">
                       <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-6 gap-4">
@@ -217,27 +331,19 @@ export default function CampaignResults() {
                           <h3 className="text-page-heading text-text-primary group-hover:text-primary transition-colors duration-200">
                             {campaign.name}
                           </h3>
-                          <div className="flex items-center gap-3">
-                            <Badge className={`${useCaseColors[campaignType]} border px-3 py-1 text-small`}>
-                              {campaignType}
-                            </Badge>
-                          </div>
                         </div>
                         
+                        <div className="text-small text-text-secondary">
+                          {formatDate(campaign.startDate || campaign.createdAt || '')} - {campaign.completedAt ? formatDate(campaign.completedAt) : 'In Progress'}
+                        </div>
                       </div>
 
-                      {campaign.campaignUseCase && (
-                        <div className="mb-6">
-                          <p className="text-body text-text-secondary bg-muted px-4 py-2 rounded-md inline-block">
-                            {campaign.campaignUseCase.replace('_', ' ').replace('notificaiton', 'notification')}
-                          </p>
-                        </div>
-                      )}
+
 
                       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className="flex items-center space-x-3 p-4 bg-info/5 rounded-lg border border-info/10">
-                          <div className="p-2 bg-info rounded-lg">
-                            <Phone className="h-5 w-5 text-white" />
+                          <div className="p-2 bg-blue-100 rounded-lg">
+                            <Phone className="h-5 w-5 text-blue-500" />
                           </div>
                           <div>
                             <p className="text-small text-text-secondary uppercase tracking-wide">Calls Placed</p>
@@ -245,8 +351,8 @@ export default function CampaignResults() {
                           </div>
                         </div>
                         <div className="flex items-center space-x-3 p-4 bg-success/5 rounded-lg border border-success/10">
-                          <div className="p-2 bg-success rounded-lg">
-                            <BarChart3 className="h-5 w-5 text-white" />
+                          <div className="p-2 bg-green-100 rounded-lg">
+                            <BarChart3 className="h-5 w-5 text-green-500" />
                           </div>
                           <div>
                             <p className="text-small text-text-secondary uppercase tracking-wide">Answer Rate</p>
@@ -254,8 +360,8 @@ export default function CampaignResults() {
                           </div>
                         </div>
                         <div className="flex items-center space-x-3 p-4 rounded-lg border border-border">
-                          <div className="p-2 bg-primary rounded-lg">
-                            <Calendar className="h-5 w-5 text-white" />
+                          <div className="p-2 bg-purple-100 rounded-lg">
+                            <Calendar className="h-5 w-5 text-purple-500" />
                           </div>
                           <div>
                             <p className="text-small text-text-secondary uppercase tracking-wide">Appointments</p>
@@ -264,12 +370,17 @@ export default function CampaignResults() {
                         </div>
                         <div className="flex items-center space-x-3 p-4 rounded-lg border border-border">
                           <div className={`p-2 rounded-lg ${
-                            campaign.status === 'running' ? 'bg-info' :
-                            campaign.status === 'completed' ? 'bg-success' :
-                            campaign.status === 'scheduled' ? 'bg-warning' :
-                            'bg-gray-500'
+                            campaign.status === 'running' ? 'bg-blue-100' :
+                            campaign.status === 'completed' ? 'bg-green-100' :
+                            campaign.status === 'scheduled' ? 'bg-yellow-100' :
+                            'bg-gray-100'
                           }`}>
-                            <StatusIcon className="h-5 w-5 text-white" />
+                            <StatusIcon className={`h-5 w-5 ${
+                              campaign.status === 'running' ? 'text-blue-500' :
+                              campaign.status === 'completed' ? 'text-green-500' :
+                              campaign.status === 'scheduled' ? 'text-yellow-500' :
+                              'text-gray-500'
+                            }`} />
                           </div>
                           <div>
                             <p className="text-small text-text-secondary uppercase tracking-wide">Status</p>
@@ -293,20 +404,31 @@ export default function CampaignResults() {
               </div>
               <h3 className="text-page-heading text-text-primary mb-3">No campaigns found</h3>
               <p className="text-body text-text-secondary mb-8 max-w-md mx-auto">
-                {searchTerm || statusFilter !== 'all' || useCaseFilter !== 'all'
-                  ? 'Try adjusting your search criteria or filters to find the campaigns you\'re looking for'
+                {searchTerm || activeStatusFilters.length > 0 || activeUseCaseFilters.length > 0
+                  ? 'No campaigns match your current filters. Try adjusting your search criteria or removing some filters to find the campaigns you\'re looking for.'
                   : 'You haven\'t created any campaigns yet. Ready to start your first AI-powered outbound campaign?'}
               </p>
-              <Link href="/setup">
-                <Button size="lg" className="btn-primary">
-                  <Plus className="icon-medium mr-2" />
-                  Launch Campaign Builder
+              {searchTerm || activeStatusFilters.length > 0 || activeUseCaseFilters.length > 0 ? (
+                <Button 
+                  onClick={clearAllFilters}
+                  size="lg"
+                  className="btn-primary"
+                >
+                  Clear All Filters
                 </Button>
-              </Link>
+              ) : (
+                <Link href="/setup">
+                  <Button size="lg" className="btn-primary">
+                    <Plus className="icon-medium mr-2" />
+                    Launch Campaign Builder
+                  </Button>
+                </Link>
+              )}
             </CardContent>
           </Card>
         )}
       </div>
-    </MainLayout>
+      <Toaster />
+    </div>
   )
 }

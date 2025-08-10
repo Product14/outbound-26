@@ -430,83 +430,83 @@ export default function CampaignDetail() {
         </div>
 
         {/* Main Content Grid - Key Metrics and Campaign Details */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 items-stretch">
+        <div className="grid grid-cols-1 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-8 items-stretch">
           {/* Metrics */}
-          <Card className="border-0 bg-white rounded-[16px] h-full lg:col-span-2">
+          <Card className="border-0 bg-white rounded-[16px] h-full lg:col-span-3 xl:col-span-3">
             <CardHeader className="pb-4">
               <CardTitle className="text-[16px] font-semibold text-[#1A1A1A]">
                 Key Metrics
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="flex items-start space-x-2 p-3 bg-white border border-black/10 rounded-[12px]">
                   <div className="p-2 bg-[#F0F4FF] rounded-[8px] flex-shrink-0">
                     <Phone className="h-4 w-4 text-[#4600F2]" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-[#1A1A1A]/60 font-semibold text-xs leading-[1.4] mb-1">Calls Placed</h3>
-                    <p className="text-[#1A1A1A] text-[18px] font-bold leading-[1.4]">
+                    <p className="text-[#1A1A1A] text-[16px] font-bold leading-[1.4]">
                       {campaignData.campaign.totalCallPlaced}
                     </p>
                   </div>
                 </div>
                 
-                <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                <div className="flex items-start space-x-2 p-3 bg-white border border-black/10 rounded-[12px]">
                   <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0">
                     <CheckCircle className="h-4 w-4 text-[#22C55E]" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-[#1A1A1A]/60 font-semibold text-xs leading-[1.4] mb-1">Answer Rate</h3>
-                    <p className="text-[#1A1A1A] text-[18px] font-bold leading-[1.4]">
+                    <p className="text-[#1A1A1A] text-[16px] font-bold leading-[1.4]">
                       {calculatedStats?.answerRate ?? campaignData.campaign.answerRate}%
                     </p>
                   </div>
                 </div>
                 
-                <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                <div className="flex items-start space-x-2 p-3 bg-white border border-black/10 rounded-[12px]">
                   <div className="p-2 bg-[#FEFCE8] rounded-[8px] flex-shrink-0">
                     <Calendar className="h-4 w-4 text-[#F59E0B]" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-[#1A1A1A]/60 font-semibold text-xs leading-[1.4] mb-1">Appointments</h3>
-                    <p className="text-[#1A1A1A] text-[18px] font-bold leading-[1.4]">
+                    <p className="text-[#1A1A1A] text-[16px] font-bold leading-[1.4]">
                       {calculatedStats?.appointmentCount ?? campaignData.campaign.appointmentScheduled}
                     </p>
                   </div>
                 </div>
                 
-                <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                <div className="flex items-start space-x-2 p-3 bg-white border border-black/10 rounded-[12px]">
                   <div className="p-2 bg-[#EFF6FF] rounded-[8px] flex-shrink-0">
                     <BarChart3 className="h-4 w-4 text-[#3B82F6]" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-[#1A1A1A]/60 font-semibold text-xs leading-[1.4] mb-1">Total Customers</h3>
-                    <p className="text-[#1A1A1A] text-[18px] font-bold leading-[1.4]">
+                    <p className="text-[#1A1A1A] text-[16px] font-bold leading-[1.4]">
                       {campaignData.campaign.totalCustomers}
                     </p>
                   </div>
                 </div>
                 
-                <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                <div className="flex items-start space-x-2 p-3 bg-white border border-black/10 rounded-[12px]">
                   <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0">
                     <Target className="h-4 w-4 text-[#22C55E]" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-[#1A1A1A]/60 font-semibold text-xs leading-[1.4] mb-1">Success Rate</h3>
-                    <p className="text-[#1A1A1A] text-[18px] font-bold leading-[1.4]">
+                    <p className="text-[#1A1A1A] text-[16px] font-bold leading-[1.4]">
                       {calculatedStats ? Math.round((calculatedStats.appointmentCount / campaignData.campaign.totalCallPlaced) * 100) : 0}%
                     </p>
                   </div>
                 </div>
                 
-                <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                <div className="flex items-start space-x-2 p-3 bg-white border border-black/10 rounded-[12px]">
                   <div className="p-2 bg-[#FDF2F8] rounded-[8px] flex-shrink-0">
                     <Timer className="h-4 w-4 text-[#EC4899]" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-[#1A1A1A]/60 font-semibold text-xs leading-[1.4] mb-1">Avg Call Duration</h3>
-                    <p className="text-[#1A1A1A] text-[18px] font-bold leading-[1.4]">
+                    <p className="text-[#1A1A1A] text-[16px] font-bold leading-[1.4]">
                       {calculatedStats?.avgCallDuration ?? '2:45'}
                     </p>
                   </div>
@@ -516,7 +516,7 @@ export default function CampaignDetail() {
           </Card>
 
           {/* Campaign Details */}
-          <Card className="border-0 bg-white rounded-[16px] h-full">
+          <Card className="border-0 bg-white rounded-[16px] h-full lg:col-span-1 xl:col-span-2">
             <CardHeader className="pb-4">
               <CardTitle className="text-[16px] font-semibold text-[#1A1A1A]">
                 Campaign Details

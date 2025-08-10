@@ -22,30 +22,32 @@ export interface CallStatusResult {
  * @returns CallStatusResult with status, outcome, and appointment
  */
 export function generateCallStatus(callIndex: number, totalCalls: number): CallStatusResult {
-  // Use deterministic approach based on index for consistent results
-  const seed = callIndex % 100; // Create a cycle of 100 for percentage distribution
+  // Calculate the actual distribution based on totalCalls
+  const connectedCount = Math.ceil(totalCalls * 0.6); // 60% Connected
+  const voiceMailCount = Math.floor(totalCalls * 0.2); // 20% Voice Mail  
+  const failedCount = totalCalls - connectedCount - voiceMailCount; // Remaining Failed
   
   let status: CallStatus;
   let outcome: CallOutcome;
   let appointment: AppointmentStatus = 'No';
   
-  // Distribute statuses: 60% Connected (0-59), 20% Voice Mail (60-79), 20% Failed (80-99)
-  if (seed < 60) {
+  // Distribute statuses based on actual call position
+  if (callIndex < connectedCount) {
     status = 'Connected';
     
-    // For connected calls, vary the outcomes
-    const outcomeDistribution = seed % 4;
+    // For Connected calls, vary the outcomes
+    const outcomeDistribution = callIndex % 4;
     switch (outcomeDistribution) {
       case 0:
       case 1:
         outcome = 'Success';
         // 70% of successful connected calls get appointments
-        appointment = (seed % 10) < 7 ? 'Yes' : 'No';
+        appointment = (callIndex % 10) < 7 ? 'Yes' : 'No';
         break;
       case 2:
         outcome = 'Callback Requested';
         // 30% of callback requests get appointments
-        appointment = (seed % 10) < 3 ? 'Yes' : 'No';
+        appointment = (callIndex % 10) < 3 ? 'Yes' : 'No';
         break;
       case 3:
         outcome = 'Not Interested';
@@ -53,9 +55,9 @@ export function generateCallStatus(callIndex: number, totalCalls: number): CallS
         break;
       default:
         outcome = 'Success';
-        appointment = (seed % 10) < 7 ? 'Yes' : 'No';
+        appointment = (callIndex % 10) < 7 ? 'Yes' : 'No';
     }
-  } else if (seed < 80) {
+  } else if (callIndex < connectedCount + voiceMailCount) {
     status = 'Voice Mail';
     outcome = 'No Answer';
     appointment = 'No';
@@ -63,7 +65,7 @@ export function generateCallStatus(callIndex: number, totalCalls: number): CallS
     status = 'Failed';
     
     // For failed calls, vary the outcomes
-    const failureType = seed % 3;
+    const failureType = callIndex % 3;
     switch (failureType) {
       case 0:
         outcome = 'Wrong Number';

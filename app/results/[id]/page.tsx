@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { MainLayout } from '@/components/layout/main-layout'
+import { Toaster } from "@/components/ui/toaster"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -285,21 +285,22 @@ export default function CampaignDetail() {
   // Loading state
   if (isLoading) {
     return (
-      <MainLayout>
+      <div className="min-h-screen" style={{ backgroundColor: 'hsl(var(--background))' }}>
         <div className="px-12 py-8 bg-[#F4F5F8] min-h-screen flex items-center justify-center">
           <div className="text-center">
             <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-body text-text-secondary">Loading campaign data...</p>
           </div>
         </div>
-      </MainLayout>
+        <Toaster />
+      </div>
     )
   }
 
   // Campaign not found state
   if (campaignNotFound || !campaignData) {
     return (
-      <MainLayout>
+      <div className="min-h-screen" style={{ backgroundColor: 'hsl(var(--background))' }}>
         <div className="px-12 py-8 bg-[#F4F5F8] min-h-screen">
           <div className="mb-8">
             <Link href="/results">
@@ -326,12 +327,13 @@ export default function CampaignDetail() {
             </CardContent>
           </Card>
         </div>
-      </MainLayout>
+        <Toaster />
+      </div>
     )
   }
 
   return (
-    <MainLayout>
+    <div className="min-h-screen" style={{ backgroundColor: 'hsl(var(--background))' }}>
       <div className="px-12 py-8 bg-[#F4F5F8] min-h-screen">
         {/* Header */}
         <div className="mb-8">
@@ -772,6 +774,7 @@ export default function CampaignDetail() {
           </CardContent>
         </Card>
       </div>
-    </MainLayout>
+      <Toaster />
+    </div>
   )
 }

@@ -14,7 +14,7 @@ import { Search, Download, Phone, CheckCircle, Clock, AlertCircle, BarChart3, Pl
 import Link from "next/link"
 import { fetchCampaignList, type CampaignListItem } from '@/lib/campaign-api'
 import { fetchAgentList, type Agent } from '@/lib/agent-api'
-import { extractUrlParams } from '@/lib/url-utils'
+import { extractUrlParams, buildUrlWithParams } from '@/lib/url-utils'
 import { toast } from 'sonner'
 import { getShortEstimatedTime } from '@/lib/time-utils'
 import { cn } from '@/lib/utils'
@@ -247,7 +247,7 @@ export default function CampaignResults() {
                 Monitor performance metrics and analyze the success of your AI-powered outbound campaigns
               </p>
             </div>
-            <Link href="/setup">
+            <Link href={buildUrlWithParams('/setup')}>
               <Button className="btn-primary">
                 <Plus className="icon-medium mr-2" />
                 New Campaign
@@ -581,7 +581,7 @@ export default function CampaignResults() {
                   Clear All Filters
                 </Button>
               ) : (
-                <Link href="/setup">
+                <Link href={buildUrlWithParams('/setup')}>
                   <Button size="lg" className="btn-primary">
                     <Plus className="icon-medium mr-2" />
                     Launch Campaign Builder

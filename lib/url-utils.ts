@@ -44,3 +44,30 @@ export function decodeAuthKey(authKey: string | null): any {
     return null;
   }
 }
+
+export function buildUrlWithParams(basePath: string, additionalParams?: Record<string, string>): string {
+  const currentParams = extractUrlParams();
+  const searchParams = new URLSearchParams();
+  
+  // Add enterprise_id and team_id if they exist
+  if (currentParams.enterprise_id) {
+    searchParams.set('enterprise_id', currentParams.enterprise_id);
+  }
+  if (currentParams.team_id) {
+    searchParams.set('team_id', currentParams.team_id);
+    
+  }
+  if (currentParams.auth_key) {
+    searchParams.set('auth_key', currentParams.auth_key);
+  }
+  
+  // Add any additional parameters
+  if (additionalParams) {
+    Object.entries(additionalParams).forEach(([key, value]) => {
+      searchParams.set(key, value);
+    });
+  }
+  
+  const queryString = searchParams.toString();
+  return queryString ? `${basePath}?${queryString}` : basePath;
+}

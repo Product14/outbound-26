@@ -17,7 +17,7 @@ import { useRouter } from 'next/navigation'
 import { cn } from "@/lib/utils"
 import { BarChart3 } from 'lucide-react'
 import confetti from 'canvas-confetti'
-import { extractUrlParams, type UrlParams } from '@/lib/url-utils'
+import { extractUrlParams, buildUrlWithParams, type UrlParams } from '@/lib/url-utils'
 import { transformCampaignData, launchCampaign, type Customer } from '@/lib/campaign-api'
 import { parseUploadedFile, REQUIRED_CSV_COLUMNS, type ParsedCustomerData } from '@/lib/file-parser'
 import { fetchAgentList, type Agent } from '@/lib/agent-api'
@@ -1400,7 +1400,7 @@ export default function CampaignSetup() {
               </div>
 
               <div className="space-y-3">
-                <Link href={createdCampaignId ? `/results/${createdCampaignId}` : '/results'}>
+                <Link href={buildUrlWithParams(createdCampaignId ? `/results/${createdCampaignId}` : '/results')}>
                   <Button size="lg" className="w-full h-11 px-4 text-[14px] bg-[#4600F2] hover:bg-[#4600F2]/90 text-white rounded-lg font-medium">
                     <BarChart3 className="h-5 w-5 mr-2" />
                     View Campaign Analytics

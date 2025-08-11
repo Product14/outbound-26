@@ -3,13 +3,14 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { MainLayout } from '@/components/layout/main-layout'
+import { buildUrlWithParams } from '@/lib/url-utils'
 
 export default function Dashboard() {
   const router = useRouter()
   
   useEffect(() => {
-    // Redirect to results page to show campaign list
-    router.push('/results')
+    // Redirect to results page to show campaign list, preserving URL parameters
+    router.push(buildUrlWithParams('/results'))
   }, [router])
 
   return (

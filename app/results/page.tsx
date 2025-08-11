@@ -8,12 +8,16 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Download, Phone, CheckCircle, Clock, AlertCircle, Calendar, BarChart3, Plus, Loader2, X } from 'lucide-react'
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Search, Download, Phone, CheckCircle, Clock, AlertCircle, BarChart3, Plus, Loader2, X, Copy, Check, CalendarIcon } from 'lucide-react'
 import Link from "next/link"
 import { fetchCampaignList, type CampaignListItem } from '@/lib/campaign-api'
+import { fetchAgentList, type Agent } from '@/lib/agent-api'
 import { extractUrlParams } from '@/lib/url-utils'
 import { toast } from 'sonner'
 import { getShortEstimatedTime } from '@/lib/time-utils'
+import { cn } from '@/lib/utils'
 
 // Map API campaign type to display format
 const mapCampaignType = (campaignType: string): string => {
@@ -46,7 +50,11 @@ export default function CampaignResults() {
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [activeStatusFilters, setActiveStatusFilters] = useState<string[]>([])
-  const [activeUseCaseFilters, setActiveUseCaseFilters] = useState<string[]>([])
+  const [activeCampaignTypeFilters, setActiveCampaignTypeFilters] = useState<string[]>([])
+  const [dateFilter, setDateFilter] = useState<string>('')
+  const [sortBy, setSortBy] = useState<{ field: string; order: 'asc' | 'desc' }>({ field: 'createdAt', order: 'desc' })
+  const [agents, setAgents] = useState<Agent[]>([])
+  const [copiedId, setCopiedId] = useState<string | null>(null)
         
   // Get URL parameters or use defaults for local testing
   const urlParams = extractUrlParams();
@@ -95,16 +103,63 @@ export default function CampaignResults() {
       }
     }
 
+    const loadAgents = async () => {
+      if (!enterpriseId || !teamId) return;
+      try {
+        const agentList = await fetchAgentList(enterpriseId, teamId)
+        setAgents(agentList)
+        console.log('Loaded agents:', agentList)
+      } catch (error) {
+        console.error('Error loading agents:', error)
+        // Don't fail the whole page if agent fetch fails
+        setAgents([])
+      }
+    }
+
     loadCampaigns()
+    loadAgents()
   }, [enterpriseId, teamId])
 
   const filteredCampaigns = campaigns.filter(campaign => {
     const matchesSearch = campaign.name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = activeStatusFilters.length === 0 || activeStatusFilters.includes(campaign.status.toLowerCase())
     const campaignType = mapCampaignType(campaign.campaignType)
-    const matchesUseCase = activeUseCaseFilters.length === 0 || activeUseCaseFilters.includes(campaignType.toLowerCase())
+    const matchesCampaignType = activeCampaignTypeFilters.length === 0 || activeCampaignTypeFilters.includes(campaignType.toLowerCase())
     
-    return matchesSearch && matchesStatus && matchesUseCase
+    // Date filter - check if any date field matches the selected date
+    let matchesDate = true
+    if (dateFilter) {
+      const selectedDate = new Date(dateFilter)
+      const campaignCreatedDate = new Date(campaign.createdAt || campaign.startDate || '')
+      const campaignCompletedDate = new Date(campaign.completedAt || '')
+      
+      // Check if any date field matches the selected date (within the same day)
+      const isSameDay = (date1: Date, date2: Date) => {
+        return date1.getFullYear() === date2.getFullYear() &&
+               date1.getMonth() === date2.getMonth() &&
+               date1.getDate() === date2.getDate()
+      }
+      
+      matchesDate = isSameDay(campaignCreatedDate, selectedDate) || 
+                   isSameDay(campaignCompletedDate, selectedDate)
+    }
+    
+    return matchesSearch && matchesStatus && matchesCampaignType && matchesDate
+  })
+
+  // Sort the filtered campaigns
+  const sortedCampaigns = [...filteredCampaigns].sort((a, b) => {
+    if (sortBy.field === 'createdAt') {
+      const dateA = new Date(a.createdAt || a.startDate || 0)
+      const dateB = new Date(b.createdAt || b.startDate || 0)
+      
+      if (sortBy.order === 'asc') {
+        return dateA.getTime() - dateB.getTime() // Oldest to newest
+      } else {
+        return dateB.getTime() - dateA.getTime() // Newest to oldest
+      }
+    }
+    return 0
   })
 
   // Helper functions for managing filters
@@ -118,20 +173,41 @@ export default function CampaignResults() {
     setActiveStatusFilters(activeStatusFilters.filter(f => f !== status))
   }
 
-  const addUseCaseFilter = (useCase: string) => {
-    if (useCase !== 'all' && !activeUseCaseFilters.includes(useCase)) {
-      setActiveUseCaseFilters([...activeUseCaseFilters, useCase])
+  const addCampaignTypeFilter = (campaignType: string) => {
+    if (campaignType !== 'all' && !activeCampaignTypeFilters.includes(campaignType)) {
+      setActiveCampaignTypeFilters([...activeCampaignTypeFilters, campaignType])
     }
   }
 
-  const removeUseCaseFilter = (useCase: string) => {
-    setActiveUseCaseFilters(activeUseCaseFilters.filter(f => f !== useCase))
+  const removeCampaignTypeFilter = (campaignType: string) => {
+    setActiveCampaignTypeFilters(activeCampaignTypeFilters.filter(f => f !== campaignType))
   }
 
   const clearAllFilters = () => {
     setActiveStatusFilters([])
-    setActiveUseCaseFilters([])
+    setActiveCampaignTypeFilters([])
+    setDateFilter('')
     setSearchTerm('')
+  }
+
+  const clearDateFilter = () => {
+    setDateFilter('')
+  }
+
+  const handleSortChange = (field: string, order: 'asc' | 'desc') => {
+    setSortBy({ field, order })
+  }
+
+  const copyCampaignId = async (campaignId: string) => {
+    try {
+      await navigator.clipboard.writeText(campaignId)
+      setCopiedId(campaignId)
+      setTimeout(() => setCopiedId(null), 2000) // Reset after 2 seconds
+      toast.success('Campaign ID copied to clipboard!')
+    } catch (error) {
+      console.error('Failed to copy:', error)
+      toast.error('Failed to copy Campaign ID')
+    }
   }
 
   const formatDate = (dateString: string) => {
@@ -196,10 +272,11 @@ export default function CampaignResults() {
                 </div>
               </div>
               
-              <div className="flex gap-4 ml-auto">
+              <div className="flex gap-3 ml-auto">
+                {/* Status Filter - Short content, smaller width */}
                 <Select value="" onValueChange={addStatusFilter}>
-                  <SelectTrigger className="w-full sm:w-52 h-10 text-[#666666] font-semibold border-border bg-surface">
-                    <SelectValue placeholder="Add Status Filter" />
+                  <SelectTrigger className="w-full sm:w-32 h-10 text-[#666666] font-semibold border-border bg-surface">
+                    <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent className="bg-white border-border shadow-lg">
                     <SelectItem value="running" disabled={activeStatusFilters.includes('running')}>
@@ -217,26 +294,65 @@ export default function CampaignResults() {
                   </SelectContent>
                 </Select>
                 
-                <Select value="" onValueChange={addUseCaseFilter}>
-                  <SelectTrigger className="w-full sm:w-52 h-10 text-[#666666] font-semibold border-border bg-surface">
-                    <SelectValue placeholder="Add Use Case Filter" />
+                {/* Campaign Type Filter - Medium content, medium width */}
+                <Select value="" onValueChange={addCampaignTypeFilter}>
+                  <SelectTrigger className="w-full sm:w-40 h-10 text-[#666666] font-semibold border-border bg-surface">
+                    <SelectValue placeholder="Campaign Type" />
                   </SelectTrigger>
                   <SelectContent className="bg-white border-border shadow-lg">
-                    <SelectItem value="sales" disabled={activeUseCaseFilters.includes('sales')}>
-                      Sales {activeUseCaseFilters.includes('sales') && '✓'}
+                    <SelectItem value="sales" disabled={activeCampaignTypeFilters.includes('sales')}>
+                      Sales {activeCampaignTypeFilters.includes('sales') && '✓'}
                     </SelectItem>
-                    <SelectItem value="service" disabled={activeUseCaseFilters.includes('service')}>
-                      Service {activeUseCaseFilters.includes('service') && '✓'}
+                    <SelectItem value="service" disabled={activeCampaignTypeFilters.includes('service')}>
+                      Service {activeCampaignTypeFilters.includes('service') && '✓'}
                     </SelectItem>
                   </SelectContent>
                 </Select>
+
+                {/* Sort Filter - Short content, smaller width */}
+                <Select value={`${sortBy.field}-${sortBy.order}`} onValueChange={(value) => {
+                  const [field, order] = value.split('-') as [string, 'asc' | 'desc']
+                  handleSortChange(field, order)
+                }}>
+                  <SelectTrigger className="w-full sm:w-36 h-10 text-[#666666] font-semibold border-border bg-surface">
+                    <SelectValue placeholder="Sort By" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-border shadow-lg">
+                    <SelectItem value="createdAt-desc">Newest First</SelectItem>
+                    <SelectItem value="createdAt-asc">Oldest First</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Date Filter - DatePicker component */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-36 h-10 text-[#666666] font-semibold border-border bg-surface justify-start text-left font-normal",
+                        !dateFilter && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateFilter ? new Date(dateFilter).toLocaleDateString() : <span>Date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 z-50" align="start" side="bottom" sideOffset={4}>
+                    <Calendar
+                      mode="single"
+                      selected={dateFilter ? new Date(dateFilter) : undefined}
+                      onSelect={(date) => setDateFilter(date ? date.toISOString().split('T')[0] : '')}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Active Filters Chips */}
-        {(activeStatusFilters.length > 0 || activeUseCaseFilters.length > 0 || searchTerm) && (
+        {(activeStatusFilters.length > 0 || activeCampaignTypeFilters.length > 0 || dateFilter || searchTerm) && (
           <div className="mb-3 mt-3">
             <div className="flex flex-wrap gap-2 items-center">
               {searchTerm && (
@@ -253,7 +369,7 @@ export default function CampaignResults() {
               
               {activeStatusFilters.map((status) => (
                 <div key={`status-${status}`} className="flex items-center gap-1 px-3 py-1 rounded-full border border-[#4600F2] text-[#4600F2] text-sm">
-                  <span>Status: {status.charAt(0).toUpperCase() + status.slice(1)}</span>
+                  <span>{status.charAt(0).toUpperCase() + status.slice(1)}</span>
                   <button
                     onClick={() => removeStatusFilter(status)}
                     className="ml-1 hover:bg-[#4600F2]/10 rounded-full p-0.5"
@@ -263,19 +379,32 @@ export default function CampaignResults() {
                 </div>
               ))}
               
-              {activeUseCaseFilters.map((useCase) => (
-                <div key={`usecase-${useCase}`} className="flex items-center gap-1 px-3 py-1 rounded-full border border-[#4600F2] text-[#4600F2] text-sm">
-                  <span>Use Case: {useCase.charAt(0).toUpperCase() + useCase.slice(1)}</span>
+              {activeCampaignTypeFilters.map((campaignType) => (
+                <div key={`campaigntype-${campaignType}`} className="flex items-center gap-1 px-3 py-1 rounded-full border border-[#4600F2] text-[#4600F2] text-sm">
+                  <span>{campaignType.charAt(0).toUpperCase() + campaignType.slice(1)}</span>
                   <button
-                    onClick={() => removeUseCaseFilter(useCase)}
+                    onClick={() => removeCampaignTypeFilter(campaignType)}
                     className="ml-1 hover:bg-[#4600F2]/10 rounded-full p-0.5"
                   >
                     <X className="h-3 w-3" />
                   </button>
                 </div>
               ))}
+
+              {/* Date Filter Chip */}
+              {dateFilter && (
+                <div className="flex items-center gap-1 px-3 py-1 rounded-full border border-[#4600F2] text-[#4600F2] text-sm">
+                  <span>Date: {new Date(dateFilter).toLocaleDateString()}</span>
+                  <button
+                    onClick={clearDateFilter}
+                    className="ml-1 hover:bg-[#4600F2]/10 rounded-full p-0.5"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
               
-              {(activeStatusFilters.length > 0 || activeUseCaseFilters.length > 0 || searchTerm) && (
+              {(activeStatusFilters.length > 0 || activeCampaignTypeFilters.length > 0 || dateFilter || searchTerm) && (
                 <button
                   onClick={clearAllFilters}
                   className="px-3 py-1 text-sm text-gray-500 hover:text-gray-700 underline ml-2"
@@ -317,77 +446,112 @@ export default function CampaignResults() {
 
         {/* Campaign List */}
         {!loading && !error && (
-          <div className="space-y-6">
-            {filteredCampaigns.map((campaign) => {
+          <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-3 gap-4 sm:gap-6">
+            {sortedCampaigns.map((campaign) => {
               const StatusIcon = statusIcons[campaign.status] || CheckCircle
               const campaignType = mapCampaignType(campaign.campaignType)
               
               return (
-                <Card key={campaign.campaignId} className="group hover:shadow-lg transition-all duration-200 cursor-pointer overflow-hidden" style={{borderRadius: '16px'}}>
+                <Card key={campaign.campaignId} className="group hover:scale-105 transition-all duration-200 cursor-pointer overflow-hidden h-full border" style={{borderRadius: '16px'}}>
                   <Link href={`/results/${campaign.campaignId}`}>
-                    <CardContent className="p-6">
-                      <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-6 gap-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                          <h3 className="text-page-heading text-text-primary group-hover:text-primary transition-colors duration-200">
+                    <CardContent className="p-4 sm:p-6 h-full flex flex-col">
+                      <div className="flex flex-col sm:flex-row sm:items-start gap-3 mb-4">
+                        <div className="flex-1">
+                          <h3 className="text-base sm:text-lg font-semibold text-text-primary group-hover:text-primary transition-colors duration-200 line-clamp-2 mb-2">
                             {campaign.name}
                           </h3>
+                          <div className="flex gap-2">
+                            <Badge className="text-xs bg-blue-100 text-blue-800 border-blue-200">
+                              {mapCampaignType(campaign.campaignType)}
+                            </Badge>
+                            <Badge className="text-xs bg-purple-100 text-purple-800 border-purple-200">
+                              Recall
+                            </Badge>
+                          </div>
                         </div>
-                        
-                        <div className="text-small text-text-secondary">
-                          {formatDate(campaign.startDate || campaign.createdAt || '')} - {campaign.completedAt ? formatDate(campaign.completedAt) : 'In Progress'}
+                        <div className="flex items-center gap-2">
+                          {agents.length > 0 ? (
+                            <>
+                              <div className="w-8 h-8 rounded-full overflow-hidden">
+                                <img 
+                                  src={agents[0]?.imageUrl || '/placeholder-user.jpg'} 
+                                  alt={agents[0]?.name || 'Agent'} 
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <span className="text-sm text-text-secondary font-medium">{agents[0]?.name || 'Agent'}</span>
+                            </>
+                          ) : (
+                            <>
+                              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                                <span className="text-xs font-medium text-gray-600">A</span>
+                              </div>
+                              <span className="text-sm text-text-secondary font-medium">Agent</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                        <div className="flex flex-col items-start p-3 bg-gray-50 rounded-lg min-w-0">
+                          <span className="text-xs text-text-secondary">Calls</span>
+                          <span className="text-sm font-medium text-text-primary">{campaign.totalCallPlaced}</span>
+                        </div>
+                        <div className="flex flex-col items-start p-3 bg-gray-50 rounded-lg min-w-0">
+                          <span className="text-xs text-text-secondary">Answer Rate</span>
+                          <span className="text-sm font-medium text-text-primary">{campaign.answerRate}%</span>
+                        </div>
+                        <div className="flex flex-col items-start p-3 bg-gray-50 rounded-lg min-w-0">
+                          <span className="text-xs text-text-secondary">Appointments</span>
+                          <span className="text-sm font-medium text-text-primary">{campaign.appointmentScheduled}</span>
+                        </div>
+                        <div className={`flex flex-col items-start p-3 rounded-lg min-w-0 ${
+                          campaign.status === 'running' ? 'bg-blue-50' :
+                          campaign.status === 'completed' ? 'bg-green-50' :
+                          campaign.status === 'scheduled' ? 'bg-yellow-50' :
+                          'bg-red-50'
+                        }`}>
+                          <span className="text-xs text-text-secondary">Status</span>
+                          <span className={`text-sm font-medium capitalize ${
+                            campaign.status === 'running' ? 'text-blue-700' :
+                            campaign.status === 'completed' ? 'text-green-700' :
+                            campaign.status === 'scheduled' ? 'text-yellow-700' :
+                            'text-red-700'
+                          }`}>{campaign.status}</span>
+                        </div>
+                      </div>
+
+                      <div className="mt-auto">
+                        <div className="flex items-center justify-between">
+                          <div className="text-xs text-text-secondary">
+                            {formatDate(campaign.startDate || campaign.createdAt || '')} - {campaign.completedAt ? formatDate(campaign.completedAt) : 'In Progress'}
+                          </div>
+                          <div className="text-xs text-text-secondary font-semibold">
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault()
+                                copyCampaignId(campaign.campaignId)
+                              }}
+                              className="group relative flex items-center gap-1 hover:text-primary transition-colors duration-200"
+                              title="Click to copy Campaign ID"
+                            >
+                              <span className="relative inline-block">
+                                Campaign ID: {campaign.campaignId.slice(-8)}
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-black rounded opacity-0 hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                                  Click to copy
+                                </div>
+                              </span>
+                              {copiedId === campaign.campaignId ? (
+                                <Check className="h-3 w-3 text-green-500" />
+                              ) : (
+                                <Copy className="h-3 w-3 opacity-60 group-hover:opacity-100" />
+                              )}
+                            </button>
+                          </div>
                         </div>
                       </div>
 
 
-
-                      <div className="grid grid-cols-4 gap-4">
-                        <div className="flex items-center space-x-3 p-4 bg-info/5 rounded-lg border border-info/10">
-                          <div className="p-2 bg-blue-100 rounded-lg">
-                            <Phone className="h-5 w-5 text-blue-500" />
-                          </div>
-                          <div>
-                            <p className="text-small text-text-secondary tracking-wide">Calls Placed</p>
-                            <p className="text-body font-medium text-text-primary">{campaign.totalCallPlaced}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-3 p-4 bg-success/5 rounded-lg border border-success/10">
-                          <div className="p-2 bg-green-100 rounded-lg">
-                            <BarChart3 className="h-5 w-5 text-green-500" />
-                          </div>
-                          <div>
-                            <p className="text-small text-text-secondary tracking-wide">Answer Rate</p>
-                            <p className="text-body font-medium text-text-primary">{campaign.answerRate}%</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-3 p-4 rounded-lg border border-border">
-                          <div className="p-2 bg-purple-100 rounded-lg">
-                            <Calendar className="h-5 w-5 text-purple-500" />
-                          </div>
-                          <div>
-                            <p className="text-small text-text-secondary tracking-wide">Appointments</p>
-                            <p className="text-body font-medium text-text-primary">{campaign.appointmentScheduled}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-3 p-4 rounded-lg border border-border">
-                          <div className={`p-2 rounded-lg ${
-                            campaign.status === 'running' ? 'bg-blue-100' :
-                            campaign.status === 'completed' ? 'bg-green-100' :
-                            campaign.status === 'scheduled' ? 'bg-yellow-100' :
-                            'bg-gray-100'
-                          }`}>
-                            <StatusIcon className={`h-5 w-5 ${
-                              campaign.status === 'running' ? 'text-blue-500' :
-                              campaign.status === 'completed' ? 'text-green-500' :
-                              campaign.status === 'scheduled' ? 'text-yellow-500' :
-                              'text-gray-500'
-                            }`} />
-                          </div>
-                          <div>
-                            <p className="text-small text-text-secondary tracking-wide">Status</p>
-                            <p className="text-small font-medium text-text-primary capitalize">{campaign.status}</p>
-                          </div>
-                        </div>
-                      </div>
                     </CardContent>
                   </Link>
                 </Card>
@@ -396,7 +560,7 @@ export default function CampaignResults() {
           </div>
         )}
 
-        {!loading && !error && filteredCampaigns.length === 0 && (
+        {!loading && !error && sortedCampaigns.length === 0 && (
           <Card>
             <CardContent className="p-12 text-center">
               <div className="w-20 h-20 mx-auto mb-6 bg-muted rounded-full flex items-center justify-center">
@@ -404,11 +568,11 @@ export default function CampaignResults() {
               </div>
               <h3 className="text-page-heading text-text-primary mb-3">No campaigns found</h3>
               <p className="text-body text-text-secondary mb-8 max-w-md mx-auto">
-                {searchTerm || activeStatusFilters.length > 0 || activeUseCaseFilters.length > 0
+                {searchTerm || activeStatusFilters.length > 0 || activeCampaignTypeFilters.length > 0 || dateFilter
                   ? 'No campaigns match your current filters. Try adjusting your search criteria or removing some filters to find the campaigns you\'re looking for.'
                   : 'You haven\'t created any campaigns yet. Ready to start your first AI-powered outbound campaign?'}
               </p>
-              {searchTerm || activeStatusFilters.length > 0 || activeUseCaseFilters.length > 0 ? (
+              {searchTerm || activeStatusFilters.length > 0 || activeCampaignTypeFilters.length > 0 || dateFilter ? (
                 <Button 
                   onClick={clearAllFilters}
                   size="lg"

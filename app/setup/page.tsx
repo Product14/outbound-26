@@ -707,7 +707,7 @@ export default function CampaignSetup() {
                                 <AlertCircle className="h-5 w-5 text-[#FACC15] mt-0.5" />
                               </div>
                               <div>
-                                <h4 className="text-[14px] font-medium text-[#1A1A1A]">Feature Not Enabled Yet</h4>
+                                <h4 className="text-[14px] font-medium text-[#1A1A1A]">Feature not enabled for you</h4>
                                 <p className="text-[14px] text-[#6B7280] leading-[1.5] mt-1">
                                   This campaign type is not enabled yet. Please contact your customer success manager for more information.
                                 </p>

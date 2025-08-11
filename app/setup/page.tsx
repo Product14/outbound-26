@@ -89,7 +89,7 @@ export default function CampaignSetup() {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadComplete, setUploadComplete] = useState(false)
   const [hasError, setHasError] = useState(false)
-  const [needsAgent, setNeedsAgent] = useState(false)
+
   const [campaignData, setCampaignData] = useState({
     campaignName: '',
     useCase: '',
@@ -673,7 +673,7 @@ export default function CampaignSetup() {
                                   ...prev, 
                                   subUseCase: subCase.value 
                                 }));
-                                setNeedsAgent(subCase.value === 'trade-in-offers' || subCase.value === 'lead-follow-up');
+
                                 // Clear errors when valid selection is made
                                 if (errors.subUseCase) {
                                   setErrors(prev => ({ ...prev, subUseCase: false }))
@@ -698,6 +698,23 @@ export default function CampaignSetup() {
                             </button>
                           ))}
                         </div>
+                        
+                        {/* Information message for non-recall campaigns */}
+                        {campaignData.subUseCase && campaignData.subUseCase !== 'recall-notification' && (
+                          <div className="mt-4 p-4 bg-[#FACC15]/10 border border-[#FACC15] rounded-lg">
+                            <div className="flex items-start space-x-3">
+                              <div className="flex-shrink-0">
+                                <AlertCircle className="h-5 w-5 text-[#FACC15] mt-0.5" />
+                              </div>
+                              <div>
+                                <h4 className="text-[14px] font-medium text-[#1A1A1A]">Feature Not Enabled Yet</h4>
+                                <p className="text-[14px] text-[#6B7280] leading-[1.5] mt-1">
+                                  This campaign type is not enabled yet. Please contact your customer success manager for more information.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -851,30 +868,7 @@ export default function CampaignSetup() {
                   </div>
                 )}
 
-                {/* Agent Creation Notice */}
-                {needsAgent && (
-                  <div className="border border-[#FACC15] bg-[#FACC15]/10 rounded-lg p-4">
-                    <div className="flex items-start space-x-3">
-                      <div className="flex-shrink-0">
-                        <Users className="h-5 w-5 text-[#FACC15] mt-0.5" />
-                      </div>
-                      <div className="space-y-2">
-                        <h4 className="text-[14px] font-medium text-[#1A1A1A]">Agent Creation Required</h4>
-                        <p className="text-[14px] text-[#6B7280] leading-[1.5]">
-                          This use case requires a specialized AI agent. We&apos;ll create one based on your requirements.
-                        </p>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="h-9 px-3 text-[12px] border-[#FACC15] text-[#1A1A1A] hover:bg-[#FACC15]/20 rounded-lg font-medium"
-                        >
-                          <Zap className="h-4 w-4 mr-2" />
-                          Create Agent
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+
 
               </div>
             </div>
@@ -1601,7 +1595,7 @@ export default function CampaignSetup() {
                     setIsUploading(false)
                     setUploadComplete(false)
                     setHasError(false)
-                    setNeedsAgent(false)
+
                     setCreatedCampaignId('')
                     setUploadedData([])
                     setIsLaunching(false)

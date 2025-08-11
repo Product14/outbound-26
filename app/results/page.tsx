@@ -472,11 +472,11 @@ export default function CampaignResults() {
                         <div className="flex items-center gap-2">
                           {agents.length > 0 ? (
                             <>
-                              <div className="w-8 h-8 rounded-full overflow-hidden">
+                              <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 border border-gray-200">
                                 <img 
                                   src={agents[0]?.imageUrl || '/placeholder-user.jpg'} 
                                   alt={agents[0]?.name || 'Agent'} 
-                                  className="w-full h-full object-cover"
+                                  className="w-full h-full object-cover object-top"
                                 />
                               </div>
                               <span className="text-sm text-text-secondary font-medium">{agents[0]?.name || 'Agent'}</span>

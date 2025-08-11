@@ -18,9 +18,9 @@ export function extractUrlParams(): UrlParams {
   console.log(urlParams.get('auth_key'))
   
   // Handle both camelCase and underscore formats
-  const enterpriseId = urlParams.get('enterprise_id') || urlParams.get('enterpriseId');
-  const teamId = urlParams.get('team_id') || urlParams.get('teamId');
-  const authKey = urlParams.get('auth_key') || urlParams.get('authKey');
+  const enterpriseId = urlParams.get('enterprise_id');
+  const teamId = urlParams.get('team_id');
+  const authKey = urlParams.get('auth_key');
   
   return {
     enterprise_id: enterpriseId,

@@ -779,7 +779,7 @@ export default function CampaignSetup() {
                                       }`}>
                                         {agent.name}
                                       </h4>
-                                      <div className="mt-1">
+                                      {/* <div className="mt-1">
                                         <span className="text-[14px] font-bold text-[#4600F2] cursor-pointer hover:text-[#4600F2]/80 transition-colors group inline-flex items-center">
                                           Talk to agent
                                           <svg 
@@ -790,9 +790,9 @@ export default function CampaignSetup() {
                                             <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                                           </svg>
                                         </span>
-                                      </div>
+                                      </div> */}
                                     </div>
-                                    <div className="flex items-center space-x-2">
+                                    {/* <div className="flex items-center space-x-2">
                                       {agent.available ? (
                                         <div className="flex items-center space-x-2">
                                           <button
@@ -833,7 +833,7 @@ export default function CampaignSetup() {
                                           Unavailable
                                         </Badge>
                                       )}
-                                    </div>
+                                    </div> */}
                                   </div>
 
                                 </div>

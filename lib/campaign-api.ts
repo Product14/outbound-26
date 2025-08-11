@@ -203,7 +203,7 @@ export async function launchCampaign(payload: LaunchCampaignPayload): Promise<Ca
 
 export async function fetchCampaignList(enterpriseId: string, teamId: string): Promise<CampaignListResponse> {
   try {
-    const response = await fetch(`https://beta-api.spyne.xyz/conversation/campaign/list?enterpriseId=${enterpriseId}&teamId=${teamId}`);
+    const response = await fetch(`https://api.spyne.ai/conversation/campaign/list?enterpriseId=${enterpriseId}&teamId=${teamId}`);
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -218,7 +218,7 @@ export async function fetchCampaignList(enterpriseId: string, teamId: string): P
 
 export async function fetchCampaignDetails(campaignId: string): Promise<CampaignDetailResponse> {
   try {
-    const response = await fetch(`https://beta-api.spyne.xyz/conversation/campaign/details/${campaignId}`);
+    const response = await fetch(`https://api.spyne.ai/conversation/campaign/details/${campaignId}`);
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);

@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     console.log('Campaign Launch Payload:', JSON.stringify(payload, null, 2));
     
     // Call the real Spyne API
-    const externalResponse = await fetch('https://beta-api.spyne.xyz/conversation/campaign/create', {
+    const externalResponse = await fetch('https://api.spyne.ai/conversation/campaign/create', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

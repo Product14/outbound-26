@@ -1085,15 +1085,38 @@ export default function CampaignSetup() {
                         variant="outline" 
                         size="sm" 
                         className="h-9 px-3 text-[12px] border-[#EF4444] text-[#EF4444] hover:bg-[#EF4444]/10 rounded-lg font-medium"
-                        onClick={() => {
-                          // Download the CSV template
-                          const link = document.createElement('a')
-                          link.href = '/csv-template.csv'
-                          link.download = 'campaign-template.csv'
-                          document.body.appendChild(link)
-                          link.click()
-                          document.body.removeChild(link)
-                          resetUpload()
+                        onClick={async () => {
+                          try {
+                            // Download the CSV template
+                            const response = await fetch('/csv-template.csv')
+                            if (!response.ok) {
+                              throw new Error(`Failed to fetch template: ${response.status}`)
+                            }
+                            
+                            const blob = await response.blob()
+                            const url = window.URL.createObjectURL(blob)
+                            const link = document.createElement('a')
+                            link.href = url
+                            link.download = 'campaign-template.csv'
+                            link.style.display = 'none'
+                            document.body.appendChild(link)
+                            link.click()
+                            document.body.removeChild(link)
+                            window.URL.revokeObjectURL(url)
+                            
+                            toast({
+                              title: "Template Downloaded",
+                              description: "CSV template has been downloaded successfully."
+                            })
+                            resetUpload()
+                          } catch (error) {
+                            console.error('Download error:', error)
+                            toast({
+                              title: "Download Failed",
+                              description: "Could not download the CSV template. Please try again.",
+                              variant: "destructive"
+                            })
+                          }
                         }}
                       >
                         <Download className="h-4 w-4 mr-2" />

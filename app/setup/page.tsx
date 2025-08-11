@@ -11,7 +11,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowRight, ArrowLeft, Upload, FileText, Calendar, CheckCircle, Download, AlertCircle, Zap, Clock, Users, Database, Plus, X, TrendingUp, Wrench, Play, Pause } from 'lucide-react'
+import { Checkbox } from "@/components/ui/checkbox"
+import { ArrowRight, ArrowLeft, Upload, FileText, Calendar, CheckCircle, Download, AlertCircle, Zap, Clock, Users, Database, Plus, X, TrendingUp, Wrench, Play, Pause, MessageSquare, Shield } from 'lucide-react'
 import Link from "next/link"
 import { useRouter } from 'next/navigation'
 import { cn } from "@/lib/utils"
@@ -98,7 +99,22 @@ export default function CampaignSetup() {
     schedule: 'now',
     scheduledDate: '',
     scheduledTime: '',
-    totalRecords: 0
+    totalRecords: 0,
+    // Call Rules
+    maxRetryAttempts: 3,
+    retryDelayMinutes: 60,
+    callWindowStart: '09:00',
+    callWindowEnd: '17:00',
+    timezone: 'America/New_York',
+    doNotCallList: true,
+    maxCallsPerHour: 50,
+    maxCallsPerDay: 200,
+    voicemailStrategy: 'leave_message',
+    disconnectedCallRetry: true,
+    busySignalRetry: true,
+    noAnswerRetry: true,
+    busyCustomerRetry: true,
+    voicemailMessage: ''
   })
   
   // Calculate estimated time dynamically based on total records
@@ -596,7 +612,7 @@ export default function CampaignSetup() {
                           key={categoryKey} 
                           className={`p-4 rounded-lg border transition-all cursor-pointer ${
                             selectedCategory === categoryKey
-                              ? 'border-[#3B82F6] bg-[#3B82F6]/5 shadow-sm'
+                              ? 'border-[#4600f2] bg-[#4600f2]/5 shadow-sm'
                               : 'border-[#E5E7EB] bg-white hover:border-[#D1D5DB] hover:shadow-sm'
                           }`}
                           onClick={() => {
@@ -674,8 +690,8 @@ export default function CampaignSetup() {
                               }}
                               className={`px-4 py-2 rounded-full border transition-all duration-200 text-[14px] font-medium whitespace-nowrap ${
                                 campaignData.subUseCase === subCase.value
-                                  ? 'border-[#3B82F6] bg-[#3B82F6] text-white shadow-sm'
-                                  : 'border-[#E5E7EB] bg-white text-[#1A1A1A] hover:border-[#3B82F6]/40 hover:bg-[#3B82F6]/5 hover:shadow-sm'
+                                  ? 'border-[#4600f2] bg-[#4600f2] text-white shadow-sm'
+                                  : 'border-[#E5E7EB] bg-white text-[#1A1A1A] hover:border-[#4600f2]/40 hover:bg-[#4600f2]/5 hover:shadow-sm'
                               }`}
                             >
                               {subCase.label}
@@ -736,7 +752,7 @@ export default function CampaignSetup() {
                       )}
 
                       {!isLoadingAgents && availableAgents.length > 0 && (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                        <div className="grid grid-cols-2 gap-4">
                           {availableAgents.map((agent) => (
                             <div 
                               key={agent.id} 
@@ -749,94 +765,83 @@ export default function CampaignSetup() {
                                   }
                                 }
                               }}
-                              className={`p-4 border rounded-lg transition-all duration-200 ${
+                              className={`relative bg-white border rounded-xl p-4 pb-16 transition-all duration-200 ${
                                 !agent.available
-                                  ? 'opacity-50 cursor-not-allowed bg-[#F9FAFB] border-[#E5E7EB]'
+                                  ? 'opacity-50 cursor-not-allowed border-[#E5E7EB]'
                                   : selectedAgent?.id === agent.id
-                                  ? 'cursor-pointer border-[#4600F2] bg-[#4600F2]/5 shadow-sm'
-                                  : 'cursor-pointer border-[#E5E7EB] bg-white hover:border-[#4600F2]/40 hover:bg-[#4600F2]/5 hover:shadow-sm'
+                                  ? 'cursor-pointer border-[#4600F2] bg-[#4600F2]/5'
+                                  : 'cursor-pointer border-[#E5E7EB] hover:border-[#4600F2]/60 hover:bg-[#4600F2]/5'
                               }`}
                             >
-                              <div className="flex items-start space-x-4">
-                                <div className="flex-shrink-0">
-                                  <img
-                                    src={agent.imageUrl}
-                                    alt={agent.name}
-                                    className="w-[55px] h-[55px] rounded-lg object-cover object-[50%_20%] border-2 border-[#E5E7EB]"
-                                    onError={(e) => {
-                                      // Fallback to default avatar if image fails to load
-                                      e.currentTarget.src = '/placeholder-user.jpg'
-                                    }}
-                                  />
+
+
+                              {/* Selection Indicator */}
+                              {selectedAgent?.id === agent.id && (
+                                <div className="absolute top-3 right-3 w-6 h-6 bg-[#4600F2] rounded-full flex items-center justify-center">
+                                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-start justify-between">
-                                    <div>
-                                      <h4 className={`text-[18px] font-semibold leading-[1.4] ${
-                                        !agent.available
-                                          ? 'text-[#9CA3AF]'
-                                          : 'text-black'
-                                      }`}>
-                                        {agent.name}
-                                      </h4>
-                                      {/* <div className="mt-1">
-                                        <span className="text-[14px] font-bold text-[#4600F2] cursor-pointer hover:text-[#4600F2]/80 transition-colors group inline-flex items-center">
-                                          Talk to agent
-                                          <svg 
-                                            className="w-3 h-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" 
-                                            fill="currentColor" 
-                                            viewBox="0 0 20 20"
-                                          >
-                                            <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                                          </svg>
-                                        </span>
-                                      </div> */}
-                                    </div>
-                                    {/* <div className="flex items-center space-x-2">
-                                      {agent.available ? (
-                                        <div className="flex items-center space-x-2">
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              if (playingAgentId === agent.id) {
-                                                setPlayingAgentId(null)
-                                              } else {
-                                                setPlayingAgentId(agent.id)
-                                              }
-                                            }}
-                                            className="flex items-center justify-center w-6 h-6 rounded-full bg-[#4600F2] hover:bg-[#4600F2]/90 transition-colors shadow-md"
-                                          >
-                                            {playingAgentId === agent.id ? (
-                                              <Pause className="w-3 h-3 text-white fill-current" />
-                                            ) : (
-                                              <div className="w-0 h-0 border-l-[6px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-0.5" />
-                                            )}
-                                          </button>
-                                          {playingAgentId === agent.id && (
-                                            <div className="flex items-center space-x-1">
-                                              {[...Array(4)].map((_, i) => (
-                                                <div
-                                                  key={i}
-                                                  className="w-1 bg-[#22C55E] rounded-full animate-pulse"
-                                                  style={{
-                                                    height: `${Math.random() * 16 + 8}px`,
-                                                    animationDelay: `${i * 0.15}s`,
-                                                    animationDuration: '0.6s'
-                                                  }}
-                                                />
-                                              ))}
-                                            </div>
-                                          )}
-                                        </div>
-                                      ) : (
-                                        <Badge variant="outline" className="bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]">
-                                          Unavailable
-                                        </Badge>
-                                      )}
-                                    </div> */}
+                              )}
+
+                              <div className="space-y-4">
+                                {/* Top Section: Profile Photo, Name, and Chips */}
+                                <div className="flex items-start space-x-4">
+                                  {/* Profile Picture */}
+                                  <div className="flex-shrink-0 -mt-1">
+                                    <img
+                                      src={agent.imageUrl}
+                                      alt={agent.name}
+                                      className="w-16 h-16 rounded-lg object-cover object-top border-2 border-[#E5E7EB]"
+                                      onError={(e) => {
+                                        e.currentTarget.src = '/placeholder-user.jpg'
+                                      }}
+                                    />
                                   </div>
 
+                                  {/* Agent Info */}
+                                  <div className="flex-1 min-w-0">
+                                    {/* Name */}
+                                    <h4 className={`text-[16px] font-bold text-black mb-2 ${
+                                      !agent.available ? 'text-[#9CA3AF]' : ''
+                                    }`}>
+                                      {agent.name}
+                                    </h4>
+
+                                    {/* Tags */}
+                                    <div className="flex flex-wrap gap-1.5">
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-gray-700 border border-gray-300">
+                                        New York
+                                      </span>
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-gray-700 border border-gray-300">
+                                        English
+                                      </span>
+                                    </div>
+                                  </div>
                                 </div>
+
+                                {/* Bottom Section: Call Statistics */}
+                                <div className="flex justify-between">
+                                  <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 flex-1 mr-2">
+                                    <p className="text-xs text-gray-500 mb-1">Total Calls</p>
+                                    <p className="text-base font-bold text-black">0</p>
+                                  </div>
+                                  <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 flex-1">
+                                    <p className="text-xs text-gray-500 mb-1">Success Rate</p>
+                                    <p className="text-base font-bold text-black">0%</p>
+                                  </div>
+                                </div>
+
+                                {/* Talk to Agent Button */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    // Handle talk to agent functionality
+                                  }}
+                                  className="absolute bottom-3 left-3 right-3 bg-[#4600F2]/10 hover:bg-[#4600F2]/15 text-[#4600F2] font-medium py-3 px-4 transition-colors text-sm font-semibold rounded-lg"
+                                >
+                                  Talk to Agent
+                                </button>
                               </div>
                             </div>
                           ))}
@@ -930,6 +935,7 @@ export default function CampaignSetup() {
                   }`} />
                   <div className="space-y-3">
                     <p className="text-[14px] font-semibold text-[#1A1A1A]">Drag and drop your file here</p>
+                    <p className="text-[12px] text-[#6B7280]">Supports .xlsx and .csv files up to 10MB</p>
                     <p className="text-[14px] text-[#6B7280]">or</p>
                     <Label htmlFor="file-upload" className="cursor-pointer">
                       <Button 
@@ -961,18 +967,17 @@ export default function CampaignSetup() {
                       />
                     </Label>
                   </div>
-                  <p className="text-[12px] text-[#6B7280] mt-4">Supports .xlsx and .csv files up to 10MB</p>
-                </div>
-                
-                {/* Download sample file CTA below upload area */}
-                <div className="mt-2">
-                  <button 
-                    onClick={downloadSampleFile}
-                    className="inline-flex items-center text-[12px] font-medium text-[#4600F2] hover:text-[#4600F2]/80 transition-colors"
-                  >
-                    <Download className="w-3 h-3 mr-1" />
-                    Download sample file
-                  </button>
+                  
+                  {/* Download sample file CTA in the middle */}
+                  <div className="mt-4">
+                    <button 
+                      onClick={downloadSampleFile}
+                      className="inline-flex items-center text-[12px] font-medium text-[#4600F2] hover:text-[#4600F2]/80 transition-colors"
+                    >
+                      <Download className="w-3 h-3 mr-1" />
+                      Download sample file
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1131,11 +1136,11 @@ export default function CampaignSetup() {
                 <div className="p-6">
                   <div className="grid grid-cols-2 gap-6">
                     <div>
-                      <p className="text-[14px] font-medium text-[#1A1A1A] mb-1">Campaign Name</p>
-                      <p className="text-[16px] text-[#1A1A1A]">{campaignData.campaignName || 'Untitled Campaign'}</p>
+                      <p className="text-[14px] font-medium text-[#666666] mb-1">Campaign Name</p>
+                      <p className="text-[16px] font-bold text-[#1A1A1A]">{campaignData.campaignName || 'Untitled Campaign'}</p>
                     </div>
                     <div>
-                      <p className="text-[14px] font-medium text-[#1A1A1A] mb-1">Use Case</p>
+                      <p className="text-[14px] font-medium text-[#666666] mb-1">Use Case</p>
                       <div className="mt-1">
                         <Badge className="bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]">
                           {useCases[selectedCategory]?.label} - {useCases[selectedCategory]?.subCases.find(sc => sc.value === campaignData.subUseCase)?.label}
@@ -1143,93 +1148,78 @@ export default function CampaignSetup() {
                       </div>
                     </div>
                     <div>
-                      <p className="text-[14px] font-medium text-[#1A1A1A] mb-1">Total Records</p>
-                      <p className="text-[16px] text-[#1A1A1A]">{campaignData.totalRecords} customers</p>
+                      <p className="text-[14px] font-medium text-[#666666] mb-1">Total Records</p>
+                      <p className="text-[16px] font-bold text-[#1A1A1A]">{campaignData.totalRecords} customers</p>
                     </div>
                     <div>
-                      <p className="text-[14px] font-medium text-[#1A1A1A] mb-1">Estimated Time</p>
-                      <p className="text-[16px] text-[#1A1A1A]">{estimatedTime}</p>
+                      <p className="text-[14px] font-medium text-[#666666] mb-1">Estimated Time</p>
+                      <p className="text-[16px] font-bold text-[#1A1A1A]">{estimatedTime}</p>
                     </div>
                     <div className="col-span-2">
-                      <p className="text-[14px] font-medium text-[#1A1A1A] mb-1">File</p>
-                      <p className="text-[16px] text-[#1A1A1A]">{campaignData.fileName}</p>
+                      <p className="text-[14px] font-medium text-[#666666] mb-1">File</p>
+                      <p className="text-[16px] font-bold text-[#1A1A1A]">{campaignData.fileName}</p>
                     </div>
                     {selectedAgent && campaignData.subUseCase === 'recall-notification' && (
                       <div className="col-span-2">
-                        <p className="text-[14px] font-medium text-[#1A1A1A] mb-2">Selected Agent</p>
-                        <div className="bg-white border border-[#E5E7EB] rounded-lg p-4 hover:border-[#4600F2]/40 hover:bg-[#4600F2]/5 hover:shadow-sm">
-                          <div className="flex items-start space-x-4">
-                            <div className="flex-shrink-0">
-                              <img
-                                src={selectedAgent.imageUrl}
-                                alt={selectedAgent.name}
-                                className="w-[55px] h-[55px] rounded-lg object-cover object-[50%_20%] border-2 border-[#E5E7EB]"
-                                onError={(e) => {
-                                  e.currentTarget.src = '/placeholder-user.jpg'
-                                }}
-                              />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between">
-                                <div>
-                                  <h4 className="text-[18px] font-semibold leading-[1.4] text-black">
+                        <p className="text-[14px] font-medium text-[#666666] mb-2">Selected Agent</p>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="relative bg-white border border-[#E5E7EB] rounded-xl p-4 pb-16 transition-all duration-200 hover:border-[#4600F2]/40 hover:bg-[#4600F2]/5 hover:shadow-sm">
+                            <div className="space-y-4">
+                              {/* Top Section: Profile Photo, Name, and Chips */}
+                              <div className="flex items-start space-x-4">
+                                {/* Profile Picture */}
+                                <div className="flex-shrink-0 -mt-1">
+                                  <img
+                                    src={selectedAgent.imageUrl}
+                                    alt={selectedAgent.name}
+                                    className="w-16 h-16 rounded-lg object-cover object-top border-2 border-[#E5E7EB]"
+                                    onError={(e) => {
+                                      e.currentTarget.src = '/placeholder-user.jpg'
+                                    }}
+                                  />
+                                </div>
+
+                                {/* Agent Info */}
+                                <div className="flex-1 min-w-0">
+                                  {/* Name */}
+                                  <h4 className="text-[16px] font-bold text-black mb-2">
                                     {selectedAgent.name}
                                   </h4>
-                                  <div className="mt-1">
-                                    <span className="text-[14px] font-bold text-[#4600F2] cursor-pointer hover:text-[#4600F2]/80 transition-colors group inline-flex items-center">
-                                      Talk to agent
-                                      <svg 
-                                        className="w-3 h-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" 
-                                        fill="currentColor" 
-                                        viewBox="0 0 20 20"
-                                      >
-                                        <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                                      </svg>
+
+                                  {/* Tags */}
+                                  <div className="flex flex-wrap gap-1.5">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-gray-700 border border-gray-300">
+                                      New York
+                                    </span>
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-gray-700 border border-gray-300">
+                                      English
                                     </span>
                                   </div>
                                 </div>
-                                <div className="flex items-center space-x-2">
-                                  <div className="flex items-center space-x-2">
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        if (playingAgentId === selectedAgent.id) {
-                                          setPlayingAgentId(null)
-                                        } else {
-                                          setPlayingAgentId(selectedAgent.id)
-                                        }
-                                      }}
-                                      className="flex items-center justify-center w-6 h-6 rounded-full bg-[#4600F2] hover:bg-[#4600F2]/90 transition-colors shadow-md"
-                                    >
-                                      {playingAgentId === selectedAgent.id ? (
-                                        <Pause className="w-3 h-3 text-white fill-current" />
-                                      ) : (
-                                        <div className="w-0 h-0 border-l-[6px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-0.5" />
-                                      )}
-                                    </button>
-                                    {playingAgentId === selectedAgent.id && (
-                                      <div className="flex items-center space-x-1">
-                                        {[...Array(4)].map((_, i) => (
-                                          <div
-                                            key={i}
-                                            className="w-1 bg-[#22C55E] rounded-full animate-pulse"
-                                            style={{
-                                              height: `${Math.random() * 16 + 8}px`,
-                                              animationDelay: `${i * 0.15}s`,
-                                              animationDuration: '0.6s'
-                                            }}
-                                          />
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
+                              </div>
+
+                              {/* Bottom Section: Call Statistics */}
+                              <div className="flex justify-between">
+                                <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 flex-1 mr-2">
+                                  <p className="text-xs text-gray-500 mb-1">Total Calls</p>
+                                  <p className="text-base font-bold text-black">0</p>
+                                </div>
+                                <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 flex-1">
+                                  <p className="text-xs text-gray-500 mb-1">Success Rate</p>
+                                  <p className="text-base font-bold text-black">0%</p>
                                 </div>
                               </div>
-                              {selectedAgent.lastCallDate && (
-                                <div className="flex items-center mt-2 text-[12px] text-[#6B7280]">
-                                  <span>Last Call: {new Date(selectedAgent.lastCallDate).toLocaleDateString()}</span>
-                                </div>
-                              )}
+
+                              {/* Talk to Agent Button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  // Handle talk to agent functionality
+                                }}
+                                className="absolute bottom-3 left-3 right-3 bg-[#4600F2]/10 hover:bg-[#4600F2]/15 text-[#4600F2] font-medium py-3 px-4 transition-colors text-sm font-semibold rounded-lg"
+                              >
+                                Talk to Agent
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -1295,67 +1285,235 @@ export default function CampaignSetup() {
                   </RadioGroup>
 
                   {campaignData.schedule === 'scheduled' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6 p-4 bg-[#F4F5F8] rounded-lg border border-[#E5E7EB]">
-                      <div>
-                        <Label htmlFor="date" className={`text-[16px] font-bold mb-2 block ${
-                          errors.scheduledDate ? 'text-red-600' : 'text-[#1A1A1A]'
-                        }`}>
-                          Campaign Date {errors.scheduledDate && <span className="text-red-500">*</span>}
-                        </Label>
-                        <Input
-                          id="date"
-                          type="date"
-                          value={campaignData.scheduledDate}
-                          onChange={(e) => {
-                            setCampaignData(prev => ({ ...prev, scheduledDate: e.target.value }))
-                            if (errors.scheduledDate && e.target.value) {
-                              setErrors(prev => ({ ...prev, scheduledDate: false }))
-                            }
-                          }}
-                          className={`h-11 text-[14px] rounded-md focus:ring-[#4600F2] transition-colors ${
-                            errors.scheduledDate 
-                              ? 'border-red-500 focus:border-red-500' 
-                              : 'border-[#E5E7EB] focus:border-[#4600F2]'
-                          }`}
-                        />
-                        {errors.scheduledDate && (
-                          <p className="text-sm text-red-600 flex items-center mt-1">
-                            <AlertCircle className="h-4 w-4 mr-1" />
-                            Date is required
-                          </p>
-                        )}
+                    <div className="bg-white border border-[#E5E7EB] rounded-lg mt-6">
+                      <div className="bg-[#F4F5F8] border-b border-[#E5E7EB] px-6 py-4">
+                        <h3 className="text-[16px] font-semibold text-[#1A1A1A]">Schedule Settings</h3>
+                        <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Set the date and time for your campaign to start</p>
                       </div>
-                      <div>
-                        <Label htmlFor="time" className={`text-[16px] font-bold mb-2 block ${
-                          errors.scheduledTime ? 'text-red-600' : 'text-[#1A1A1A]'
-                        }`}>
-                          Campaign Time {errors.scheduledTime && <span className="text-red-500">*</span>}
-                        </Label>
-                        <Input
-                          id="time"
-                          type="time"
-                          value={campaignData.scheduledTime}
-                          onChange={(e) => {
-                            setCampaignData(prev => ({ ...prev, scheduledTime: e.target.value }))
-                            if (errors.scheduledTime && e.target.value) {
-                              setErrors(prev => ({ ...prev, scheduledTime: false }))
-                            }
-                          }}
-                          className={`h-11 text-[14px] rounded-md focus:ring-[#4600F2] transition-colors ${
-                            errors.scheduledTime 
-                              ? 'border-red-500 focus:border-red-500' 
-                              : 'border-[#E5E7EB] focus:border-[#4600F2]'
-                          }`}
-                        />
-                        {errors.scheduledTime && (
-                          <p className="text-sm text-red-600 flex items-center mt-1">
-                            <AlertCircle className="h-4 w-4 mr-1" />
-                            Time is required
-                          </p>
-                        )}
+                      <div className="p-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="date" className={`text-[14px] font-medium mb-2 block ${
+                              errors.scheduledDate ? 'text-red-600' : 'text-[#1A1A1A]/60'
+                            }`}>
+                              Campaign Date {errors.scheduledDate && <span className="text-red-500">*</span>}
+                            </Label>
+                            <Input
+                              id="date"
+                              type="date"
+                              value={campaignData.scheduledDate}
+                              onChange={(e) => {
+                                setCampaignData(prev => ({ ...prev, scheduledDate: e.target.value }))
+                                if (errors.scheduledDate && e.target.value) {
+                                  setErrors(prev => ({ ...prev, scheduledDate: false }))
+                                }
+                              }}
+                              className={`h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2] focus:ring-[#4600F2] transition-colors ${
+                                errors.scheduledDate 
+                                  ? 'border-red-500 focus:border-red-500' 
+                                  : ''
+                              }`}
+                            />
+                            {errors.scheduledDate && (
+                              <p className="text-sm text-red-600 flex items-center mt-1">
+                                <AlertCircle className="h-4 w-4 mr-1" />
+                                Date is required
+                              </p>
+                            )}
+                          </div>
+                          <div>
+                            <Label htmlFor="time" className={`text-[14px] font-medium mb-2 block ${
+                              errors.scheduledTime ? 'text-red-600' : 'text-[#1A1A1A]/60'
+                            }`}>
+                              Campaign Time {errors.scheduledTime && <span className="text-red-500">*</span>}
+                            </Label>
+                            <Input
+                              id="time"
+                              type="time"
+                              value={campaignData.scheduledTime}
+                              onChange={(e) => {
+                                setCampaignData(prev => ({ ...prev, scheduledTime: e.target.value }))
+                                if (errors.scheduledTime && e.target.value) {
+                                  setErrors(prev => ({ ...prev, scheduledTime: false }))
+                                }
+                              }}
+                              className={`h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2] focus:ring-[#4600F2] transition-colors ${
+                                errors.scheduledTime 
+                                  ? 'border-red-500 focus:border-red-500' 
+                                  : ''
+                              }`}
+                            />
+                            {errors.scheduledTime && (
+                              <p className="text-sm text-red-600 flex items-center mt-1">
+                                <AlertCircle className="h-4 w-4 mr-1" />
+                                Time is required
+                              </p>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* Call Rules Section */}
+              <div className="bg-white border border-[#E5E7EB] rounded-lg">
+                <div className="bg-[#F4F5F8] border-b border-[#E5E7EB] px-6 py-4">
+                  <h3 className="text-[16px] font-semibold text-[#1A1A1A]">Call Rules & Behavior</h3>
+                  <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Configure how your AI agent handles different call scenarios and retry logic</p>
+                </div>
+                <div className="p-6">
+                  {/* Retry Scenarios - Moved to top with chips UI */}
+                  <div className="mb-10">
+                    <h4 className="text-[16px] font-semibold text-[#1A1A1A] mb-4">
+                      Retry Scenarios
+                    </h4>
+                    
+                    <div className="flex flex-wrap gap-3">
+                      <div 
+                        className={`px-3 py-2 rounded-full border cursor-pointer transition-all ${
+                          campaignData.disconnectedCallRetry 
+                            ? 'border-[#4600F2] bg-[#4600F2]/10 text-[#4600F2]' 
+                            : 'border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#D1D5DB]'
+                        }`}
+                        onClick={() => setCampaignData(prev => ({ ...prev, disconnectedCallRetry: !prev.disconnectedCallRetry }))}
+                      >
+                        <span className={`text-[14px] ${campaignData.disconnectedCallRetry ? 'font-bold' : 'font-medium'}`}>Disconnected calls</span>
+                      </div>
+                      
+                      <div 
+                        className={`px-3 py-2 rounded-full border cursor-pointer transition-all ${
+                          campaignData.busySignalRetry 
+                            ? 'border-[#4600F2] bg-[#4600F2]/10 text-[#4600F2]' 
+                            : 'border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#D1D5DB]'
+                        }`}
+                        onClick={() => setCampaignData(prev => ({ ...prev, busySignalRetry: !prev.busySignalRetry }))}
+                      >
+                        <span className={`text-[14px] ${campaignData.busySignalRetry ? 'font-bold' : 'font-medium'}`}>Busy signals</span>
+                      </div>
+                      
+                      <div 
+                        className={`px-3 py-2 rounded-full border cursor-pointer transition-all ${
+                          campaignData.noAnswerRetry 
+                            ? 'border-[#4600F2] bg-[#4600F2]/10 text-[#4600F2]' 
+                            : 'border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#D1D5DB]'
+                        }`}
+                        onClick={() => setCampaignData(prev => ({ ...prev, noAnswerRetry: !prev.noAnswerRetry }))}
+                      >
+                        <span className={`text-[14px] ${campaignData.noAnswerRetry ? 'font-bold' : 'font-medium'}`}>No answer</span>
+                      </div>
+                      
+                      <div 
+                        className={`px-3 py-2 rounded-full border cursor-pointer transition-all ${
+                          campaignData.busyCustomerRetry 
+                            ? 'border-[#4600F2] bg-[#4600F2]/10 text-[#4600F2]' 
+                            : 'border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#D1D5DB]'
+                        }`}
+                        onClick={() => setCampaignData(prev => ({ ...prev, busyCustomerRetry: !prev.busyCustomerRetry }))}
+                      >
+                        <span className={`text-[14px] ${campaignData.busyCustomerRetry ? 'font-bold' : 'font-medium'}`}>Customer says busy</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    
+                    {/* Retry Settings */}
+                    <div className="space-y-4 lg:col-span-2">
+                      <h4 className="text-[16px] font-semibold text-[#1A1A1A]">
+                        Retry Settings
+                      </h4>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="maxRetries" className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">
+                            Maximum Retry Attempts
+                          </Label>
+                          <Select
+                            value={campaignData.maxRetryAttempts.toString()}
+                            onValueChange={(value) => setCampaignData(prev => ({ ...prev, maxRetryAttempts: parseInt(value) }))}
+                          >
+                            <SelectTrigger className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">1 attempt</SelectItem>
+                              <SelectItem value="2">2 attempts</SelectItem>
+                              <SelectItem value="3">3 attempts</SelectItem>
+                              <SelectItem value="4">4 attempts</SelectItem>
+                              <SelectItem value="5">5 attempts</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="retryDelay" className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">
+                            Retry Delay
+                          </Label>
+                          <Select
+                            value={campaignData.retryDelayMinutes.toString()}
+                            onValueChange={(value) => setCampaignData(prev => ({ ...prev, retryDelayMinutes: parseInt(value) }))}
+                          >
+                            <SelectTrigger className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="30">30 minutes</SelectItem>
+                              <SelectItem value="60">1 hour</SelectItem>
+                              <SelectItem value="120">2 hours</SelectItem>
+                              <SelectItem value="240">4 hours</SelectItem>
+                              <SelectItem value="1440">24 hours</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* Voicemail Strategy - Moved below retry settings */}
+                  <div className="mt-10">
+                    <h4 className="text-[16px] font-semibold text-[#1A1A1A] mb-4">
+                      Voicemail Strategy
+                    </h4>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <Select
+                          value={campaignData.voicemailStrategy}
+                          onValueChange={(value) => setCampaignData(prev => ({ ...prev, voicemailStrategy: value }))}
+                        >
+                          <SelectTrigger className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="leave_message">Leave voicemail message</SelectItem>
+                            <SelectItem value="hang_up">Hang up immediately</SelectItem>
+                            <SelectItem value="retry_later">Retry later without voicemail</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      {campaignData.voicemailStrategy === 'leave_message' && (
+                        <div>
+                          <Label htmlFor="voicemailMessage" className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">
+                            Voicemail Message
+                          </Label>
+                          <Textarea
+                            id="voicemailMessage"
+                            placeholder="Enter your custom voicemail message..."
+                            value={campaignData.voicemailMessage || "Hi, this is [Company Name] calling about an important safety recall for your vehicle. This is a free service to ensure your safety. Please call us back at [Phone Number] as soon as possible to schedule your free recall repair. Your safety is our top priority. Thank you."}
+                            onChange={(e) => setCampaignData(prev => ({ ...prev, voicemailMessage: e.target.value }))}
+                            className="min-h-[100px] text-[14px] border-[#E5E7EB] focus:border-[#4600F2] focus:ring-[#4600F2] resize-none"
+                          />
+                          <p className="text-[12px] text-[#6B7280] mt-1">
+                            This message will be left when the AI agent reaches voicemail
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1375,31 +1533,33 @@ export default function CampaignSetup() {
                 </div>
               </div>
 
+              {/* Campaign Status Overview */}
               <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
                 <div className="space-y-4">
                   <div>
-                    <p className="text-[14px] font-medium text-[#1A1A1A] mb-1">Campaign ID</p>
+                    <p className="text-[14px] font-medium text-[#666666] mb-1">Campaign ID</p>
                     <p className="text-[16px] font-mono text-[#1A1A1A]">{createdCampaignId || 'Loading...'}</p>
                   </div>
                   <div>
-                    <p className="text-[14px] font-medium text-[#1A1A1A] mb-2">Status</p>
+                    <p className="text-[14px] font-medium text-[#666666] mb-2">Status</p>
                     <Badge className="bg-[#4600F2] text-white px-3 py-1 text-[12px]">
                       <Zap className="h-4 w-4 mr-2" />
                       {campaignData.schedule === 'now' ? 'Running' : 'Scheduled'}
                     </Badge>
                   </div>
                   <div>
-                    <p className="text-[14px] font-medium text-[#1A1A1A] mb-1">
+                    <p className="text-[14px] font-medium text-[#666666] mb-1">
                       {campaignData.schedule === 'now' ? 'Expected Completion' : 'Scheduled Start'}
                     </p>
                     <p className="text-[16px] text-[#1A1A1A]">
-                      {campaignData.schedule === 'now' ? 'Today, 6:30 PM' : `${campaignData.scheduledDate} at ${campaignData.scheduledTime}`}
+                      {campaignData.schedule === 'now' ? estimatedTime : `${campaignData.scheduledDate} at ${campaignData.scheduledTime}`}
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-3">
+              {/* Action Buttons */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Link href={buildUrlWithParams(createdCampaignId ? `/results/${createdCampaignId}` : '/results')}>
                   <Button size="lg" className="w-full h-11 px-4 text-[14px] bg-[#4600F2] hover:bg-[#4600F2]/90 text-white rounded-lg font-medium">
                     <BarChart3 className="h-5 w-5 mr-2" />
@@ -1407,7 +1567,6 @@ export default function CampaignSetup() {
                   </Button>
                 </Link>
                 <Button 
-                  variant="outline" 
                   size="lg" 
                   onClick={() => {
                     // Reset all campaign data
@@ -1420,7 +1579,22 @@ export default function CampaignSetup() {
                       schedule: 'now',
                       scheduledDate: '',
                       scheduledTime: '',
-                      totalRecords: 0
+                      totalRecords: 0,
+                      // Call Rules
+                      maxRetryAttempts: 3,
+                      retryDelayMinutes: 60,
+                      callWindowStart: '09:00',
+                      callWindowEnd: '17:00',
+                      timezone: 'America/New_York',
+                      doNotCallList: true,
+                      maxCallsPerHour: 50,
+                      maxCallsPerDay: 200,
+                      voicemailStrategy: 'leave_message',
+                      voicemailMessage: '',
+                      disconnectedCallRetry: true,
+                      busySignalRetry: true,
+                      noAnswerRetry: true,
+                      busyCustomerRetry: true
                     })
                     // Reset upload states
                     setUploadProgress(0)
@@ -1436,7 +1610,7 @@ export default function CampaignSetup() {
                     // Reset to first step
                     setCurrentStep(1)
                   }}
-                  className="w-full h-11 px-4 text-[14px] border-[#E5E7EB] text-[#6B7280] hover:bg-[#4600F214] rounded-lg font-medium"
+                  className="w-full h-11 px-4 text-[14px] bg-white hover:bg-gray-50 text-[#1A1A1A] border border-[#E5E7EB] rounded-lg font-medium"
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Setup Another Campaign

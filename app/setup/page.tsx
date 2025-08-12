@@ -167,15 +167,26 @@ export default function CampaignSetup() {
   // Refs for scrolling to sections
   const campaignNameRef = useRef<HTMLDivElement | null>(null)
   
-  // Function to download sample file
+    // Function to download sample file
   const downloadSampleFile = () => {
-    const link = document.createElement('a')
-    link.href = '/csv-template.csv'
+    try {
+    parent.postMessage({
+      type: 'DOWNLOAD_SAMPLE_CSV',
+      data: { 
+        fileUrl: 'https://spyne-test.s3.us-east-1.amazonaws.com/csv-template1.csv',
+        fileName: 'sample-customer-data.csv'
+      }
+    }, '*');
+    } catch (error) {
+      const link = document.createElement('a')
+    link.href = 'https://spyne-test.s3.us-east-1.amazonaws.com/csv-template1.csv'
     link.download = 'sample-customer-data.csv'
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+    }
   }
+
   const useCaseRef = useRef<HTMLDivElement | null>(null)
   const agentSelectionRef = useRef<HTMLDivElement | null>(null)
   const fileUploadRef = useRef<HTMLDivElement | null>(null)

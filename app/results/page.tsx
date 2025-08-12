@@ -524,7 +524,12 @@ export default function CampaignResults() {
                       <div className="mt-auto">
                         <div className="flex items-center justify-between">
                           <div className="text-xs text-text-secondary">
-                            {formatDate(campaign.startDate || campaign.createdAt || '')} - {campaign.completedAt ? formatDate(campaign.completedAt) : 'In Progress'}
+                            {campaign.startDate && campaign.endDate 
+                              ? `${formatDate(campaign.startDate)} - ${formatDate(campaign.endDate)}`
+                              : campaign.startDate 
+                                ? `${formatDate(campaign.startDate)} - ${campaign.completedAt ? formatDate(campaign.completedAt) : 'In Progress'}`
+                                : `${formatDate(campaign.createdAt || '')} - ${campaign.completedAt ? formatDate(campaign.completedAt) : 'In Progress'}`
+                            }
                           </div>
                           <div className="text-xs text-text-secondary font-semibold">
                             <button

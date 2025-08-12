@@ -53,6 +53,7 @@ export interface CampaignListItem {
   campaignType: string;
   campaignUseCase?: string;
   startDate?: string;
+  endDate?: string;
   createdAt?: string;
   completedAt?: string;
   status: string;

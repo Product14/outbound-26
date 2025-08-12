@@ -23,7 +23,7 @@ import { transformCampaignData, launchCampaign, type Customer } from '@/lib/camp
 import { parseUploadedFile, REQUIRED_CSV_COLUMNS, type ParsedCustomerData } from '@/lib/file-parser'
 import { fetchAgentList, type Agent } from '@/lib/agent-api'
 import { useToast } from "@/hooks/use-toast"
-import { calculateAndFormatEstimatedTime, getShortEstimatedTime } from '@/lib/time-utils'
+import { calculateAndFormatEstimatedTime, getShortEstimatedTime, calculateAndFormatTimeRange, getEstimatedTimeInMinutes, calculateEndDate } from '@/lib/time-utils'
 
 interface SubCase {
   value: string;
@@ -117,8 +117,23 @@ export default function CampaignSetup() {
     voicemailMessage: ''
   })
   
-  // Calculate estimated time dynamically based on total records
+  // Calculate estimated time and time range dynamically based on total records
   const estimatedTime = calculateAndFormatEstimatedTime(campaignData.totalRecords)
+  
+  // Calculate time range based on start date
+  const getEstimatedTimeRange = () => {
+    // For "now" campaigns, start immediately
+    if (campaignData.schedule === 'now') {
+      return calculateAndFormatTimeRange(new Date(), campaignData.totalRecords)
+    }
+    // For scheduled campaigns, use the scheduled date/time
+    if (campaignData.schedule === 'scheduled' && campaignData.scheduledDate && campaignData.scheduledTime) {
+      const startDate = new Date(`${campaignData.scheduledDate}T${campaignData.scheduledTime}`)
+      return calculateAndFormatTimeRange(startDate, campaignData.totalRecords)
+    }
+    // Fallback to current time if schedule details are incomplete
+    return calculateAndFormatTimeRange(new Date(), campaignData.totalRecords)
+  }
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [createdCampaignId, setCreatedCampaignId] = useState('')
   const [urlParams, setUrlParams] = useState<UrlParams>({ enterprise_id: null, team_id: null, auth_key: null })
@@ -440,6 +455,13 @@ export default function CampaignSetup() {
       if (response.success) {
         // Create the new campaign object for local storage
         const campaignId = response.campaignId || `camp_${Date.now()}`
+        
+        // Calculate start and end dates
+        const startDate = campaignData.schedule === 'now' 
+          ? new Date() 
+          : new Date(`${campaignData.scheduledDate}T${campaignData.scheduledTime}`)
+        const endDate = calculateEndDate(startDate, campaignData.totalRecords)
+        
         const newCampaign = {
           id: campaignId,
           name: campaignData.campaignName,
@@ -447,15 +469,18 @@ export default function CampaignSetup() {
           subUseCase: useCases[selectedCategory]?.subCases.find(sc => sc.value === campaignData.subUseCase)?.label || campaignData.subUseCase,
           status: campaignData.schedule === 'now' ? 'Running' : 'Scheduled',
           progress: campaignData.schedule === 'now' ? 0 : 0,
-          eta: campaignData.schedule === 'now' ? estimatedTime : null,
+          eta: campaignData.schedule === 'now' ? getEstimatedTimeRange() : null,
           callsPlaced: 0,
           totalRecords: campaignData.totalRecords,
           answerRate: 0,
           appointmentsBooked: 0,
           successRate: 0,
           createdAt: new Date(),
+          startDate: startDate, // Add startDate for results page compatibility
+          endDate: endDate,     // Add endDate for time range display
+          completedAt: campaignData.schedule === 'now' ? null : null, // Will be set when campaign completes
           startedAt: campaignData.schedule === 'now' ? new Date() : null,
-          scheduledFor: campaignData.schedule === 'scheduled' ? new Date(`${campaignData.scheduledDate}T${campaignData.scheduledTime}`) : null,
+          scheduledFor: campaignData.schedule === 'scheduled' ? startDate : null,
           fileName: campaignData.fileName,
           payload: payload // Store the API payload for reference
         }
@@ -1170,7 +1195,7 @@ export default function CampaignSetup() {
                     </div>
                     <div>
                       <p className="text-[14px] font-medium text-[#666666] mb-1">Estimated Time</p>
-                      <p className="text-[16px] font-bold text-[#1A1A1A]">{estimatedTime}</p>
+                      <p className="text-[16px] font-bold text-[#1A1A1A]">{getEstimatedTimeInMinutes(campaignData.totalRecords)}</p>
                     </div>
                     <div className="col-span-2">
                       <p className="text-[14px] font-medium text-[#666666] mb-1">File</p>
@@ -1232,6 +1257,20 @@ export default function CampaignSetup() {
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   // Handle talk to agent functionality
+                                  if (selectedAgent) {
+                                    parent.postMessage({
+                                      type: 'CALL_AGENT_BLANK',
+                                      data: { 
+                                        agentMappingId: selectedAgent.id,
+                                        customerDetails: {
+                                          customerName: '',
+                                          recallDetails: {}
+                                        }
+                                      }
+                                    }, '*');
+                                  } else {
+                                    console.error('No agent selected for talk to agent functionality');
+                                  }
                                 }}
                                 className="absolute bottom-3 left-3 right-3 bg-[#4600F2]/10 hover:bg-[#4600F2]/15 text-[#4600F2] font-medium py-3 px-4 transition-colors text-sm font-semibold rounded-lg"
                               >
@@ -1566,10 +1605,10 @@ export default function CampaignSetup() {
                   </div>
                   <div>
                     <p className="text-[14px] font-medium text-[#666666] mb-1">
-                      {campaignData.schedule === 'now' ? 'Expected Completion' : 'Scheduled Start'}
+                      {campaignData.schedule === 'now' ? 'Campaign Time Range' : 'Scheduled Time Range'}
                     </p>
                     <p className="text-[16px] text-[#1A1A1A]">
-                      {campaignData.schedule === 'now' ? estimatedTime : `${campaignData.scheduledDate} at ${campaignData.scheduledTime}`}
+                      {getEstimatedTimeRange()}
                     </p>
                   </div>
                 </div>

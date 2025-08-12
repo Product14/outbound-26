@@ -4,12 +4,12 @@
 
 /**
  * Calculates estimated campaign time based on total calls
- * Each call takes 10 seconds
+ * Each call takes 60 seconds (1 minute)
  * @param totalCalls - Total number of calls in the campaign
  * @returns Estimated time in seconds
  */
 export function calculateEstimatedTimeInSeconds(totalCalls: number): number {
-  return totalCalls * 10; // 10 seconds per call
+  return totalCalls * 60; // 60 seconds per call
 }
 
 /**
@@ -82,4 +82,84 @@ export function getShortEstimatedTime(totalCalls: number): string {
   }
   
   return `${hours}h ${remainingMinutes}m`;
+}
+
+/**
+ * Calculates the end date based on start date and estimated duration
+ * @param startDate - The campaign start date
+ * @param totalCalls - Total number of calls in the campaign
+ * @returns End date as a Date object
+ */
+export function calculateEndDate(startDate: Date, totalCalls: number): Date {
+  const estimatedSeconds = calculateEstimatedTimeInSeconds(totalCalls);
+  const endDate = new Date(startDate);
+  endDate.setSeconds(endDate.getSeconds() + estimatedSeconds);
+  return endDate;
+}
+
+/**
+ * Formats a time range for display
+ * @param startDate - The campaign start date
+ * @param endDate - The campaign end date
+ * @returns Formatted time range string (e.g., "Jan 15, 2025 2:30 PM - 4:30 PM")
+ */
+export function formatTimeRange(startDate: Date, endDate: Date): string {
+  const options: Intl.DateTimeFormatOptions = {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  };
+  
+  const startStr = startDate.toLocaleDateString('en-US', options);
+  const endStr = endDate.toLocaleDateString('en-US', options);
+  
+  // If same date, show time range on same day
+  if (startDate.toDateString() === endDate.toDateString()) {
+    const startTime = startDate.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      hour12: true 
+    });
+    const endTime = endDate.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      hour12: true 
+    });
+    
+    const dateStr = startDate.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+    
+    return `${dateStr}, ${startTime} - ${endTime}`;
+  }
+  
+  // Different dates
+  return `${startStr} - ${endStr}`;
+}
+
+/**
+ * Calculates and formats a time range for a campaign
+ * @param startDate - The campaign start date
+ * @param totalCalls - Total number of calls in the campaign
+ * @returns Formatted time range string
+ */
+export function calculateAndFormatTimeRange(startDate: Date, totalCalls: number): string {
+  const endDate = calculateEndDate(startDate, totalCalls);
+  return formatTimeRange(startDate, endDate);
+}
+
+/**
+ * Gets estimated time in minutes for display during campaign creation
+ * @param totalCalls - Total number of calls in the campaign
+ * @returns Estimated time in minutes as a string
+ */
+export function getEstimatedTimeInMinutes(totalCalls: number): string {
+  const seconds = calculateEstimatedTimeInSeconds(totalCalls);
+  const minutes = Math.round(seconds / 60);
+  return `${minutes} minutes`;
 }

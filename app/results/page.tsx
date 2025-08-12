@@ -453,7 +453,7 @@ export default function CampaignResults() {
               
               return (
                 <Card key={campaign.campaignId} className="group hover:scale-105 transition-all duration-200 cursor-pointer overflow-hidden h-full border" style={{borderRadius: '16px'}}>
-                  <Link href={`/results/${campaign.campaignId}`}>
+                  <Link href={buildUrlWithParams(`/results/${campaign.campaignId}`)}>
                     <CardContent className="p-4 sm:p-6 h-full flex flex-col">
                       <div className="flex flex-col sm:flex-row sm:items-start gap-3 mb-4">
                         <div className="flex-1">

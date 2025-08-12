@@ -137,7 +137,7 @@ export function generateCallTime(callIndex: number, campaignStartDate: string): 
   const startDate = new Date(campaignStartDate);
   
   // Spread calls over time (roughly 1 call every 10 seconds as per estimation)
-  const callTimeOffset = callIndex * 10 * 1000; // 10 seconds in milliseconds
+  const callTimeOffset = callIndex * 60 * 1000; // 10 seconds in milliseconds
   
   const callTime = new Date(startDate.getTime() + callTimeOffset);
   return callTime.toISOString();

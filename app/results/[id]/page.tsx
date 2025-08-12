@@ -16,6 +16,7 @@ import { fetchCampaignDetails, type CampaignDetailResponse, type CallDetail } fr
 import { fetchAgentList, type Agent } from '@/lib/agent-api'
 import { calculateAndFormatEstimatedTime, getShortEstimatedTime } from '@/lib/time-utils'
 import { generateCallStatus, generateCallTime, generateCallDuration, calculateCampaignStats } from '@/lib/call-status-utils'
+import { buildUrlWithParams } from '@/lib/url-utils'
 
 // Map API campaign type to display format
 const mapCampaignType = (campaignType: string): string => {
@@ -303,7 +304,7 @@ export default function CampaignDetail() {
       <div className="min-h-screen" style={{ backgroundColor: 'hsl(var(--background))' }}>
         <div className="px-12 py-8 bg-[#F4F5F8] min-h-screen">
           <div className="mb-8">
-            <Link href="/results">
+            <Link href={buildUrlWithParams("/results")}>
               <Button variant="outline" size="sm" className="btn-secondary mb-4">
                 <ArrowLeft className="icon-small mr-2" />
                 Back to Campaigns
@@ -319,7 +320,7 @@ export default function CampaignDetail() {
               <p className="text-body text-text-secondary mb-8 max-w-md mx-auto">
                 The campaign you're looking for doesn't exist or may have been deleted.
               </p>
-              <Link href="/results">
+              <Link href={buildUrlWithParams("/results")}>
                 <Button className="btn-primary">
                   View All Campaigns
                 </Button>
@@ -340,7 +341,7 @@ export default function CampaignDetail() {
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-4 mb-2">
-                <Link href="/results" className="flex items-center text-[#6B7280] hover:text-[#1A1A1A] transition-colors">
+                <Link href={buildUrlWithParams("/results")} className="flex items-center text-[#6B7280] hover:text-[#1A1A1A] transition-colors">
                   <ArrowLeft className="h-5 w-5" />
                 </Link>
                 <h1 className="text-[20px] font-semibold text-[#1A1A1A] leading-[1.4]">Campaign Details - {campaignData.campaign.name}</h1>

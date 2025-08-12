@@ -876,14 +876,28 @@ export default function CampaignSetup() {
 
                                 {/* Talk to Agent Button */}
                                 <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    // Handle talk to agent functionality
-                                  }}
-                                  className="absolute bottom-3 left-3 right-3 bg-[#4600F2]/10 hover:bg-[#4600F2]/15 text-[#4600F2] font-medium py-3 px-4 transition-colors text-sm font-semibold rounded-lg"
-                                >
-                                  Talk to Agent
-                                </button>
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  // Handle talk to agent functionality
+                                  if (selectedAgent) {
+                                    parent.postMessage({
+                                      type: 'CALL_AGENT_BLANK',
+                                      data: { 
+                                        agentMappingId: selectedAgent.id,
+                                        customerDetails: {
+                                          customerName: '',
+                                          recallDetails: {}
+                                        }
+                                      }
+                                    }, '*');
+                                  } else {
+                                    console.error('No agent selected for talk to agent functionality');
+                                  }
+                                }}
+                                className="absolute bottom-3 left-3 right-3 bg-[#4600F2]/10 hover:bg-[#4600F2]/15 text-[#4600F2] font-medium py-3 px-4 transition-colors text-sm font-semibold rounded-lg"
+                              >
+                                Talk to Agent
+                              </button>
                               </div>
                             </div>
                           ))}

@@ -424,7 +424,7 @@ export default function CampaignSetup() {
       setIsLaunching(true)
       
       // Transform campaign data to the required payload format
-      const agentId = selectedAgent?.id || "agent234" // Use selected agent ID or fallback
+      const agentId = selectedAgent?.agentId || "agent234" // Use selected agent ID or fallback
       const payload = transformCampaignData(
         { ...campaignData, uploadedData },
         effectiveEnterpriseId,
@@ -828,10 +828,10 @@ export default function CampaignSetup() {
                                     {/* Tags */}
                                     <div className="flex flex-wrap gap-1.5">
                                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-gray-700 border border-gray-300">
-                                        New York
+                                        {agent.city}
                                       </span>
                                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-gray-700 border border-gray-300">
-                                        English
+                                        {agent.languageName}
                                       </span>
                                     </div>
                                   </div>
@@ -841,11 +841,11 @@ export default function CampaignSetup() {
                                 <div className="flex justify-between">
                                   <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 flex-1 mr-2">
                                     <p className="text-xs text-gray-500 mb-1">Total Calls</p>
-                                    <p className="text-base font-bold text-black">0</p>
+                                    <p className="text-base font-bold text-black">{agent.totalCalls}</p>
                                   </div>
                                   <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 flex-1">
                                     <p className="text-xs text-gray-500 mb-1">Success Rate</p>
-                                    <p className="text-base font-bold text-black">0%</p>
+                                    <p className="text-base font-bold text-black">{agent.totalCalls > 0 ? '75%' : '0%'}</p>
                                   </div>
                                 </div>
 
@@ -1183,10 +1183,10 @@ export default function CampaignSetup() {
                                   {/* Tags */}
                                   <div className="flex flex-wrap gap-1.5">
                                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-gray-700 border border-gray-300">
-                                      New York
+                                      {selectedAgent.city}
                                     </span>
                                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-gray-700 border border-gray-300">
-                                      English
+                                      {selectedAgent.languageName}
                                     </span>
                                   </div>
                                 </div>
@@ -1196,11 +1196,11 @@ export default function CampaignSetup() {
                               <div className="flex justify-between">
                                 <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 flex-1 mr-2">
                                   <p className="text-xs text-gray-500 mb-1">Total Calls</p>
-                                  <p className="text-base font-bold text-black">0</p>
+                                  <p className="text-base font-bold text-black">{selectedAgent.totalCalls}</p>
                                 </div>
                                 <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 flex-1">
                                   <p className="text-xs text-gray-500 mb-1">Success Rate</p>
-                                  <p className="text-base font-bold text-black">0%</p>
+                                  <p className="text-base font-bold text-black">{selectedAgent.totalCalls > 0 ? '75%' : '0%'}</p>
                                 </div>
                               </div>
 

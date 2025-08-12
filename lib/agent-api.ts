@@ -2,10 +2,12 @@ export interface Agent {
   id: string;
   enterpriseId: string;
   teamId: string;
+  agentId: string;
   name: string;
   description: string;
   imageUrl: string;
   type: string;
+  agentCallType: string;
   colorTheme: string;
   available: boolean;
   order: number;
@@ -13,6 +15,9 @@ export interface Agent {
   faqs: any[];
   totalCalls: number;
   lastCallDate: string | null;
+  age: number;
+  city: string;
+  languageName: string;
 }
 
 export interface AgentListResponse {

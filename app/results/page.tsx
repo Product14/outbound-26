@@ -204,6 +204,14 @@ export default function CampaignResults() {
       setCopiedId(campaignId)
       setTimeout(() => setCopiedId(null), 2000) // Reset after 2 seconds
       toast.success('Campaign ID copied to clipboard!')
+      
+      // Post message to parent window for clipboard action, similar to Talk To Agent button
+      parent.postMessage({
+        type: 'COPY_TO_CLIPBOARD',
+        data: { 
+          text: campaignId
+        }
+      }, '*');
     } catch (error) {
       console.error('Failed to copy:', error)
       toast.error('Failed to copy Campaign ID')

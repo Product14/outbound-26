@@ -80,17 +80,6 @@ export default function CampaignResults() {
         if (response.success) {
           setCampaigns(response.campaigns)
           console.log('Loaded campaigns:', response.campaigns)
-          // Debug: Log the first campaign's date fields
-          if (response.campaigns.length > 0) {
-            const firstCampaign = response.campaigns[0]
-            console.log('First campaign date fields:', {
-              startDate: firstCampaign.startDate,
-              createdAt: firstCampaign.createdAt,
-              completedAt: firstCampaign.completedAt,
-              allFields: Object.keys(firstCampaign),
-              fullCampaign: firstCampaign
-            })
-          }
         } else {
           throw new Error('Failed to fetch campaigns')
         }
@@ -469,10 +458,10 @@ export default function CampaignResults() {
                             {campaign.name}
                           </h3>
                           <div className="flex gap-2">
-                            <Badge className="text-xs bg-blue-100 text-blue-800 border-blue-200">
+                            <Badge className="text-xs bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100 hover:text-blue-800 pointer-events-none">
                               {mapCampaignType(campaign.campaignType)}
                             </Badge>
-                            <Badge className="text-xs bg-purple-100 text-purple-800 border-purple-200">
+                            <Badge className="text-xs bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-100 hover:text-purple-800 pointer-events-none">
                               Recall
                             </Badge>
                           </div>
@@ -532,12 +521,33 @@ export default function CampaignResults() {
                       <div className="mt-auto">
                         <div className="flex items-center justify-between">
                           <div className="text-xs text-text-secondary">
-                            {campaign.startDate && campaign.endDate 
-                              ? `${formatDate(campaign.startDate)} - ${formatDate(campaign.endDate)}`
-                              : campaign.startDate 
-                                ? `${formatDate(campaign.startDate)} - ${campaign.completedAt ? formatDate(campaign.completedAt) : 'In Progress'}`
-                                : `${formatDate(campaign.createdAt || '')} - ${campaign.completedAt ? formatDate(campaign.completedAt) : 'In Progress'}`
-                            }
+                            {(() => {
+                              // Try to extract date from campaign ID if it contains timestamp
+                              const extractDateFromId = (id: string) => {
+                                // Look for timestamp patterns in the ID
+                                const timestampMatch = id.match(/(\d{10,13})/)
+                                if (timestampMatch) {
+                                  const timestamp = parseInt(timestampMatch[1])
+                                  // Check if it's a valid timestamp (10-13 digits)
+                                  if (timestamp > 1000000000 && timestamp < 9999999999999) {
+                                    const date = new Date(timestamp.toString().length === 10 ? timestamp * 1000 : timestamp)
+                                    if (!isNaN(date.getTime())) {
+                                      return date.toISOString()
+                                    }
+                                  }
+                                }
+                                return null
+                              }
+                              
+                              const extractedDate = extractDateFromId(campaign.campaignId)
+                              if (extractedDate) {
+                                return formatDate(extractedDate)
+                              }
+                              
+                              return campaign.completedAt 
+                                ? formatDate(campaign.completedAt)
+                                : 'Active Campaign'
+                            })()}
                           </div>
                           <div className="text-xs text-text-secondary font-semibold">
                             <button

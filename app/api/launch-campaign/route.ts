@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { LaunchCampaignPayload } from '@/lib/campaign-api';
+import { configs } from '@/configs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
     console.log('Campaign Launch Payload:', JSON.stringify(payload, null, 2));
     
     // Call the real Spyne API
-    const externalResponse = await fetch('https://api.spyne.ai/conversation/campaign/create', {
+    const externalResponse = await fetch(`${configs.route_base_url}conversation/campaign/create`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

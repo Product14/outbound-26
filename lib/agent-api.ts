@@ -1,3 +1,5 @@
+import { configs } from '@/configs';
+
 export interface Agent {
   id: string;
   enterpriseId: string;
@@ -33,7 +35,7 @@ export async function fetchAgentList(
   agentCallType: string = 'outbound'
 ): Promise<Agent[]> {
   try {
-    const url = `https://api.spyne.ai/conversation/agents/fetch-agent-list?enterpriseId=${enterpriseId}&teamId=${teamId}&agentUseCase=${agentUseCase}&agentType=${agentType}&agentCallType=${agentCallType}`;
+    const url = `${configs.route_base_url}conversation/agents/fetch-agent-list?enterpriseId=${enterpriseId}&teamId=${teamId}&agentUseCase=${agentUseCase}&agentType=${agentType}&agentCallType=${agentCallType}`;
     
     console.log('Fetching agents from URL:', url);
     

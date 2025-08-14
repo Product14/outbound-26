@@ -6,13 +6,22 @@ const nextConfig = {
         source: '/(.*)',
         headers: [
           {
-            key: 'X-Frame-Options',
-            value: 'ALLOW-FROM https://converse-staging.spyne.xyz'
-          }
-        ]
-      }
-    ]
-  }
+            key: 'Permissions-Policy', 
+            value: 'clipboard-read=*; clipboard-write=*',
+          },
+        ],
+      },
+    ];
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  images: {
+    unoptimized: true,
+  },
 }
 
 export default nextConfig

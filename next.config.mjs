@@ -6,8 +6,8 @@ const nextConfig = {
         source: '/(.*)',
         headers: [
           {
-            key: 'Content-Security-Policy',
-            value: "frame-ancestors 'self' https://converse-staging.spyne.xyz https://*.spyne.xyz https://spyne.xyz"
+            key: 'X-Frame-Options',
+            value: 'ALLOW-FROM https://converse-staging.spyne.xyz'
           }
         ]
       }

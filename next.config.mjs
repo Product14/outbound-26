@@ -9,6 +9,10 @@ const nextConfig = {
             key: 'Permissions-Policy', 
             value: 'clipboard-read=*; clipboard-write=*',
           },
+          {
+            key: 'Content-Security-Policy',
+            value: 'frame-ancestors *;',
+          },
         ],
       },
     ];

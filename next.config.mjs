@@ -11,11 +11,11 @@ const nextConfig = {
           },
           {
             key: 'X-Frame-Options',
-            value: 'SAMEORIGIN',
+            value: 'ALLOWALL',
           },
           {
             key: 'Content-Security-Policy',
-            value: "frame-ancestors 'self' https://*.vercel.app https://*.spyne.xyz https://*.spyne.ai;",
+            value: "frame-ancestors *;",
           },
         ],
       },

@@ -6,30 +6,13 @@ const nextConfig = {
         source: '/(.*)',
         headers: [
           {
-            key: 'Permissions-Policy', 
-            value: 'clipboard-read=*; clipboard-write=*',
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'ALLOWALL',
-          },
-          {
             key: 'Content-Security-Policy',
-            value: "frame-ancestors *;",
-          },
-        ],
-      },
-    ];
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  images: {
-    unoptimized: true,
-  },
+            value: "frame-ancestors 'self' https://converse-staging.spyne.xyz https://*.spyne.xyz https://spyne.xyz"
+          }
+        ]
+      }
+    ]
+  }
 }
 
 export default nextConfig

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Toaster } from "@/components/ui/toaster"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,7 +12,9 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowRight, ArrowLeft, Upload, FileText, Calendar, CheckCircle, Download, AlertCircle, Zap, Clock, Users, Database, Plus, X, TrendingUp, Wrench, Play, Pause, MessageSquare, Shield } from 'lucide-react'
+import { TimePicker } from "@/components/ui/time-picker"
+import { DatePicker } from "@/components/ui/date-picker"
+import { ArrowRight, ArrowLeft, Upload, FileText, Calendar, CheckCircle, Download, AlertCircle, Zap, Clock, Users, Database, Plus, X, TrendingUp, Wrench, Play, Pause, MessageSquare, Shield, Link as LinkIcon, Cloud, Mail, Phone } from 'lucide-react'
 import Link from "next/link"
 import { useRouter } from 'next/navigation'
 import { cn } from "@/lib/utils"
@@ -20,7 +22,7 @@ import { BarChart3 } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { extractUrlParams, buildUrlWithParams, type UrlParams } from '@/lib/url-utils'
 import { transformCampaignData, launchCampaign, type Customer } from '@/lib/campaign-api'
-import { parseUploadedFile, REQUIRED_CSV_COLUMNS, type ParsedCustomerData } from '@/lib/file-parser'
+import { parseUploadedFile, REQUIRED_CSV_COLUMNS, getRequiredFieldsForUseCase, type ParsedCustomerData } from '@/lib/file-parser'
 import { fetchAgentList, type Agent } from '@/lib/agent-api'
 import { useToast } from "@/hooks/use-toast"
 import { calculateAndFormatEstimatedTime, getShortEstimatedTime, calculateAndFormatTimeRange, getEstimatedTimeInMinutes, calculateEndDate } from '@/lib/time-utils'
@@ -45,23 +47,16 @@ interface UseCases {
 
 
 
-const steps = [
-  { id: 1, name: 'Campaign Details', number: '01' },
-  { id: 2, name: 'File Upload', number: '02' },
-  { id: 3, name: 'Review & Schedule', number: '03' },
-  { id: 4, name: 'Campaign Started', number: '04' }
-]
-
 const useCases: UseCases = {
   sales: {
     label: 'Sales',
     color: 'bg-green-lighter text-green-darker border-green-8',
     disabled: false,
     subCases: [
-      { value: 'lead-follow-up', label: 'Lead Follow-up', requiredFields: ['Customer Name', 'Phone', 'Lead Source', 'Interest Level'], disabled: false },
-      { value: 'trade-in-offers', label: 'Trade-in Offers', requiredFields: ['Customer Name', 'Phone', 'Current Vehicle', 'Vehicle Year', 'Mileage'], disabled: false },
-      { value: 'promotional-offers', label: 'Promotional Offers', requiredFields: ['Customer Name', 'Phone', 'Vehicle Interest', 'Budget Range'], disabled: false },
-      { value: 'appointment-booking', label: 'Test Drive Appointment', requiredFields: ['Customer Name', 'Phone', 'Vehicle Interest', 'Preferred Time'], disabled: false }
+      { value: 'lead-qualification', label: 'Lead Qualification', requiredFields: ['Customer Name', 'Phone', 'Lead Source', 'Interest Level'], disabled: false },
+      { value: 'lead-enrichment', label: 'Lead Enrichment', requiredFields: ['Customer Name', 'Phone', 'Company', 'Contact Info'], disabled: false },
+      { value: 'price-drop-alert', label: 'Price Drop Alert', requiredFields: ['Customer Name', 'Phone', 'Vehicle Interest', 'Previous Price', 'New Price'], disabled: false },
+      { value: 'new-arrival-alert', label: 'New Arrival Alert', requiredFields: ['Customer Name', 'Phone', 'Vehicle Interest', 'New Vehicle Details'], disabled: false }
     ]
   },
   service: {
@@ -79,7 +74,25 @@ const useCases: UseCases = {
   }
 }
 
-
+// Dynamic steps based on use case
+const getSteps = (useCase: string) => {
+  if (useCase === 'sales') {
+    return [
+      { id: 1, name: 'Campaign Details', number: '01' },
+      { id: 2, name: 'File Upload', number: '02' },
+      { id: 3, name: 'Call Settings', number: '03' },
+      { id: 4, name: 'Handoff Settings', number: '04' },
+      { id: 5, name: 'Start Campaign', number: '05' }
+    ]
+  } else {
+    return [
+      { id: 1, name: 'Campaign Details', number: '01' },
+      { id: 2, name: 'File Upload', number: '02' },
+      { id: 3, name: 'Review & Schedule', number: '03' },
+      { id: 4, name: 'Start Campaign', number: '04' }
+    ]
+  }
+}
 
 export default function CampaignSetup() {
   const router = useRouter()
@@ -92,14 +105,33 @@ export default function CampaignSetup() {
 
   const [campaignData, setCampaignData] = useState({
     campaignName: '',
-    useCase: '',
+    useCase: 'sales',
     subUseCase: '',
     bcdDetails: '',
     fileName: '',
     schedule: 'now',
     scheduledDate: '',
+    scheduledEndDate: '',
     scheduledTime: '',
     totalRecords: 0,
+    // Sales specific
+    channels: {
+      email: false,
+      sms: true,
+      voiceAi: true,
+    },
+    scriptTemplate: {
+                              voiceIntroduction: "Hi {first_name}, I have exciting news! We just received the {vehicle_interest} that matches what you were looking for. It&apos;s exactly what you described – would you like me to hold it for a test drive today or tomorrow?",
+      corePitch: '',
+      objectionHandling: '',
+      legalConsent: 'This call may be recorded for quality purposes.',
+      optOut: 'Reply STOP to opt out of future messages.',
+      handoffOffer: 'Would you like me to connect you with a specialist?',
+    },
+    compliance: {
+      includeRecordingConsent: true,
+      includeSmsOptOut: true,
+    },
     // Call Rules
     maxRetryAttempts: 3,
     retryDelayMinutes: 60,
@@ -108,14 +140,33 @@ export default function CampaignSetup() {
     timezone: 'America/New_York',
     doNotCallList: true,
     maxCallsPerHour: 50,
-    maxCallsPerDay: 200,
-    voicemailStrategy: 'leave_message',
-    disconnectedCallRetry: true,
-    busySignalRetry: true,
-    noAnswerRetry: true,
-    busyCustomerRetry: true,
-    voicemailMessage: ''
-  })
+                          maxCallsPerDay: 200,
+                      maxConcurrentCalls: 5,
+                      voicemailStrategy: 'leave_message',
+                      disconnectedCallRetry: true,
+                      busySignalRetry: true,
+                      noAnswerRetry: true,
+                      busyCustomerRetry: true,
+                      voicemailMessage: '',
+                      // Campaign Goals & Handoff
+                      primaryGoal: 'book_test_drive',
+                      secondaryActions: {
+                        sendInventoryLink: false,
+                        emailQuote: false,
+                        textFinanceLink: false,
+                      },
+                      handoffSettings: {
+                        target: 'round_robin',
+                        businessHoursStart: '09:00',
+                        businessHoursEnd: '17:00',
+                      },
+                      escalationTriggers: {
+                        leadRequestsPerson: false,
+                        complexFinancing: false,
+                        pricingNegotiation: false,
+                                                technicalQuestions: false,
+                      }
+                    })
   
   // Calculate estimated time and time range dynamically based on total records
   const estimatedTime = calculateAndFormatEstimatedTime(campaignData.totalRecords)
@@ -134,7 +185,7 @@ export default function CampaignSetup() {
     // Fallback to current time if schedule details are incomplete
     return calculateAndFormatTimeRange(new Date(), campaignData.totalRecords)
   }
-  const [selectedCategory, setSelectedCategory] = useState<string>('')
+  const [selectedCategory, setSelectedCategory] = useState<string>('sales')
   const [createdCampaignId, setCreatedCampaignId] = useState('')
   const [urlParams, setUrlParams] = useState<UrlParams>({ enterprise_id: null, team_id: null, auth_key: null })
   const [uploadedData, setUploadedData] = useState<ParsedCustomerData[]>([])
@@ -142,10 +193,29 @@ export default function CampaignSetup() {
   const [parseErrors, setParseErrors] = useState<string[]>([])
   const [missingColumns, setMissingColumns] = useState<string[]>([])
   
+  // Sales upload options state
+  const [selectedUploadOption, setSelectedUploadOption] = useState<string>('')
+  const [crmSelection, setCrmSelection] = useState<string>('')
+  const [googleDriveLink, setGoogleDriveLink] = useState<string>('')
+  
+  // VinSolutions date/time filter state
+  const [vinSolutionsStartDate, setVinSolutionsStartDate] = useState<string>('')
+  const [vinSolutionsEndDate, setVinSolutionsEndDate] = useState<string>('')
+  const [vinSolutionsStartTime, setVinSolutionsStartTime] = useState<string>('')
+  const [vinSolutionsEndTime, setVinSolutionsEndTime] = useState<string>('')
+  
   // Agent state
   const [availableAgents, setAvailableAgents] = useState<Agent[]>([])
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
   const [isLoadingAgents, setIsLoadingAgents] = useState(false)
+
+  // Get dynamic columns based on current use case
+  const getDisplayColumns = () => {
+    if (campaignData.useCase && campaignData.subUseCase) {
+      return getRequiredFieldsForUseCase(campaignData.useCase, campaignData.subUseCase)
+    }
+    return REQUIRED_CSV_COLUMNS
+  }
   const [agentError, setAgentError] = useState<string | null>(null)
   const [playingAgentId, setPlayingAgentId] = useState<string | null>(null)
   
@@ -161,6 +231,7 @@ export default function CampaignSetup() {
     agentSelection: false,
     fileUpload: false,
     scheduledDate: false,
+    scheduledEndDate: false,
     scheduledTime: false
   })
   
@@ -170,20 +241,43 @@ export default function CampaignSetup() {
     // Function to download sample file
   const downloadSampleFile = () => {
     try {
-    parent.postMessage({
-      type: 'DOWNLOAD_SAMPLE_CSV',
-      data: { 
-        fileUrl: 'https://spyne-test.s3.us-east-1.amazonaws.com/csv-template1.csv',
-        fileName: 'sample-customer-data.csv'
+      // Determine which template to use based on the sub use case
+      let fileUrl = 'https://spyne-test.s3.us-east-1.amazonaws.com/csv-template1.csv';
+      let fileName = 'sample-customer-data.csv';
+      
+      if (campaignData.subUseCase === 'price-drop-alert') {
+        fileUrl = '/price-drop-alert-template.csv';
+        fileName = 'price-drop-alert-template.csv';
+      } else if (campaignData.useCase === 'service') {
+        fileUrl = '/csv-template.csv';
+        fileName = 'service-recall-template.csv';
       }
-    }, '*');
+      
+      parent.postMessage({
+        type: 'DOWNLOAD_SAMPLE_CSV',
+        data: { 
+          fileUrl: fileUrl,
+          fileName: fileName
+        }
+      }, '*');
     } catch (error) {
-      const link = document.createElement('a')
-    link.href = 'https://spyne-test.s3.us-east-1.amazonaws.com/csv-template1.csv'
-    link.download = 'sample-customer-data.csv'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+      // Fallback for direct download
+      const link = document.createElement('a');
+      
+      if (campaignData.subUseCase === 'price-drop-alert') {
+        link.href = '/price-drop-alert-template.csv';
+        link.download = 'price-drop-alert-template.csv';
+      } else if (campaignData.useCase === 'service') {
+        link.href = '/csv-template.csv';
+        link.download = 'service-recall-template.csv';
+      } else {
+        link.href = 'https://spyne-test.s3.us-east-1.amazonaws.com/csv-template1.csv';
+        link.download = 'sample-customer-data.csv';
+      }
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   }
 
@@ -207,8 +301,8 @@ export default function CampaignSetup() {
     console.log('Extracted URL params:', params)
   }, [])
 
-  // Fetch agents when recall notification is selected
-  const loadAgents = async () => {
+  // Fetch agents based on selected use case
+  const loadAgents = useCallback(async () => {
     console.log('loadAgents called with URL params:', urlParams)
     
     if (!urlParams.enterprise_id || !urlParams.team_id) {
@@ -224,19 +318,38 @@ export default function CampaignSetup() {
     setAgentError(null)
     
     try {
+      // Determine agent parameters based on use case
+      let agentUseCase = 'recall_notification'
+      let agentType = 'Service'
+      
+      if (selectedCategory === 'sales') {
+        agentType = 'Sales'
+        // Map sales use cases to appropriate agent use cases
+        const salesUseCaseMapping: { [key: string]: string } = {
+          'lead-qualification': 'lead_qualification',
+          'lead-enrichment': 'lead_enrichment',
+          'price-drop-alert': 'price_drop_alert',
+          'new-arrival-alert': 'new_arrival_alert'
+        }
+        agentUseCase = salesUseCaseMapping[campaignData.subUseCase] || 'sales_general'
+      } else if (campaignData.subUseCase === 'recall-notification') {
+        agentUseCase = 'recall_notification'
+        agentType = 'Service'
+      }
+      
       console.log('Fetching agents with params:', {
         enterpriseId: urlParams.enterprise_id,
         teamId: urlParams.team_id,
-        agentUseCase: 'recall_notification',
-        agentType: 'Service',
+        agentUseCase,
+        agentType,
         agentCallType: 'outbound'
       })
       
       const agents = await fetchAgentList(
         urlParams.enterprise_id,
         urlParams.team_id,
-        'recall_notification',
-        'Service',
+        agentUseCase,
+        agentType,
         'outbound'
       )
       
@@ -253,18 +366,18 @@ export default function CampaignSetup() {
     } finally {
       setIsLoadingAgents(false)
     }
-  }
+  }, [urlParams, selectedCategory, campaignData.subUseCase])
 
-  // Load agents when recall notification is selected and URL params are available
+  // Load agents when any use case is selected and URL params are available
   useEffect(() => {
-    if (campaignData.subUseCase === 'recall-notification' && urlParams.enterprise_id && urlParams.team_id) {
+    if (campaignData.subUseCase && urlParams.enterprise_id && urlParams.team_id) {
       loadAgents()
     } else {
       setAvailableAgents([])
       setSelectedAgent(null)
       setAgentError(null)
     }
-  }, [campaignData.subUseCase, urlParams.enterprise_id, urlParams.team_id])
+  }, [campaignData.subUseCase, urlParams.enterprise_id, urlParams.team_id, loadAgents])
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -296,8 +409,8 @@ export default function CampaignSetup() {
       // Test the import
       console.log('parseUploadedFile function:', typeof parseUploadedFile)
       
-      // Parse the uploaded file
-      const parseResult = await parseUploadedFile(file)
+      // Parse the uploaded file with use case context
+      const parseResult = await parseUploadedFile(file, campaignData.useCase, campaignData.subUseCase)
       console.log('Parse result:', parseResult)
       
       // Complete the progress
@@ -336,7 +449,7 @@ export default function CampaignSetup() {
   const validateStep = (step: number) => {
     const newErrors = { ...errors }
     let isValid = true
-    let missingFields: string[] = []
+    const missingFields: string[] = []
     let scrollTarget: React.RefObject<HTMLDivElement | null> | null = null
 
     // Reset errors for current step
@@ -349,7 +462,10 @@ export default function CampaignSetup() {
       newErrors.fileUpload = false
     } else if (step === 3) {
       newErrors.scheduledDate = false
+      newErrors.scheduledEndDate = false
       newErrors.scheduledTime = false
+    } else if (step === 4) {
+      // No validation needed for Call Settings step
     }
 
     if (step === 1) {
@@ -371,19 +487,56 @@ export default function CampaignSetup() {
         if (!scrollTarget) scrollTarget = useCaseRef
         isValid = false
       }
-      // Check agent selection for recall notifications
-      if (campaignData.subUseCase === 'recall-notification' && !selectedAgent) {
+      // Check agent selection - required only for service use cases
+      if (campaignData.subUseCase && selectedCategory === 'service' && !selectedAgent) {
         newErrors.agentSelection = true
         missingFields.push('Agent Selection')
         if (!scrollTarget) scrollTarget = agentSelectionRef
         isValid = false
       }
     } else if (step === 2) {
-      if (!uploadComplete) {
-        newErrors.fileUpload = true
-        missingFields.push('File Upload')
-        if (!scrollTarget) scrollTarget = fileUploadRef
-        isValid = false
+      if (selectedCategory === 'sales') {
+        // For sales, check if any upload option is selected and completed
+        if (!selectedUploadOption) {
+          newErrors.fileUpload = true
+          missingFields.push('Import Method Selection')
+          isValid = false
+        } else if (selectedUploadOption === 'crm' && !crmSelection) {
+          newErrors.fileUpload = true
+          missingFields.push('CRM Selection')
+          isValid = false
+        } else if (selectedUploadOption === 'crm' && crmSelection === 'vinsolutions') {
+          // Validate VinSolutions date/time fields
+          if (!vinSolutionsStartDate || !vinSolutionsEndDate) {
+            newErrors.fileUpload = true
+            missingFields.push('Date Range Selection')
+            isValid = false
+          } else if (!vinSolutionsStartTime || !vinSolutionsEndTime) {
+            newErrors.fileUpload = true
+            missingFields.push('Time Range Selection')
+            isValid = false
+          } else if (new Date(vinSolutionsStartDate) > new Date(vinSolutionsEndDate)) {
+            newErrors.fileUpload = true
+            missingFields.push('Valid Date Range (Start date must be before end date)')
+            isValid = false
+          }
+        } else if (selectedUploadOption === 'drive' && !googleDriveLink.trim()) {
+          newErrors.fileUpload = true
+          missingFields.push('Google Drive Link')
+          isValid = false
+        } else if (selectedUploadOption === 'upload' && !uploadComplete) {
+          newErrors.fileUpload = true
+          missingFields.push('CSV File Upload')
+          isValid = false
+        }
+      } else {
+        // For service, use original validation
+        if (!uploadComplete) {
+          newErrors.fileUpload = true
+          missingFields.push('File Upload')
+          if (!scrollTarget) scrollTarget = fileUploadRef
+          isValid = false
+        }
       }
     } else if (step === 3) {
       if (campaignData.schedule === 'scheduled') {
@@ -398,6 +551,19 @@ export default function CampaignSetup() {
           missingFields.push('Scheduled Time')
           if (!scrollTarget) scrollTarget = scheduleRef
           isValid = false
+        }
+        
+        // Validate end date if provided
+        if (campaignData.scheduledEndDate) {
+          const startDate = new Date(campaignData.scheduledDate)
+          const endDate = new Date(campaignData.scheduledEndDate)
+          
+          if (endDate < startDate) {
+            newErrors.scheduledEndDate = true
+            missingFields.push('End date must be after start date')
+            if (!scrollTarget) scrollTarget = scheduleRef
+            isValid = false
+          }
         }
       }
     }
@@ -418,14 +584,16 @@ export default function CampaignSetup() {
   }
 
   const nextStep = async () => {
-    if (currentStep < 4) {
+    const maxStep = selectedCategory === 'sales' ? 5 : 4
+    
+    if (currentStep < maxStep) {
       // Validate current step before proceeding
       if (!validateStep(currentStep)) {
         return // Stop if validation fails
       }
 
-      // If we're launching the campaign (moving from step 3 to 4), create and save the campaign
-      if (currentStep === 3) {
+      // If we're launching the campaign (moving from step 3 to 4 for service, or step 4 to 5 for sales), create and save the campaign
+      if ((selectedCategory === 'service' && currentStep === 3) || (selectedCategory === 'sales' && currentStep === 4)) {
         await handleLaunchCampaign()
       } else {
         setCurrentStep(currentStep + 1)
@@ -451,8 +619,17 @@ export default function CampaignSetup() {
       
       // Transform campaign data to the required payload format
       const agentId = selectedAgent?.agentId || "agent234" // Use selected agent ID or fallback
+      
+      // Create a clean campaign data object without script template for API
+      const cleanCampaignData = {
+        ...campaignData,
+        uploadedData,
+        // Exclude script template data to avoid template evaluation errors
+        scriptTemplate: undefined
+      }
+      
       const payload = transformCampaignData(
-        { ...campaignData, uploadedData },
+        cleanCampaignData,
         effectiveEnterpriseId,
         effectiveTeamId,
         agentId
@@ -471,7 +648,11 @@ export default function CampaignSetup() {
         const startDate = campaignData.schedule === 'now' 
           ? new Date() 
           : new Date(`${campaignData.scheduledDate}T${campaignData.scheduledTime}`)
-        const endDate = calculateEndDate(startDate, campaignData.totalRecords)
+        
+        // Use user-provided end date if available, otherwise calculate based on records
+        const endDate = campaignData.scheduledEndDate 
+          ? new Date(`${campaignData.scheduledEndDate}T23:59:59`) // End of the selected end date
+          : calculateEndDate(startDate, campaignData.totalRecords)
         
         const newCampaign = {
           id: campaignId,
@@ -493,7 +674,8 @@ export default function CampaignSetup() {
           startedAt: campaignData.schedule === 'now' ? new Date() : null,
           scheduledFor: campaignData.schedule === 'scheduled' ? startDate : null,
           fileName: campaignData.fileName,
-          payload: payload // Store the API payload for reference
+          payload: payload, // Store the API payload for reference
+          scriptTemplate: campaignData.scriptTemplate // Store script template separately for UI
         }
 
         // Save to localStorage
@@ -612,8 +794,8 @@ export default function CampaignSetup() {
                       }}
                       className={`h-11 text-[14px] rounded-md focus:ring-[#4600F2] transition-colors ${
                         errors.campaignName 
-                          ? 'border-red-500 focus:border-red-500' 
-                          : 'border-[#E5E7EB] focus:border-[#4600F2]'
+                          ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' 
+                          : 'border-[#E5E7EB] focus:border-[#4600F2] focus:ring-2 focus:ring-[#4600F2]/20'
                       }`}
                     />
                     {errors.campaignName && (
@@ -714,8 +896,8 @@ export default function CampaignSetup() {
                                 if (errors.subUseCase) {
                                   setErrors(prev => ({ ...prev, subUseCase: false }))
                                 }
-                                // Scroll to agent selection for recall notification
-                                if (subCase.value === 'recall-notification') {
+                                // Scroll to agent selection for service use cases only
+                                if (selectedCategory === 'service') {
                                   setTimeout(() => {
                                     agentSelectionRef.current?.scrollIntoView({ 
                                       behavior: 'smooth', 
@@ -735,29 +917,14 @@ export default function CampaignSetup() {
                           ))}
                         </div>
                         
-                        {/* Information message for non-recall campaigns */}
-                        {campaignData.subUseCase && campaignData.subUseCase !== 'recall-notification' && (
-                          <div className="mt-4 p-4 bg-[#FACC15]/10 border border-[#FACC15] rounded-lg">
-                            <div className="flex items-start space-x-3">
-                              <div className="flex-shrink-0">
-                                <AlertCircle className="h-5 w-5 text-[#FACC15] mt-0.5" />
-                              </div>
-                              <div>
-                                <h4 className="text-[14px] font-medium text-[#1A1A1A]">Feature not enabled for you</h4>
-                                <p className="text-[14px] text-[#6B7280] leading-[1.5] mt-1">
-                                  This campaign type is not enabled yet. Please contact your customer success manager for more information.
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
+
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Agent Selection for Recall Notification */}
-                {campaignData.subUseCase === 'recall-notification' && (
+                {/* Agent Selection for All Use Cases */}
+                {campaignData.subUseCase && (
                   <div 
                     ref={agentSelectionRef}
                     className={`bg-white border rounded-lg p-6 transition-colors ${
@@ -772,7 +939,7 @@ export default function CampaignSetup() {
                         <h3 className={`text-[16px] font-semibold ${
                           errors.agentSelection ? 'text-red-600' : 'text-[#1A1A1A]'
                         }`}>
-                          Select recall agent {errors.agentSelection && <span className="text-red-500">*</span>}
+                          Select AI agent {selectedCategory === 'service' ? (errors.agentSelection && <span className="text-red-500">*</span>) : <span className="text-[#6B7280] text-[14px] font-normal">(Optional)</span>}
                         </h3>
                       </div>
 
@@ -800,7 +967,7 @@ export default function CampaignSetup() {
                       {!isLoadingAgents && !agentError && availableAgents.length === 0 && (
                         <div className="flex items-center p-4 bg-[#FACC15]/10 border border-[#FACC15] rounded-lg">
                           <AlertCircle className="h-5 w-5 text-[#FACC15] mr-3" />
-                          <span className="text-[14px] text-[#6B7280]">No agents available for recall notifications</span>
+                          <span className="text-[14px] text-[#6B7280]">No agents available for this campaign type</span>
                         </div>
                       )}
 
@@ -931,14 +1098,19 @@ export default function CampaignSetup() {
             <div className="space-y-6">
               <div className="bg-transparent border-0 p-0">
                 <div className="mb-4">
-                  <h1 className="text-[24px] font-bold text-[#1A1A1A] leading-[1.4]">Upload Customer Data</h1>
+                  <h1 className="text-[24px] font-bold text-[#1A1A1A] leading-[1.4]">
+                    {selectedCategory === 'sales' ? 'Import Customer Data' : 'Upload Customer Data'}
+                  </h1>
                   <p className="text-[14px] text-[#6B7280] mt-2 leading-[1.5]">
-                    Upload your customer data file to power your AI calling campaign with personalized outreach
+                    {selectedCategory === 'sales' 
+                      ? 'Choose how you want to import your customer data for your AI calling campaign'
+                      : 'Upload your customer data file to power your AI calling campaign with personalized outreach'
+                    }
                   </p>
                 </div>
               </div>
 
-              {campaignData.subUseCase && (
+              {campaignData.subUseCase && selectedCategory === 'service' && (
                 <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
                   <div className="border border-[#3B82F6] bg-[#3B82F6]/10 rounded-lg p-4">
                     <div className="mb-3">
@@ -958,72 +1130,291 @@ export default function CampaignSetup() {
                 </div>
               )}
 
-              <div ref={fileUploadRef} className={`bg-white border rounded-lg p-6 transition-colors ${
-                errors.fileUpload ? 'border-red-500' : 'border-[#E5E7EB]'
-              }`}>
-                {errors.fileUpload && (
-                  <div className="mb-4">
-                    <p className="text-sm text-red-600 flex items-center">
-                      <AlertCircle className="h-4 w-4 mr-1" />
-                      Please upload a customer data file to continue
-                    </p>
-                  </div>
-                )}
-                <div className={`border-2 border-dashed rounded-lg p-8 text-center hover:border-[#4600F2] hover:bg-[#4600F214] transition-all duration-300 ${
-                  errors.fileUpload 
-                    ? 'border-red-400' 
-                    : 'border-[#E5E7EB]'
-                } bg-[#F4F5F8]`}>
-                  <Upload className={`h-12 w-12 mx-auto mb-4 ${
-                    errors.fileUpload ? 'text-red-400' : 'text-[#6B7280]'
-                  }`} />
-                  <div className="space-y-3">
-                    <p className="text-[14px] font-semibold text-[#1A1A1A]">Drag and drop your file here</p>
-                    <p className="text-[12px] text-[#6B7280]">Supports .xlsx and .csv files up to 10MB</p>
-                    <p className="text-[14px] text-[#6B7280]">or</p>
-                    <Label htmlFor="file-upload" className="cursor-pointer">
-                      <Button 
-                        type="button"
-                        className={`mt-2 h-9 px-3 text-[12px] rounded-lg font-medium ${
-                          errors.fileUpload
-                            ? 'bg-red-500 text-white hover:bg-red-600'
-                            : 'bg-[#4600F2] text-white hover:bg-[#4600F2]/90'
-                        }`}
-                        size="sm"
-                        onClick={() => {
-                          console.log('Browse Files button clicked')
-                          document.getElementById('file-upload')?.click()
-                        }}
-                      >
-                        Browse Files
-                      </Button>
-                      <Input
-                        id="file-upload"
-                        type="file"
-                        accept=".xlsx,.csv"
-                        className="hidden"
-                        onChange={(e) => {
-                          handleFileUpload(e)
-                          if (errors.fileUpload) {
-                            setErrors(prev => ({ ...prev, fileUpload: false }))
-                          }
-                        }}
-                      />
-                    </Label>
-                  </div>
-                  
-                  {/* Download sample file CTA in the middle */}
-                  <div className="mt-4">
-                    <button 
-                      onClick={downloadSampleFile}
-                      className="inline-flex items-center text-[12px] font-medium text-[#4600F2] hover:text-[#4600F2]/80 transition-colors"
+              {/* Sales Upload Options */}
+              {selectedCategory === 'sales' && (
+                <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
+                  <h3 className="text-[16px] font-semibold text-[#1A1A1A] mb-4">Choose Import Method</h3>
+                  <div className="grid grid-cols-1 gap-4">
+                    {/* Option 1: Import from CRM */}
+                    <div 
+                      className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                        selectedUploadOption === 'crm'
+                          ? 'border-[#4600f2] bg-[#4600f2]/5 shadow-sm'
+                          : 'border-[#E5E7EB] bg-white hover:border-[#D1D5DB] hover:shadow-sm'
+                      }`}
+                      onClick={() => {
+                        setSelectedUploadOption('crm')
+                        if (selectedUploadOption !== 'crm') {
+                          setCrmSelection('')
+                        }
+                        setGoogleDriveLink('')
+                      }}
                     >
-                      <Download className="w-3 h-3 mr-1" />
-                      Download sample file
-                    </button>
+                      <div className="flex items-start space-x-3">
+                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center mt-1 ${
+                          selectedUploadOption === 'crm' 
+                            ? 'bg-[#4600F2]/10 text-[#4600F2]' 
+                            : 'bg-[#EEF2FF] text-[#6366F1]'
+                        }`}>
+                          <Database className="w-6 h-6" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-[14px] font-semibold text-[#1A1A1A] mb-1">Import from other CRM</h4>
+                          <p className="text-[13px] text-[#6B7280] leading-[1.5] mb-3">
+                            Connect and import customer data directly from your existing CRM system
+                          </p>
+                          {selectedUploadOption === 'crm' && (
+                            <div className="mt-3 space-y-4" onClick={(e) => e.stopPropagation()}>
+                              <Select value={crmSelection} onValueChange={setCrmSelection}>
+                                <SelectTrigger className="w-full h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2] bg-white">
+                                  <SelectValue placeholder="Select your CRM" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white">
+                                  <SelectItem value="vinsolutions">VinSolutions</SelectItem>
+                                  <SelectItem value="others">Others</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              
+                              {/* VinSolutions Date/Time Filters */}
+                              {crmSelection === 'vinsolutions' && (
+                                <div className="mt-4 p-4 bg-white rounded-lg border border-[#E5E7EB]" onClick={(e) => e.stopPropagation()}>
+                                  <h3 className="text-[16px] font-semibold text-[#1A1A1A] mb-4">Lead Date Range Filter</h3>
+                                  
+                                  <div className="space-y-4">
+                                    {/* Start Date/Time Row */}
+                                    <div>
+                                      <label className="text-[12px] font-normal text-[#6B7280] mb-2 block">From</label>
+                                      <div className="grid grid-cols-2 gap-3">
+                                        <DatePicker
+                                          value={vinSolutionsStartDate}
+                                          onChange={setVinSolutionsStartDate}
+                                          placeholder="Select start date"
+                                        />
+                                        <TimePicker
+                                          value={vinSolutionsStartTime}
+                                          onChange={setVinSolutionsStartTime}
+                                          placeholder="Select start time"
+                                        />
+                                      </div>
+                                    </div>
+                                    
+                                    {/* End Date/Time Row */}
+                                    <div>
+                                      <label className="text-[12px] font-normal text-[#6B7280] mb-2 block">To</label>
+                                      <div className="grid grid-cols-2 gap-3">
+                                        <DatePicker
+                                          value={vinSolutionsEndDate}
+                                          onChange={setVinSolutionsEndDate}
+                                          placeholder="Select end date"
+                                        />
+                                        <TimePicker
+                                          value={vinSolutionsEndTime}
+                                          onChange={setVinSolutionsEndTime}
+                                          placeholder="Select end time"
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Option 2: Google Drive Link */}
+                    <div 
+                      className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                        selectedUploadOption === 'drive'
+                          ? 'border-[#4600f2] bg-[#4600f2]/5 shadow-sm'
+                          : 'border-[#E5E7EB] bg-white hover:border-[#D1D5DB] hover:shadow-sm'
+                      }`}
+                      onClick={() => {
+                        setSelectedUploadOption('drive')
+                        setCrmSelection('')
+                        setGoogleDriveLink('')
+                      }}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center mt-1 ${
+                          selectedUploadOption === 'drive' 
+                            ? 'bg-[#4600F2]/10 text-[#4600F2]' 
+                            : 'bg-[#E0F2FE] text-[#0284C7]'
+                        }`}>
+                          <Cloud className="w-6 h-6" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-[14px] font-semibold text-[#1A1A1A] mb-1">Add Google Drive link</h4>
+                          <p className="text-[13px] text-[#6B7280] leading-[1.5] mb-3">
+                            Provide a shareable Google Drive link to your customer data file
+                          </p>
+                          {selectedUploadOption === 'drive' && (
+                            <div className="mt-3">
+                              <Input
+                                placeholder="Paste your Google Drive shareable link here"
+                                value={googleDriveLink}
+                                onChange={(e) => setGoogleDriveLink(e.target.value)}
+                                className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2] bg-white"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Option 3: Upload CSV */}
+                    <div 
+                      className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                        selectedUploadOption === 'upload'
+                          ? 'border-[#4600f2] bg-[#4600f2]/5 shadow-sm'
+                          : 'border-[#E5E7EB] bg-white hover:border-[#D1D5DB] hover:shadow-sm'
+                      }`}
+                      onClick={() => {
+                        setSelectedUploadOption('upload')
+                        setCrmSelection('')
+                        setGoogleDriveLink('')
+                        setTimeout(() => {
+                          document.getElementById('sales-file-upload')?.click()
+                        }, 50)
+                      }}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center mt-1 ${
+                          selectedUploadOption === 'upload' 
+                            ? 'bg-[#4600F2]/10 text-[#4600F2]' 
+                            : 'bg-[#ECFDF5] text-[#10B981]'
+                        }`}>
+                          <Upload className="w-6 h-6" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-[14px] font-semibold text-[#1A1A1A] mb-1">Upload your own CSV</h4>
+                          <p className="text-[13px] text-[#6B7280] leading-[1.5] mb-3">
+                            Upload a CSV file from your computer with customer data
+                          </p>
+                          {selectedUploadOption === 'upload' && (
+                            <div className="mt-3">
+                              <div className="border-2 border-dashed border-[#E5E7EB] rounded-lg p-6 text-center hover:border-[#4600F2] hover:bg-[#4600F214] transition-all duration-300 bg-[#F9FAFB]">
+                                <Upload className="h-8 w-8 mx-auto mb-3 text-[#6B7280]" />
+                                <div className="space-y-2">
+                                  <p className="text-[13px] font-medium text-[#1A1A1A]">Drag and drop your CSV file here</p>
+                                  <p className="text-[12px] text-[#6B7280]">Supports .csv files up to 10MB</p>
+                                  <Label htmlFor="sales-file-upload" className="cursor-pointer">
+                                    <Button 
+                                      type="button"
+                                      className="mt-2 h-8 px-3 text-[12px] rounded-lg font-medium bg-[#4600F2] text-white hover:bg-[#4600F2]/90"
+                                      size="sm"
+                                      onClick={() => {
+                                        document.getElementById('sales-file-upload')?.click()
+                                      }}
+                                    >
+                                      Browse Files
+                                    </Button>
+                                    <Input
+                                      id="sales-file-upload"
+                                      type="file"
+                                      accept=".csv"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        handleFileUpload(e)
+                                        if (errors.fileUpload) {
+                                          setErrors(prev => ({ ...prev, fileUpload: false }))
+                                        }
+                                      }}
+                                    />
+                                  </Label>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Download Sample CSV - Always visible for sales */}
+                  <div className="mt-6 pt-4 border-t border-[#E5E7EB]">
+                    <div className="flex items-center justify-center">
+                      <button 
+                        onClick={downloadSampleFile}
+                        className="inline-flex items-center text-[14px] font-medium text-[#4600F2] hover:text-[#4600F2]/80 transition-colors"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Download sample CSV file
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
+
+              {/* Service Upload - Original Upload UI */}
+              {selectedCategory === 'service' && (
+                <div ref={fileUploadRef} className={`bg-white border rounded-lg p-6 transition-colors ${
+                  errors.fileUpload ? 'border-red-500' : 'border-[#E5E7EB]'
+                }`}>
+                  {errors.fileUpload && (
+                    <div className="mb-4">
+                      <p className="text-sm text-red-600 flex items-center">
+                        <AlertCircle className="h-4 w-4 mr-1" />
+                        Please upload a customer data file to continue
+                      </p>
+                    </div>
+                  )}
+                  <div className={`border-2 border-dashed rounded-lg p-8 text-center hover:border-[#4600F2] hover:bg-[#4600F214] transition-all duration-300 ${
+                    errors.fileUpload 
+                      ? 'border-red-400' 
+                      : 'border-[#E5E7EB]'
+                  } bg-[#F4F5F8]`}>
+                    <Upload className={`h-12 w-12 mx-auto mb-4 ${
+                      errors.fileUpload ? 'text-red-400' : 'text-[#6B7280]'
+                    }`} />
+                    <div className="space-y-3">
+                      <p className="text-[14px] font-semibold text-[#1A1A1A]">Drag and drop your file here</p>
+                      <p className="text-[12px] text-[#6B7280]">Supports .xlsx and .csv files up to 10MB</p>
+                      <p className="text-[14px] text-[#6B7280]">or</p>
+                      <Label htmlFor="service-file-upload" className="cursor-pointer">
+                        <Button 
+                          type="button"
+                          className={`mt-2 h-9 px-3 text-[12px] rounded-lg font-medium ${
+                            errors.fileUpload
+                              ? 'bg-red-500 text-white hover:bg-red-600'
+                              : 'bg-[#4600F2] text-white hover:bg-[#4600F2]/90'
+                          }`}
+                          size="sm"
+                          onClick={() => {
+                            document.getElementById('service-file-upload')?.click()
+                          }}
+                        >
+                          Browse Files
+                        </Button>
+                        <Input
+                          id="service-file-upload"
+                          type="file"
+                          accept=".xlsx,.csv"
+                          className="hidden"
+                          onChange={(e) => {
+                            handleFileUpload(e)
+                            if (errors.fileUpload) {
+                              setErrors(prev => ({ ...prev, fileUpload: false }))
+                            }
+                          }}
+                        />
+                      </Label>
+                    </div>
+                    
+                    {/* Download sample file CTA for service */}
+                    <div className="mt-4">
+                      <button 
+                        onClick={downloadSampleFile}
+                        className="inline-flex items-center text-[12px] font-medium text-[#4600F2] hover:text-[#4600F2]/80 transition-colors"
+                      >
+                        <Download className="w-3 h-3 mr-1" />
+                        Download sample file
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {isUploading && (
                 <div className="space-y-3 mt-6 bg-white p-4 rounded-lg border border-[#E5E7EB]">
@@ -1049,7 +1440,7 @@ export default function CampaignSetup() {
                   <div className="border border-[#E5E7EB] rounded-lg bg-white">
                     <div className="bg-[#F4F5F8] border-b border-[#E5E7EB] px-6 py-4">
                       <h3 className="text-[16px] font-semibold text-[#1A1A1A]">Uploaded Data Preview</h3>
-                      <p className="text-[14px] text-[#6B7280]">All {uploadedData.length} rows with {REQUIRED_CSV_COLUMNS.length} columns uploaded successfully</p>
+                      <p className="text-[14px] text-[#6B7280]">All {uploadedData.length} rows with {getDisplayColumns().length} columns uploaded successfully</p>
                     </div>
                     <div className="max-h-96 overflow-auto">
                       <table className="min-w-full divide-y divide-[#E5E7EB] text-[13px]">
@@ -1058,7 +1449,7 @@ export default function CampaignSetup() {
                             <th className="px-2 py-3 text-left text-[11px] font-semibold text-[#6B7280] uppercase tracking-wider whitespace-nowrap">
                               #
                             </th>
-                            {REQUIRED_CSV_COLUMNS.map((field) => (
+                            {getDisplayColumns().map((field) => (
                               <th key={field} className="px-2 py-3 text-left text-[11px] font-semibold text-[#6B7280] uppercase tracking-wider whitespace-nowrap min-w-[120px]">
                                 {field.replace(/([A-Z])/g, ' $1').trim()}
                               </th>
@@ -1071,7 +1462,7 @@ export default function CampaignSetup() {
                               <td className="px-2 py-3 whitespace-nowrap text-[#6B7280] font-medium">
                                 {index + 1}
                               </td>
-                              {REQUIRED_CSV_COLUMNS.map((field) => (
+                              {getDisplayColumns().map((field) => (
                                 <td key={field} className="px-2 py-3 text-[#1A1A1A] max-w-[150px]">
                                   <div className="truncate" title={row[field as keyof typeof row]}>
                                     {row[field as keyof typeof row] || 'N/A'}
@@ -1087,7 +1478,7 @@ export default function CampaignSetup() {
                     {/* Data Summary Footer */}
                     <div className="border-t border-[#E5E7EB] bg-[#F4F5F8] px-6 py-3">
                       <div className="flex items-center justify-between text-[12px] text-[#6B7280]">
-                        <span>Showing all {uploadedData.length} records with {REQUIRED_CSV_COLUMNS.length} required fields</span>
+                        <span>Showing all {uploadedData.length} records with {getDisplayColumns().length} required fields</span>
                         <span>Scroll horizontally to view all columns →</span>
                       </div>
                     </div>
@@ -1182,421 +1573,721 @@ export default function CampaignSetup() {
           </div>
         )
 
+
+
       case 3:
         return (
           <div className="max-w-3xl">
             <div className="space-y-6">
               <div className="bg-transparent border-0 p-0">
                 <div className="mb-4">
-                  <h1 className="text-[24px] font-bold text-[#1A1A1A] leading-[1.4]">Review & Schedule</h1>
+                  <h1 className="text-[24px] font-bold text-[#1A1A1A] leading-[1.4]">
+                    {selectedCategory === 'sales' ? 'Call Settings' : 'Review & Schedule'}
+                  </h1>
                   <p className="text-[14px] text-[#6B7280] mt-2 leading-[1.5]">
-                    Review your campaign details and schedule execution
+                    {selectedCategory === 'sales' 
+                      ? 'Configure call pacing, retry logic, and voicemail handling for your sales campaign'
+                      : 'Review your campaign details and schedule execution'
+                    }
                   </p>
                 </div>
               </div>
 
-              {/* Campaign Summary */}
-              <div className="bg-white border border-[#E5E7EB] rounded-lg">
-                <div className="bg-[#F4F5F8] border-b border-[#E5E7EB] px-6 py-4">
-                  <h3 className="text-[16px] font-semibold text-[#1A1A1A]">Campaign Summary</h3>
-                </div>
-                <div className="p-6">
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <p className="text-[14px] font-medium text-[#666666] mb-1">Campaign Name</p>
-                      <p className="text-[16px] font-bold text-[#1A1A1A]">{campaignData.campaignName || 'Untitled Campaign'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[14px] font-medium text-[#666666] mb-1">Use Case</p>
-                      <div className="mt-1">
-                        <Badge className="bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]">
-                          {useCases[selectedCategory]?.label} - {useCases[selectedCategory]?.subCases.find(sc => sc.value === campaignData.subUseCase)?.label}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-[14px] font-medium text-[#666666] mb-1">Total Records</p>
-                      <p className="text-[16px] font-bold text-[#1A1A1A]">{campaignData.totalRecords} customers</p>
-                    </div>
-                    <div>
-                      <p className="text-[14px] font-medium text-[#666666] mb-1">Estimated Time</p>
-                      <p className="text-[16px] font-bold text-[#1A1A1A]">{getEstimatedTimeInMinutes(campaignData.totalRecords)}</p>
-                    </div>
-                    <div className="col-span-2">
-                      <p className="text-[14px] font-medium text-[#666666] mb-1">File</p>
-                      <p className="text-[16px] font-bold text-[#1A1A1A]">{campaignData.fileName}</p>
-                    </div>
-                    {selectedAgent && campaignData.subUseCase === 'recall-notification' && (
-                      <div className="col-span-2">
-                        <p className="text-[14px] font-medium text-[#666666] mb-2">Selected Agent</p>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="relative bg-white border border-[#E5E7EB] rounded-xl p-4 pb-16 transition-all duration-200 hover:border-[#4600F2]/40 hover:bg-[#4600F2]/5 hover:shadow-sm">
-                            <div className="space-y-4">
-                              {/* Top Section: Profile Photo, Name, and Chips */}
-                              <div className="flex items-start space-x-4">
-                                {/* Profile Picture */}
-                                <div className="flex-shrink-0 -mt-1">
-                                  <img
-                                    src={selectedAgent.imageUrl}
-                                    alt={selectedAgent.name}
-                                    className="w-16 h-16 rounded-lg object-cover object-top border-2 border-[#E5E7EB]"
-                                    onError={(e) => {
-                                      e.currentTarget.src = '/placeholder-user.jpg'
-                                    }}
-                                  />
-                                </div>
-
-                                {/* Agent Info */}
-                                <div className="flex-1 min-w-0">
-                                  {/* Name */}
-                                  <h4 className="text-[16px] font-bold text-black mb-2">
-                                    {selectedAgent.name}
-                                  </h4>
-
-                                  {/* Tags */}
-                                  <div className="flex flex-wrap gap-1.5">
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-gray-700 border border-gray-300">
-                                      {selectedAgent.city}
-                                    </span>
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-gray-700 border border-gray-300">
-                                      {selectedAgent.languageName}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Bottom Section: Call Statistics */}
-                              <div className="flex justify-between">
-                                <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 flex-1 mr-2">
-                                  <p className="text-xs text-gray-500 mb-1">Total Calls</p>
-                                  <p className="text-base font-bold text-black">{selectedAgent.totalCalls}</p>
-                                </div>
-                                <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 flex-1">
-                                  <p className="text-xs text-gray-500 mb-1">Success Rate</p>
-                                  <p className="text-base font-bold text-black">{selectedAgent.totalCalls > 0 ? '75%' : '0%'}</p>
-                                </div>
-                              </div>
-
-                              {/* Talk to Agent Button */}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  // Handle talk to agent functionality
-                                  if (selectedAgent) {
-                                    parent.postMessage({
-                                      type: 'CALL_AGENT_BLANK',
-                                      data: { 
-                                        agentMappingId: selectedAgent.id,
-                                        customerDetails: {
-                                          customerName: '',
-                                          recallDetails: {}
-                                        }
-                                      }
-                                    }, '*');
-                                  } else {
-                                    console.error('No agent selected for talk to agent functionality');
-                                  }
-                                }}
-                                className="absolute bottom-3 left-3 right-3 bg-[#4600F2]/10 hover:bg-[#4600F2]/15 text-[#4600F2] font-medium py-3 px-4 transition-colors text-sm font-semibold rounded-lg"
-                              >
-                                Talk to Agent
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Schedule Options */}
-              <div ref={scheduleRef} className={`bg-white border rounded-lg transition-colors ${
-                errors.scheduledDate || errors.scheduledTime ? 'border-red-500' : 'border-[#E5E7EB]'
-              }`}>
-                <div className="bg-[#F4F5F8] border-b border-[#E5E7EB] px-6 py-4">
-                  <h3 className={`text-[16px] font-semibold ${
-                    errors.scheduledDate || errors.scheduledTime ? 'text-red-600' : 'text-[#1A1A1A]'
-                  }`}>
-                    Schedule Campaign {(errors.scheduledDate || errors.scheduledTime) && <span className="text-red-500">*</span>}
-                  </h3>
-                  <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Choose when to launch your AI-powered calling campaign</p>
-                  {(errors.scheduledDate || errors.scheduledTime) && (
-                    <p className="text-sm text-red-600 flex items-center mt-2">
-                      <AlertCircle className="h-4 w-4 mr-1" />
-                      Please select both date and time for scheduled campaigns
-                    </p>
-                  )}
-                </div>
-                <div className="p-6">
-                  <RadioGroup
-                    value={campaignData.schedule}
-                    onValueChange={(value) => setCampaignData(prev => ({ ...prev, schedule: value }))}
-                    className="space-y-4"
-                  >
-                    <div className="flex items-center space-x-3 p-4 border border-[#E5E7EB] rounded-lg hover:bg-[#4600F214] transition-colors">
-                      <RadioGroupItem value="now" id="now" className="border-[#E5E7EB]" />
-                      <Label htmlFor="now" className="flex-1 cursor-pointer">
-                        <div className="flex items-center">
-                          <div className="p-2 bg-[#4600F2]/10 rounded-lg mr-3">
-                            <Zap className="h-5 w-5 text-[#4600F2]" />
-                          </div>
-                          <div>
-                            <p className="text-[14px] font-medium text-[#1A1A1A]">Start Now</p>
-                            <p className="text-[14px] text-[#6B7280] leading-[1.5]">Begin calling immediately after campaign creation</p>
-                          </div>
-                        </div>
-                      </Label>
-                    </div>
-
-                    <div className="flex items-center space-x-3 p-4 border border-[#E5E7EB] rounded-lg hover:bg-[#4600F214] transition-colors">
-                      <RadioGroupItem value="scheduled" id="scheduled" className="border-[#E5E7EB]" />
-                      <Label htmlFor="scheduled" className="flex-1 cursor-pointer">
-                        <div className="flex items-center">
-                          <div className="p-2 bg-[#FACC15]/10 rounded-lg mr-3">
-                            <Clock className="h-5 w-5 text-[#FACC15]" />
-                          </div>
-                          <div>
-                            <p className="text-[14px] font-medium text-[#1A1A1A]">Schedule for Later</p>
-                            <p className="text-[14px] text-[#6B7280] leading-[1.5]">Choose a specific date and time</p>
-                          </div>
-                        </div>
-                      </Label>
-                    </div>
-                  </RadioGroup>
-
-                  {campaignData.schedule === 'scheduled' && (
-                    <div className="bg-white border border-[#E5E7EB] rounded-lg mt-6">
-                      <div className="bg-[#F4F5F8] border-b border-[#E5E7EB] px-6 py-4">
-                        <h3 className="text-[16px] font-semibold text-[#1A1A1A]">Schedule Settings</h3>
-                        <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Set the date and time for your campaign to start</p>
-                      </div>
-                      <div className="p-6">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="date" className={`text-[14px] font-medium mb-2 block ${
-                              errors.scheduledDate ? 'text-red-600' : 'text-[#1A1A1A]/60'
-                            }`}>
-                              Campaign Date {errors.scheduledDate && <span className="text-red-500">*</span>}
-                            </Label>
-                            <Input
-                              id="date"
-                              type="date"
-                              value={campaignData.scheduledDate}
-                              onChange={(e) => {
-                                setCampaignData(prev => ({ ...prev, scheduledDate: e.target.value }))
-                                if (errors.scheduledDate && e.target.value) {
-                                  setErrors(prev => ({ ...prev, scheduledDate: false }))
-                                }
-                              }}
-                              className={`h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2] focus:ring-[#4600F2] transition-colors ${
-                                errors.scheduledDate 
-                                  ? 'border-red-500 focus:border-red-500' 
-                                  : ''
-                              }`}
-                            />
-                            {errors.scheduledDate && (
-                              <p className="text-sm text-red-600 flex items-center mt-1">
-                                <AlertCircle className="h-4 w-4 mr-1" />
-                                Date is required
-                              </p>
-                            )}
-                          </div>
-                          <div>
-                            <Label htmlFor="time" className={`text-[14px] font-medium mb-2 block ${
-                              errors.scheduledTime ? 'text-red-600' : 'text-[#1A1A1A]/60'
-                            }`}>
-                              Campaign Time {errors.scheduledTime && <span className="text-red-500">*</span>}
-                            </Label>
-                            <Input
-                              id="time"
-                              type="time"
-                              value={campaignData.scheduledTime}
-                              onChange={(e) => {
-                                setCampaignData(prev => ({ ...prev, scheduledTime: e.target.value }))
-                                if (errors.scheduledTime && e.target.value) {
-                                  setErrors(prev => ({ ...prev, scheduledTime: false }))
-                                }
-                              }}
-                              className={`h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2] focus:ring-[#4600F2] transition-colors ${
-                                errors.scheduledTime 
-                                  ? 'border-red-500 focus:border-red-500' 
-                                  : ''
-                              }`}
-                            />
-                            {errors.scheduledTime && (
-                              <p className="text-sm text-red-600 flex items-center mt-1">
-                                <AlertCircle className="h-4 w-4 mr-1" />
-                                Time is required
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Call Rules Section */}
-              <div className="bg-white border border-[#E5E7EB] rounded-lg">
-                <div className="bg-[#F4F5F8] border-b border-[#E5E7EB] px-6 py-4">
-                  <h3 className="text-[16px] font-semibold text-[#1A1A1A]">Call Rules & Behavior</h3>
-                  <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Configure how your AI agent handles different call scenarios and retry logic</p>
-                </div>
-                <div className="p-6">
-                  {/* Retry Scenarios - Moved to top with chips UI */}
-                  <div className="mb-10">
-                    <h4 className="text-[16px] font-semibold text-[#1A1A1A] mb-4">
-                      Retry Scenarios
-                    </h4>
-                    
-                    <div className="flex flex-wrap gap-3">
-                      <div 
-                        className={`px-3 py-2 rounded-full border cursor-pointer transition-all ${
-                          campaignData.disconnectedCallRetry 
-                            ? 'border-[#4600F2] bg-[#4600F2]/10 text-[#4600F2]' 
-                            : 'border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#D1D5DB]'
-                        }`}
-                        onClick={() => setCampaignData(prev => ({ ...prev, disconnectedCallRetry: !prev.disconnectedCallRetry }))}
-                      >
-                        <span className={`text-[14px] ${campaignData.disconnectedCallRetry ? 'font-bold' : 'font-medium'}`}>Disconnected calls</span>
-                      </div>
-                      
-                      <div 
-                        className={`px-3 py-2 rounded-full border cursor-pointer transition-all ${
-                          campaignData.busySignalRetry 
-                            ? 'border-[#4600F2] bg-[#4600F2]/10 text-[#4600F2]' 
-                            : 'border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#D1D5DB]'
-                        }`}
-                        onClick={() => setCampaignData(prev => ({ ...prev, busySignalRetry: !prev.busySignalRetry }))}
-                      >
-                        <span className={`text-[14px] ${campaignData.busySignalRetry ? 'font-bold' : 'font-medium'}`}>Busy signals</span>
-                      </div>
-                      
-                      <div 
-                        className={`px-3 py-2 rounded-full border cursor-pointer transition-all ${
-                          campaignData.noAnswerRetry 
-                            ? 'border-[#4600F2] bg-[#4600F2]/10 text-[#4600F2]' 
-                            : 'border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#D1D5DB]'
-                        }`}
-                        onClick={() => setCampaignData(prev => ({ ...prev, noAnswerRetry: !prev.noAnswerRetry }))}
-                      >
-                        <span className={`text-[14px] ${campaignData.noAnswerRetry ? 'font-bold' : 'font-medium'}`}>No answer</span>
-                      </div>
-                      
-                      <div 
-                        className={`px-3 py-2 rounded-full border cursor-pointer transition-all ${
-                          campaignData.busyCustomerRetry 
-                            ? 'border-[#4600F2] bg-[#4600F2]/10 text-[#4600F2]' 
-                            : 'border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#D1D5DB]'
-                        }`}
-                        onClick={() => setCampaignData(prev => ({ ...prev, busyCustomerRetry: !prev.busyCustomerRetry }))}
-                      >
-                        <span className={`text-[14px] ${campaignData.busyCustomerRetry ? 'font-bold' : 'font-medium'}`}>Customer says busy</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    
-                    {/* Retry Settings */}
-                    <div className="space-y-4 lg:col-span-2">
-                      <h4 className="text-[16px] font-semibold text-[#1A1A1A]">
-                        Retry Settings
-                      </h4>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="maxRetries" className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">
-                            Maximum Retry Attempts
-                          </Label>
-                          <Select
-                            value={campaignData.maxRetryAttempts.toString()}
-                            onValueChange={(value) => setCampaignData(prev => ({ ...prev, maxRetryAttempts: parseInt(value) }))}
-                          >
-                            <SelectTrigger className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="1">1 attempt</SelectItem>
-                              <SelectItem value="2">2 attempts</SelectItem>
-                              <SelectItem value="3">3 attempts</SelectItem>
-                              <SelectItem value="4">4 attempts</SelectItem>
-                              <SelectItem value="5">5 attempts</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        <div>
-                          <Label htmlFor="retryDelay" className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">
-                            Retry Delay
-                          </Label>
-                          <Select
-                            value={campaignData.retryDelayMinutes.toString()}
-                            onValueChange={(value) => setCampaignData(prev => ({ ...prev, retryDelayMinutes: parseInt(value) }))}
-                          >
-                            <SelectTrigger className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="30">30 minutes</SelectItem>
-                              <SelectItem value="60">1 hour</SelectItem>
-                              <SelectItem value="120">2 hours</SelectItem>
-                              <SelectItem value="240">4 hours</SelectItem>
-                              <SelectItem value="1440">24 hours</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-
-                  </div>
-
-                  {/* Voicemail Strategy - Moved below retry settings */}
-                  <div className="mt-10">
-                    <h4 className="text-[16px] font-semibold text-[#1A1A1A] mb-4">
-                      Voicemail Strategy
-                    </h4>
-                    
+              {selectedCategory === 'sales' ? (
+                <>
+                  {/* Communication Channels */}
+                  <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
                     <div className="space-y-4">
                       <div>
-                        <Select
-                          value={campaignData.voicemailStrategy}
-                          onValueChange={(value) => setCampaignData(prev => ({ ...prev, voicemailStrategy: value }))}
-                        >
-                          <SelectTrigger className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="leave_message">Leave voicemail message</SelectItem>
-                            <SelectItem value="hang_up">Hang up immediately</SelectItem>
-                            <SelectItem value="retry_later">Retry later without voicemail</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <h3 className="text-[16px] font-bold text-[#1A1A1A]">Communication Channels</h3>
+                        <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Choose how you want to reach customers</p>
                       </div>
-                      
-                      {campaignData.voicemailStrategy === 'leave_message' && (
-                        <div>
-                          <Label htmlFor="voicemailMessage" className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">
-                            Voicemail Message
-                          </Label>
-                          <Textarea
-                            id="voicemailMessage"
-                            placeholder="Enter your custom voicemail message..."
-                            value={campaignData.voicemailMessage || "Hi, this is [Company Name] calling about an important safety recall for your vehicle. This is a free service to ensure your safety. Please call us back at [Phone Number] as soon as possible to schedule your free recall repair. Your safety is our top priority. Thank you."}
-                            onChange={(e) => setCampaignData(prev => ({ ...prev, voicemailMessage: e.target.value }))}
-                            className="min-h-[100px] text-[14px] border-[#E5E7EB] focus:border-[#4600F2] focus:ring-[#4600F2] resize-none"
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 overflow-hidden">
+                        <div
+                          className={`flex items-center space-x-3 p-4 border rounded-lg cursor-pointer transition-all overflow-hidden ${
+                            campaignData.channels.email ? 'border-[#4600F2] bg-[#4600F2]/5' : 'border-[#E5E7EB] bg-white hover:border-[#D1D5D8]'
+                          }`}
+                          onClick={() => setCampaignData(prev => ({ ...prev, channels: { ...prev.channels, email: !prev.channels.email } }))}
+                        >
+                          <div className="p-2 bg-[#EEF2FF] rounded-lg flex-shrink-0"><Mail className="h-5 w-5 text-[#6366F1]" /></div>
+                          <span className="text-[14px] font-medium text-[#1A1A1A] truncate">Email</span>
+                        </div>
+                        <div
+                          className={`flex items-center space-x-3 p-4 border rounded-lg cursor-pointer transition-all overflow-hidden ${
+                            campaignData.channels.sms ? 'border-[#4600F2] bg-[#4600F2]/5' : 'border-[#E5E7EB] bg-white hover:border-[#D1D5D8]'
+                          }`}
+                          onClick={() => setCampaignData(prev => ({ ...prev, channels: { ...prev.channels, sms: !prev.channels.sms } }))}
+                        >
+                          <div className="p-2 bg-[#ECFDF5] rounded-lg flex-shrink-0"><MessageSquare className="h-5 w-5 text-[#10B981]" /></div>
+                          <span className="text-[14px] font-medium text-[#1A1A1A] truncate">SMS</span>
+                        </div>
+                        <div
+                          className={`flex items-center space-x-3 p-4 border rounded-lg cursor-pointer transition-all overflow-hidden ${
+                            campaignData.channels.voiceAi ? 'border-[#4600F2] bg-[#4600F2]/5' : 'border-[#E5E7EB] bg-white hover:border-[#D1D5D8]'
+                          }`}
+                          onClick={() => setCampaignData(prev => ({ ...prev, channels: { ...prev.channels, voiceAi: !prev.channels.voiceAi } }))}
+                        >
+                          <div className="p-2 bg-[#F0F9FF] rounded-lg flex-shrink-0"><Phone className="h-5 w-5 text-[#0EA5E9]" /></div>
+                          <span className="text-[14px] font-medium text-[#1A1A1A] truncate">Voice AI</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Compliance Settings */}
+                  <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="text-[16px] font-bold text-[#1A1A1A]">Compliance Settings</h3>
+                      </div>
+                      <div className="space-y-4 overflow-hidden">
+                        <div className="flex items-center space-x-3">
+                          <Checkbox
+                            id="includeRecordingConsent"
+                            checked={campaignData.compliance.includeRecordingConsent}
+                            onCheckedChange={(c) => setCampaignData(prev => ({ ...prev, compliance: { ...prev.compliance, includeRecordingConsent: Boolean(c) } }))}
                           />
-                          <p className="text-[12px] text-[#6B7280] mt-1">
-                            This message will be left when the AI agent reaches voicemail
-                          </p>
+                          <Label htmlFor="includeRecordingConsent" className="text-[14px] text-[#1A1A1A]">Include legal consent line in script</Label>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <Checkbox
+                            id="includeSmsOptOut"
+                            checked={campaignData.compliance.includeSmsOptOut}
+                            onCheckedChange={(c) => setCampaignData(prev => ({ ...prev, compliance: { ...prev.compliance, includeSmsOptOut: Boolean(c) } }))}
+                          />
+                          <Label htmlFor="includeSmsOptOut" className="text-[14px] text-[#1A1A1A]">Include opt-out instructions in SMS</Label>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <Checkbox
+                            id="respectDnc"
+                            checked={campaignData.doNotCallList}
+                            onCheckedChange={(c) => setCampaignData(prev => ({ ...prev, doNotCallList: Boolean(c) }))}
+                          />
+                          <Label htmlFor="respectDnc" className="text-[14px] text-[#1A1A1A]">Respect Do Not Call list</Label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Campaign Summary */}
+                  <div className="bg-white border border-[#E5E7EB] rounded-lg">
+                    <div className="bg-[#F4F5F8] border-b border-[#E5E7EB] px-6 py-4">
+                      <h3 className="text-[16px] font-semibold text-[#1A1A1A]">Campaign Summary</h3>
+                    </div>
+                    <div className="p-6">
+                      <div className="grid grid-cols-2 gap-6">
+                        <div>
+                          <p className="text-[14px] font-medium text-[#666666] mb-1">Campaign Name</p>
+                          <p className="text-[16px] font-bold text-[#1A1A1A]">{campaignData.campaignName || 'Untitled Campaign'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[14px] font-medium text-[#666666] mb-1">Use Case</p>
+                          <div className="mt-1">
+                            <Badge className="bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]">
+                              {useCases[selectedCategory]?.label} - {useCases[selectedCategory]?.subCases.find(sc => sc.value === campaignData.subUseCase)?.label}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-[14px] font-medium text-[#666666] mb-1">Total Records</p>
+                          <p className="text-[16px] font-bold text-[#1A1A1A]">{campaignData.totalRecords} customers</p>
+                        </div>
+                        <div>
+                          <p className="text-[14px] font-medium text-[#666666] mb-1">Estimated Time</p>
+                          <p className="text-[16px] font-bold text-[#1A1A1A]">{getEstimatedTimeInMinutes(campaignData.totalRecords)}</p>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-[14px] font-medium text-[#666666] mb-1">File</p>
+                          <p className="text-[16px] font-bold text-[#1A1A1A]">{campaignData.fileName}</p>
+                        </div>
+                        {selectedAgent && campaignData.subUseCase === 'recall-notification' && (
+                          <div className="col-span-2">
+                            <p className="text-[14px] font-medium text-[#666666] mb-2">Selected Agent</p>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="relative bg-white border border-[#E5E7EB] rounded-xl p-4 pb-16 transition-all duration-200 hover:border-[#4600F2]/40 hover:bg-[#4600F2]/5 hover:shadow-sm">
+                                <div className="space-y-4">
+                                  {/* Top Section: Profile Photo, Name, and Chips */}
+                                  <div className="flex items-start space-x-4">
+                                    {/* Profile Picture */}
+                                    <div className="flex-shrink-0 -mt-1">
+                                      <img
+                                        src={selectedAgent.imageUrl}
+                                        alt={selectedAgent.name}
+                                        className="w-16 h-16 rounded-lg object-cover object-top border-2 border-[#E5E7EB]"
+                                        onError={(e) => {
+                                          e.currentTarget.src = '/placeholder-user.jpg'
+                                        }}
+                                      />
+                                    </div>
+
+                                    {/* Agent Info */}
+                                    <div className="flex-1 min-w-0">
+                                      {/* Name */}
+                                      <h4 className="text-[16px] font-bold text-black mb-2">
+                                        {selectedAgent.name}
+                                      </h4>
+
+                                      {/* Tags */}
+                                      <div className="flex flex-wrap gap-1.5">
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-gray-700 border border-gray-300">
+                                          {selectedAgent.city}
+                                        </span>
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-gray-700 border border-gray-300">
+                                          {selectedAgent.languageName}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Bottom Section: Call Statistics */}
+                                  <div className="flex justify-between">
+                                    <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 flex-1 mr-2">
+                                      <p className="text-xs text-gray-500 mb-1">Total Calls</p>
+                                      <p className="text-base font-bold text-black">{selectedAgent.totalCalls}</p>
+                                    </div>
+                                    <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 flex-1">
+                                      <p className="text-xs text-gray-500 mb-1">Success Rate</p>
+                                      <p className="text-base font-bold text-black">{selectedAgent.totalCalls > 0 ? '75%' : '0%'}</p>
+                                    </div>
+                                  </div>
+
+                                  {/* Talk to Agent Button */}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      // Handle talk to agent functionality
+                                      if (selectedAgent) {
+                                        parent.postMessage({
+                                          type: 'TALK_TO_AGENT',
+                                          agentId: selectedAgent.id,
+                                          agentName: selectedAgent.name
+                                        }, '*')
+                                      }
+                                    }}
+                                    className="absolute bottom-4 left-4 right-4 bg-[#4600F2] text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-[#4600F2]/90 transition-colors"
+                                  >
+                                    Talk to Agent
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Schedule Options */}
+                  <div ref={scheduleRef} className={`bg-white border rounded-lg transition-colors ${
+                    errors.scheduledDate || errors.scheduledTime ? 'border-red-500' : 'border-[#E5E7EB]'
+                  }`}>
+                    <div className="bg-[#F4F5F8] border-b border-[#E5E7EB] px-6 py-4">
+                      <h3 className={`text-[16px] font-semibold ${
+                        errors.scheduledDate || errors.scheduledTime ? 'text-red-600' : 'text-[#1A1A1A]'
+                      }`}>
+                        Schedule Campaign {(errors.scheduledDate || errors.scheduledTime) && <span className="text-red-500">*</span>}
+                      </h3>
+                      <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Choose when to launch your AI-powered calling campaign</p>
+                      {(errors.scheduledDate || errors.scheduledTime) && (
+                        <p className="text-sm text-red-600 flex items-center mt-2">
+                          <AlertCircle className="h-4 w-4 mr-1" />
+                          Please select both date and time for scheduled campaigns
+                        </p>
+                      )}
+                    </div>
+                    <div className="p-6">
+                      <RadioGroup
+                        value={campaignData.schedule}
+                        onValueChange={(value) => setCampaignData(prev => ({ ...prev, schedule: value }))}
+                        className="space-y-4"
+                      >
+                        <div className="flex items-center space-x-3 p-4 border border-[#E5E7EB] rounded-lg hover:bg-[#4600F214] transition-colors">
+                          <RadioGroupItem value="now" id="now" className="border-[#E5E7EB]" />
+                          <Label htmlFor="now" className="flex-1 cursor-pointer">
+                            <div className="flex items-center">
+                              <div className="p-2 bg-[#4600F2]/10 rounded-lg mr-3">
+                                <Zap className="h-5 w-5 text-[#4600F2]" />
+                              </div>
+                              <div>
+                                <p className="text-[14px] font-medium text-[#1A1A1A]">Start Now</p>
+                                <p className="text-[14px] text-[#6B7280] leading-[1.5]">Begin calling immediately after campaign creation</p>
+                              </div>
+                            </div>
+                          </Label>
+                        </div>
+
+                        <div className="flex items-center space-x-3 p-4 border border-[#E5E7EB] rounded-lg hover:bg-[#4600F214] transition-colors">
+                          <RadioGroupItem value="scheduled" id="scheduled" className="border-[#E5E7EB]" />
+                          <Label htmlFor="scheduled" className="flex-1 cursor-pointer">
+                            <div className="flex items-center">
+                              <div className="p-2 bg-[#FACC15]/10 rounded-lg mr-3">
+                                <Clock className="h-5 w-5 text-[#FACC15]" />
+                              </div>
+                              <div>
+                                <p className="text-[14px] font-medium text-[#1A1A1A]">Schedule for Later</p>
+                                <p className="text-[14px] text-[#6B7280] leading-[1.5]">Choose a specific date and time</p>
+                              </div>
+                            </div>
+                          </Label>
+                        </div>
+                      </RadioGroup>
+
+                      {campaignData.schedule === 'scheduled' && (
+                        <div className="bg-white border border-[#E5E7EB] rounded-lg mt-6">
+                          <div className="bg-[#F4F5F8] border-b border-[#E5E7EB] px-6 py-4">
+                            <h3 className="text-[16px] font-semibold text-[#1A1A1A]">Schedule Settings</h3>
+                            <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Set the date and time for your campaign to start</p>
+                          </div>
+                          <div className="p-6">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                              <div>
+                                <Label htmlFor="date" className={`text-[14px] font-medium mb-2 block ${
+                                  errors.scheduledDate ? 'text-red-600' : 'text-[#1A1A1A]/60'
+                                }`}>
+                                  Campaign Date {errors.scheduledDate && <span className="text-red-500">*</span>}
+                                </Label>
+                                <DatePicker
+                                  value={campaignData.scheduledDate}
+                                  onChange={(value) => {
+                                    setCampaignData(prev => ({ ...prev, scheduledDate: value }))
+                                    if (errors.scheduledDate && value) {
+                                      setErrors(prev => ({ ...prev, scheduledDate: false }))
+                                    }
+                                  }}
+                                  placeholder="Select date"
+                                  minDate={new Date().toISOString().split('T')[0]}
+                                />
+                                {errors.scheduledDate && (
+                                  <p className="text-sm text-red-600 flex items-center mt-1">
+                                    <AlertCircle className="h-4 w-4 mr-1" />
+                                    Date is required
+                                  </p>
+                                )}
+                              </div>
+                              <div>
+                                <Label htmlFor="time" className={`text-[14px] font-medium mb-2 block ${
+                                  errors.scheduledTime ? 'text-red-600' : 'text-[#1A1A1A]/60'
+                                }`}>
+                                  Campaign Time {errors.scheduledTime && <span className="text-red-500">*</span>}
+                                </Label>
+                                <TimePicker
+                                  value={campaignData.scheduledTime}
+                                  onChange={(value) => {
+                                    setCampaignData(prev => ({ ...prev, scheduledTime: value }))
+                                    if (errors.scheduledTime && value) {
+                                      setErrors(prev => ({ ...prev, scheduledTime: false }))
+                                    }
+                                  }}
+                                  placeholder="Select time"
+                                />
+                                {errors.scheduledTime && (
+                                  <p className="text-sm text-red-600 flex items-center mt-1">
+                                    <AlertCircle className="h-4 w-4 mr-1" />
+                                    Time is required
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
                   </div>
+
+                  {/* Call Rules & Behavior */}
+                  <div className="bg-white border border-[#E5E7EB] rounded-lg">
+                    <div className="bg-[#F4F5F8] border-b border-[#E5E7EB] px-6 py-4">
+                      <h3 className="text-[16px] font-semibold text-[#1A1A1A]">Call Rules & Behavior</h3>
+                      <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Configure how your AI agent handles different call scenarios and retry logic</p>
+                    </div>
+                    <div className="p-6">
+                      {/* Retry Scenarios - Moved to top with chips UI */}
+                      <div className="mb-10">
+                        <h4 className="text-[16px] font-semibold text-[#1A1A1A] mb-4">
+                          Retry Scenarios
+                        </h4>
+                        
+                        <div className="flex flex-wrap gap-3">
+                          <div 
+                            className={`px-3 py-2 rounded-full border cursor-pointer transition-all ${
+                              campaignData.disconnectedCallRetry 
+                                ? 'border-[#4600F2] bg-[#4600F2]/10 text-[#4600F2]' 
+                                : 'border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#D1D5DB]'
+                            }`}
+                            onClick={() => setCampaignData(prev => ({ ...prev, disconnectedCallRetry: !prev.disconnectedCallRetry }))}
+                          >
+                            <span className={`text-[14px] ${campaignData.disconnectedCallRetry ? 'font-bold' : 'font-medium'}`}>Disconnected calls</span>
+                          </div>
+                          
+                          <div 
+                            className={`px-3 py-2 rounded-full border cursor-pointer transition-all ${
+                              campaignData.busySignalRetry 
+                                ? 'border-[#4600F2] bg-[#4600F2]/10 text-[#4600F2]' 
+                                : 'border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#D1D5DB]'
+                            }`}
+                            onClick={() => setCampaignData(prev => ({ ...prev, busySignalRetry: !prev.busySignalRetry }))}
+                          >
+                            <span className={`text-[14px] ${campaignData.busySignalRetry ? 'font-bold' : 'font-medium'}`}>Busy signals</span>
+                          </div>
+                          
+                          <div 
+                            className={`px-3 py-2 rounded-full border cursor-pointer transition-all ${
+                              campaignData.noAnswerRetry 
+                                ? 'border-[#4600F2] bg-[#4600F2]/10 text-[#4600F2]' 
+                                : 'border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#D1D5DB]'
+                            }`}
+                            onClick={() => setCampaignData(prev => ({ ...prev, noAnswerRetry: !prev.noAnswerRetry }))}
+                          >
+                            <span className={`text-[14px] ${campaignData.noAnswerRetry ? 'font-bold' : 'font-medium'}`}>No answer</span>
+                          </div>
+                          
+                          <div 
+                            className={`px-3 py-2 rounded-full border cursor-pointer transition-all ${
+                              campaignData.busyCustomerRetry 
+                                ? 'border-[#4600F2] bg-[#4600F2]/10 text-[#4600F2]' 
+                                : 'border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#D1D5DB]'
+                            }`}
+                            onClick={() => setCampaignData(prev => ({ ...prev, busyCustomerRetry: !prev.busyCustomerRetry }))}
+                          >
+                            <span className={`text-[14px] ${campaignData.busyCustomerRetry ? 'font-bold' : 'font-medium'}`}>Customer says busy</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        
+                        {/* Retry Settings */}
+                        <div className="space-y-4 lg:col-span-2">
+                          <h4 className="text-[16px] font-semibold text-[#1A1A1A]">
+                            Retry Settings
+                          </h4>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="maxRetries" className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">
+                                Maximum Retry Attempts
+                              </Label>
+                              <Select
+                                value={campaignData.maxRetryAttempts.toString()}
+                                onValueChange={(value) => setCampaignData(prev => ({ ...prev, maxRetryAttempts: parseInt(value) }))}
+                              >
+                                <SelectTrigger className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="1">1 attempt</SelectItem>
+                                  <SelectItem value="2">2 attempts</SelectItem>
+                                  <SelectItem value="3">3 attempts</SelectItem>
+                                  <SelectItem value="4">4 attempts</SelectItem>
+                                  <SelectItem value="5">5 attempts</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            
+                            <div>
+                              <Label htmlFor="retryDelay" className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">
+                                Retry Delay
+                              </Label>
+                              <Select
+                                value={campaignData.retryDelayMinutes.toString()}
+                                onValueChange={(value) => setCampaignData(prev => ({ ...prev, retryDelayMinutes: parseInt(value) }))}
+                              >
+                                <SelectTrigger className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="30">30 minutes</SelectItem>
+                                  <SelectItem value="60">1 hour</SelectItem>
+                                  <SelectItem value="120">2 hours</SelectItem>
+                                  <SelectItem value="240">4 hours</SelectItem>
+                                  <SelectItem value="480">8 hours</SelectItem>
+                                  <SelectItem value="1440">24 hours</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Voicemail Strategy */}
+                      <div className="mt-8">
+                        <h4 className="text-[16px] font-semibold text-[#1A1A1A] mb-4">
+                          Voicemail Strategy
+                        </h4>
+                        
+                        <div className="mb-4">
+                          <Select
+                            value={campaignData.voicemailStrategy || 'leave_message'}
+                            onValueChange={(value) => setCampaignData(prev => ({ ...prev, voicemailStrategy: value }))}
+                          >
+                            <SelectTrigger className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="leave_message">Leave voicemail message</SelectItem>
+                              <SelectItem value="hang_up">Hang up</SelectItem>
+                              <SelectItem value="transfer">Transfer to human</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {campaignData.voicemailStrategy === 'leave_message' && (
+                          <div>
+                            <Label className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">
+                              Voicemail Message
+                            </Label>
+                            <Textarea
+                              value={campaignData.voicemailMessage || "Hi, this is [Company Name] calling about an important safety recall for your vehicle. This is a free service to ensure your safety. Please call us back at [Phone Number] as soon as possible to schedule your free recall repair. Your safety is our top priority. Thank you."}
+                              onChange={(e) => setCampaignData(prev => ({ ...prev, voicemailMessage: e.target.value }))}
+                              placeholder="Enter your voicemail message..."
+                              className="min-h-[120px] text-[14px] border-[#E5E7EB] focus:border-[#4600F2] focus:ring-2 focus:ring-[#4600F2]/20 transition-all duration-200 resize-none"
+                            />
+                            <p className="text-[13px] text-[#6B7280] mt-2">
+                              This message will be left when the AI agent reaches voicemail
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Sales-specific additional sections */}
+              {selectedCategory === 'sales' && (
+                <>
+                  {/* Schedule & Pacing */}
+              <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-[16px] font-bold text-[#1A1A1A]">Schedule Campaign</h3>
+                    <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Set timing and call limits</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">Start Date</Label>
+                      <DatePicker
+                        value={campaignData.scheduledDate || ""}
+                        onChange={(value) => {
+                          setCampaignData(prev => ({ ...prev, scheduledDate: value }))
+                          if (errors.scheduledDate && value) {
+                            setErrors(prev => ({ ...prev, scheduledDate: false }))
+                          }
+                        }}
+                        placeholder="Select start date"
+                        minDate={new Date().toISOString().split('T')[0]}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">End Date</Label>
+                      <DatePicker
+                        value={campaignData.scheduledEndDate || ""}
+                        onChange={(value) => {
+                          setCampaignData(prev => ({ ...prev, scheduledEndDate: value }))
+                          if (errors.scheduledEndDate && value) {
+                            setErrors(prev => ({ ...prev, scheduledEndDate: false }))
+                          }
+                        }}
+                        placeholder="Select end date"
+                        minDate={campaignData.scheduledDate || new Date().toISOString().split('T')[0]}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
+
+              {/* Quiet Hours */}
+              <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-[16px] font-bold text-[#1A1A1A]">Quiet Hours</h3>
+                    <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Define acceptable calling hours (lead&apos;s local time)</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">Start Time</Label>
+                      <TimePicker
+                        value={campaignData.callWindowStart || "08:00"}
+                        onChange={(value) => setCampaignData(prev => ({ ...prev, callWindowStart: value }))}
+                        placeholder="Select start time"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">End Time</Label>
+                      <TimePicker
+                        value={campaignData.callWindowEnd || "20:00"}
+                        onChange={(value) => setCampaignData(prev => ({ ...prev, callWindowEnd: value }))}
+                        placeholder="Select end time"
+                      />
+                    </div>
+                  </div>
+                  
+                  <p className="text-[13px] text-[#6B7280]">
+                    Calls will only be made between 08:00 and 20:00 in each lead&apos;s local timezone
+                  </p>
+                </div>
+              </div>
+
+              {/* Pacing & Limits */}
+              <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-[16px] font-bold text-[#1A1A1A]">Pacing & Limits</h3>
+                    <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Control the rate and volume of outreach</p>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    <div>
+                      <div className="flex justify-between items-center mb-3">
+                        <Label className="text-[14px] font-medium text-[#1A1A1A]">Daily Contact Limit</Label>
+                        <span className="text-[14px] font-semibold text-[#4600F2]">{campaignData.maxCallsPerDay || 110} contacts/day</span>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <span className="text-[12px] text-[#6B7280]">10</span>
+                        <div className="flex-1">
+                          <input
+                            type="range"
+                            min="10"
+                            max="500"
+                            value={campaignData.maxCallsPerDay || 110}
+                            onChange={(e) => setCampaignData(prev => ({ ...prev, maxCallsPerDay: parseInt(e.target.value) }))}
+                            className="w-full h-2 bg-[#E5E7EB] rounded-full appearance-none cursor-pointer"
+                            style={{
+                              background: `linear-gradient(to right, #4600F2 0%, #4600F2 ${((campaignData.maxCallsPerDay || 110) - 10) / (500 - 10) * 100}%, #E5E7EB ${((campaignData.maxCallsPerDay || 110) - 10) / (500 - 10) * 100}%, #E5E7EB 100%)`
+                            }}
+                          />
+                        </div>
+                        <span className="text-[12px] text-[#6B7280]">500</span>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div className="flex justify-between items-center mb-3">
+                        <Label className="text-[14px] font-medium text-[#1A1A1A]">Hourly Throttle</Label>
+                        <span className="text-[14px] font-semibold text-[#4600F2]">{campaignData.maxCallsPerHour || 10} contacts/hour</span>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <span className="text-[12px] text-[#6B7280]">1</span>
+                        <div className="flex-1">
+                          <input
+                            type="range"
+                            min="1"
+                            max="50"
+                            value={campaignData.maxCallsPerHour || 10}
+                            onChange={(e) => setCampaignData(prev => ({ ...prev, maxCallsPerHour: parseInt(e.target.value) }))}
+                            className="w-full h-2 bg-[#E5E7EB] rounded-full appearance-none cursor-pointer"
+                            style={{
+                              background: `linear-gradient(to right, #4600F2 0%, #4600F2 ${((campaignData.maxCallsPerHour || 10) - 1) / (50 - 1) * 100}%, #E5E7EB ${((campaignData.maxCallsPerHour || 10) - 1) / (50 - 1) * 100}%, #E5E7EB 100%)`
+                            }}
+                          />
+                        </div>
+                        <span className="text-[12px] text-[#6B7280]">50</span>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div className="flex justify-between items-center mb-3">
+                        <Label className="text-[14px] font-medium text-[#1A1A1A]">Max Concurrent Calls</Label>
+                        <span className="text-[14px] font-semibold text-[#4600F2]">{campaignData.maxConcurrentCalls || 5} concurrent</span>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <span className="text-[12px] text-[#6B7280]">1</span>
+                        <div className="flex-1">
+                          <input
+                            type="range"
+                            min="1"
+                            max="20"
+                            value={campaignData.maxConcurrentCalls || 5}
+                            onChange={(e) => setCampaignData(prev => ({ ...prev, maxConcurrentCalls: parseInt(e.target.value) }))}
+                            className="w-full h-2 bg-[#E5E7EB] rounded-full appearance-none cursor-pointer"
+                            style={{
+                              background: `linear-gradient(to right, #4600F2 0%, #4600F2 ${((campaignData.maxConcurrentCalls || 5) - 1) / (20 - 1) * 100}%, #E5E7EB ${((campaignData.maxConcurrentCalls || 5) - 1) / (20 - 1) * 100}%, #E5E7EB 100%)`
+                            }}
+                          />
+                        </div>
+                        <span className="text-[12px] text-[#6B7280]">20</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Retry Logic */}
+              <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-[16px] font-bold text-[#1A1A1A]">Retry Logic</h3>
+                    <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Configure how to handle unsuccessful contact attempts</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">Maximum Attempts</Label>
+                      <Input
+                        type="number"
+                        value={campaignData.maxRetryAttempts || 3}
+                        onChange={(e) => setCampaignData(prev => ({ ...prev, maxRetryAttempts: parseInt(e.target.value) }))}
+                        min="1"
+                        max="10"
+                        className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2] focus:ring-2 focus:ring-[#4600F2]/20 transition-all duration-200"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">Hours Between Attempts</Label>
+                      <Input
+                        type="number"
+                        value={campaignData.retryDelayMinutes ? Math.round(campaignData.retryDelayMinutes / 60) : 4}
+                        onChange={(e) => setCampaignData(prev => ({ ...prev, retryDelayMinutes: parseInt(e.target.value) * 60 }))}
+                        min="1"
+                        max="24"
+                        className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2] focus:ring-2 focus:ring-[#4600F2]/20 transition-all duration-200"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-3">
+                    <Checkbox 
+                      id="sms-fallback" 
+                      checked={campaignData.busyCustomerRetry || false}
+                      onCheckedChange={(checked) => setCampaignData(prev => ({ ...prev, busyCustomerRetry: checked as boolean }))}
+                    />
+                    <Label htmlFor="sms-fallback" className="text-[14px] text-[#1A1A1A]">
+                      Switch to SMS on 2nd attempt if voice fails
+                    </Label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Voicemail Handling */}
+              <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-[16px] font-bold text-[#1A1A1A]">Voicemail Handling</h3>
+                    <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Choose how to handle voicemail scenarios</p>
+                  </div>
+                  
+                  <RadioGroup 
+                    value={campaignData.voicemailStrategy || "leave_message"} 
+                    onValueChange={(value) => setCampaignData(prev => ({ ...prev, voicemailStrategy: value }))}
+                    className="space-y-3"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <RadioGroupItem value="leave_message" id="leave_message" />
+                      <Label htmlFor="leave_message" className="text-[14px] text-[#1A1A1A]">Leave voicemail message</Label>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <RadioGroupItem value="sms_fallback" id="sms_fallback" />
+                      <Label htmlFor="sms_fallback" className="text-[14px] text-[#1A1A1A]">Send SMS fallback instead</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              </div>
+                </>
+              )}
             </div>
           </div>
         )
@@ -1607,7 +2298,260 @@ export default function CampaignSetup() {
             <div className="space-y-6">
               <div className="bg-transparent border-0 p-0">
                 <div className="mb-4">
-                  <h1 className="text-[24px] font-bold text-[#1A1A1A] leading-[1.4]">Campaign Started!</h1>
+                  <h1 className="text-[24px] font-bold text-[#1A1A1A] leading-[1.4]">Handoff Settings</h1>
+                  <p className="text-[14px] text-[#6B7280] mt-2 leading-[1.5]">
+                    Configure secondary actions and human agent handoff settings
+                  </p>
+                </div>
+              </div>
+
+
+
+              {/* Secondary Actions */}
+              <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-[16px] font-bold text-[#1A1A1A]">Secondary Actions</h3>
+                    <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Additional actions to offer during conversations</p>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-3">
+                      <Checkbox 
+                        id="send_inventory_link" 
+                        checked={campaignData.secondaryActions?.sendInventoryLink || false}
+                        onCheckedChange={(checked) => setCampaignData(prev => ({ 
+                          ...prev, 
+                          secondaryActions: { 
+                            ...prev.secondaryActions, 
+                            sendInventoryLink: checked as boolean 
+                          } 
+                        }))}
+                      />
+                      <div className="flex-1">
+                        <Label htmlFor="send_inventory_link" className="text-[14px] font-medium text-[#1A1A1A]">
+                          Send Inventory Link
+                        </Label>
+                        <p className="text-[13px] text-[#6B7280] mt-1">Share relevant vehicle listings</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <Checkbox 
+                        id="email_quote" 
+                        checked={campaignData.secondaryActions?.emailQuote || false}
+                        onCheckedChange={(checked) => setCampaignData(prev => ({ 
+                          ...prev, 
+                          secondaryActions: { 
+                            ...prev.secondaryActions, 
+                            emailQuote: checked as boolean 
+                          } 
+                        }))}
+                      />
+                      <div className="flex-1">
+                        <Label htmlFor="email_quote" className="text-[14px] font-medium text-[#1A1A1A]">
+                          Email Quote
+                        </Label>
+                        <p className="text-[13px] text-[#6B7280] mt-1">Send pricing information via email</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <Checkbox 
+                        id="text_finance_link" 
+                        checked={campaignData.secondaryActions?.textFinanceLink || false}
+                        onCheckedChange={(checked) => setCampaignData(prev => ({ 
+                          ...prev, 
+                          secondaryActions: { 
+                            ...prev.secondaryActions, 
+                            textFinanceLink: checked as boolean 
+                          } 
+                        }))}
+                      />
+                      <div className="flex-1">
+                        <Label htmlFor="text_finance_link" className="text-[14px] font-medium text-[#1A1A1A]">
+                          Text Finance Link
+                        </Label>
+                        <p className="text-[13px] text-[#6B7280] mt-1">Send financing application link via SMS</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Human Handoff Settings */}
+              <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-[16px] font-bold text-[#1A1A1A]">Human Handoff Settings</h3>
+                    <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Configure when and how to escalate to human agents</p>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    {/* Handoff Target */}
+                    <div>
+                      <h4 className="text-[14px] font-semibold text-[#1A1A1A] mb-3">Handoff Target</h4>
+                      <RadioGroup 
+                        value={campaignData.handoffSettings?.target || "round_robin"} 
+                        onValueChange={(value) => setCampaignData(prev => ({ 
+                          ...prev, 
+                          handoffSettings: { 
+                            ...prev.handoffSettings, 
+                            target: value 
+                          } 
+                        }))}
+                        className="space-y-3"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <RadioGroupItem value="round_robin" id="round_robin" />
+                          <Label htmlFor="round_robin" className="text-[14px] text-[#1A1A1A]">Round-robin to available team</Label>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <RadioGroupItem value="specific_user" id="specific_user" />
+                          <Label htmlFor="specific_user" className="text-[14px] text-[#1A1A1A]">Specific user or number</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                    
+                    {/* Business Hours */}
+                    <div>
+                      <h4 className="text-[14px] font-semibold text-[#1A1A1A] mb-3">Business Hours</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">Start Time</Label>
+                          <TimePicker
+                            value={campaignData.handoffSettings?.businessHoursStart || "09:00"}
+                            onChange={(value) => setCampaignData(prev => ({ 
+                              ...prev, 
+                              handoffSettings: { 
+                                ...prev.handoffSettings, 
+                                businessHoursStart: value 
+                              } 
+                            }))}
+                            placeholder="Select start time"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">End Time</Label>
+                          <TimePicker
+                            value={campaignData.handoffSettings?.businessHoursEnd || "17:00"}
+                            onChange={(value) => setCampaignData(prev => ({ 
+                              ...prev, 
+                              handoffSettings: { 
+                                ...prev.handoffSettings, 
+                                businessHoursEnd: value 
+                              } 
+                            }))}
+                            placeholder="Select end time"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-[13px] text-[#6B7280] mt-3">
+                        Outside business hours, leads will be sent to voicemail or SMS fallback
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Escalation Triggers */}
+              <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-[16px] font-bold text-[#1A1A1A]">Escalation Triggers</h3>
+                    <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Automatic conditions that trigger human handoff</p>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-3">
+                      <Checkbox 
+                        id="lead_requests_person" 
+                        checked={campaignData.escalationTriggers?.leadRequestsPerson || false}
+                        onCheckedChange={(checked) => setCampaignData(prev => ({ 
+                          ...prev, 
+                          escalationTriggers: { 
+                            ...prev.escalationTriggers, 
+                            leadRequestsPerson: checked as boolean 
+                          } 
+                        }))}
+                      />
+                      <div className="flex-1">
+                        <Label htmlFor="lead_requests_person" className="text-[14px] font-medium text-[#1A1A1A]">
+                          Lead requests to &quot;talk to a person&quot;
+                        </Label>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <Checkbox 
+                        id="complex_financing" 
+                        checked={campaignData.escalationTriggers?.complexFinancing || false}
+                        onCheckedChange={(checked) => setCampaignData(prev => ({ 
+                          ...prev, 
+                          escalationTriggers: { 
+                            ...prev.escalationTriggers, 
+                            complexFinancing: checked as boolean 
+                          } 
+                        }))}
+                      />
+                      <div className="flex-1">
+                        <Label htmlFor="complex_financing" className="text-[14px] font-medium text-[#1A1A1A]">
+                          Complex financing questions
+                        </Label>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <Checkbox 
+                        id="pricing_negotiation" 
+                        checked={campaignData.escalationTriggers?.pricingNegotiation || false}
+                        onCheckedChange={(checked) => setCampaignData(prev => ({ 
+                          ...prev, 
+                          escalationTriggers: { 
+                            ...prev.escalationTriggers, 
+                            pricingNegotiation: checked as boolean 
+                          } 
+                        }))}
+                      />
+                      <div className="flex-1">
+                        <Label htmlFor="pricing_negotiation" className="text-[14px] font-medium text-[#1A1A1A]">
+                          Pricing negotiation requests
+                        </Label>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <Checkbox 
+                        id="technical_questions" 
+                        checked={campaignData.escalationTriggers?.technicalQuestions || false}
+                        onCheckedChange={(checked) => setCampaignData(prev => ({ 
+                          ...prev, 
+                          escalationTriggers: { 
+                            ...prev.escalationTriggers, 
+                            technicalQuestions: checked as boolean 
+                          } 
+                        }))}
+                      />
+                      <div className="flex-1">
+                        <Label htmlFor="technical_questions" className="text-[14px] font-medium text-[#1A1A1A]">
+                          Detailed technical vehicle questions
+                        </Label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+
+      case 5:
+        return (
+          <div className="max-w-3xl">
+            <div className="space-y-6">
+              <div className="bg-transparent border-0 p-0">
+                <div className="mb-4">
+                  <h1 className="text-[24px] font-bold text-[#1A1A1A] leading-[1.4]">Start Campaign!</h1>
                   <p className="text-[14px] text-[#6B7280] mt-2 leading-[1.5]">
                     Your AI-powered outbound calling campaign is now active and running
                   </p>
@@ -1650,18 +2594,35 @@ export default function CampaignSetup() {
                 <Button 
                   size="lg" 
                   onClick={() => {
-                    // Reset all campaign data
+                    // Reset all campaign data to initial state
                     setCampaignData({
                       campaignName: '',
-                      useCase: '',
+                      useCase: 'sales',
                       subUseCase: '',
                       bcdDetails: '',
                       fileName: '',
                       schedule: 'now',
                       scheduledDate: '',
+                      scheduledEndDate: '',
                       scheduledTime: '',
                       totalRecords: 0,
-                      // Call Rules
+                      channels: {
+                        email: false,
+                        sms: true,
+                        voiceAi: true,
+                      },
+                      scriptTemplate: {
+                        voiceIntroduction: "Hi {first_name}, I have exciting news! We just received the {vehicle_interest} that matches what you were looking for. It&apos;s exactly what you described – would you like me to hold it for a test drive today or tomorrow?",
+                        corePitch: '',
+                        objectionHandling: '',
+                        legalConsent: 'This call may be recorded for quality purposes.',
+                        optOut: 'Reply STOP to opt out of future messages.',
+                        handoffOffer: 'Would you like me to connect you with a specialist?',
+                      },
+                      compliance: {
+                        includeRecordingConsent: true,
+                        includeSmsOptOut: true,
+                      },
                       maxRetryAttempts: 3,
                       retryDelayMinutes: 60,
                       callWindowStart: '09:00',
@@ -1670,12 +2631,30 @@ export default function CampaignSetup() {
                       doNotCallList: true,
                       maxCallsPerHour: 50,
                       maxCallsPerDay: 200,
+                      maxConcurrentCalls: 5,
                       voicemailStrategy: 'leave_message',
-                      voicemailMessage: '',
                       disconnectedCallRetry: true,
                       busySignalRetry: true,
                       noAnswerRetry: true,
-                      busyCustomerRetry: true
+                      busyCustomerRetry: true,
+                      voicemailMessage: '',
+                      primaryGoal: 'book_test_drive',
+                      secondaryActions: {
+                        sendInventoryLink: false,
+                        emailQuote: false,
+                        textFinanceLink: false,
+                      },
+                      handoffSettings: {
+                        target: 'round_robin',
+                        businessHoursStart: '09:00',
+                        businessHoursEnd: '17:00',
+                      },
+                      escalationTriggers: {
+                        leadRequestsPerson: false,
+                        complexFinancing: false,
+                        pricingNegotiation: false,
+                        technicalQuestions: false,
+                      }
                     })
                     // Reset upload states
                     setUploadProgress(0)
@@ -1715,7 +2694,7 @@ export default function CampaignSetup() {
             <div>
               <h3 className="text-[20px] font-semibold text-[#1A1A1A] mb-6 leading-[1.4]">Setup Progress</h3>
               <div className="flex flex-col space-y-6">
-                {steps.map((step, index) => (
+                {getSteps(selectedCategory || 'sales').map((step, index) => (
                   <div key={step.id} className="flex items-start min-w-0 flex-shrink-0">
                     <div className="flex flex-col items-center mr-4">
                       <div className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 ${
@@ -1731,7 +2710,7 @@ export default function CampaignSetup() {
                           <span className="text-[14px] font-semibold">{step.number}</span>
                         )}
                       </div>
-                      {index < steps.length - 1 && (
+                                             {index < getSteps(selectedCategory || 'sales').length - 1 && (
                         <div className={`w-0.5 h-12 mt-4 ${
                           currentStep > step.id ? 'bg-[#22C55E]' : 'bg-[#E5E7EB]'
                         }`} />
@@ -1768,13 +2747,13 @@ export default function CampaignSetup() {
         {/* Main Content Area - Scrollable on Right */}
         <div className="ml-64 min-h-screen bg-[#F4F5F8]">
           {/* Content - Scrollable */}
-          <div className="px-12 py-8 pb-20 min-h-full">
+          <div className="px-12 py-8 pb-20 min-h-full overflow-hidden">
             {renderStepContent()}
           </div>
         </div>
 
         {/* Sticky Navigation - Outside main content for proper positioning */}
-        {currentStep < 4 && (
+        {currentStep < (selectedCategory === 'sales' ? 6 : 4) && (
           <div className="fixed bottom-0 left-64 right-0 bg-white border-t border-[#E5E7EB] z-50 shadow-lg px-6 py-4">
               <div className="flex justify-between items-center">
                 {/* Cancel Button - Left Side */}
@@ -1804,15 +2783,23 @@ export default function CampaignSetup() {
                   <Button
                     onClick={nextStep}
                     disabled={
-                      (currentStep === 1 && (!campaignData.campaignName || !selectedCategory || !campaignData.subUseCase || (campaignData.subUseCase === 'recall-notification' && !selectedAgent))) ||
-                      (currentStep === 2 && !uploadComplete) ||
-                      (currentStep === 3 && campaignData.schedule === 'scheduled' && (!campaignData.scheduledDate || !campaignData.scheduledTime)) ||
+                      (currentStep === 1 && (!campaignData.campaignName || !selectedCategory || !campaignData.subUseCase || (campaignData.subUseCase && selectedCategory === 'service' && !selectedAgent))) ||
+                      (currentStep === 2 && (
+                        selectedCategory === 'sales' 
+                          ? (!selectedUploadOption || 
+                             (selectedUploadOption === 'crm' && !crmSelection) ||
+                             (selectedUploadOption === 'crm' && crmSelection === 'vinsolutions' && (!vinSolutionsStartDate || !vinSolutionsEndDate || !vinSolutionsStartTime || !vinSolutionsEndTime)) ||
+                             (selectedUploadOption === 'drive' && !googleDriveLink.trim()) ||
+                             (selectedUploadOption === 'upload' && !uploadComplete))
+                          : !uploadComplete
+                      )) ||
+
                       isLaunching
                     }
                     size="lg"
                     className="h-11 px-4 text-[14px] bg-[#4600F2] hover:bg-[#4600F2]/90 text-white rounded-lg font-medium"
                   >
-                    {isLaunching ? 'Launching...' : currentStep === 3 ? 'Launch Campaign' : 'Continue'}
+                    {isLaunching ? 'Starting...' : ((selectedCategory === 'service' && currentStep === 3) || (selectedCategory === 'sales' && currentStep === 4)) ? 'Start Campaign' : 'Continue'}
                     {isLaunching ? (
                       <div className="animate-spin h-5 w-5 ml-2 border-2 border-white border-t-transparent rounded-full" />
                     ) : (

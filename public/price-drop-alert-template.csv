@@ -1,0 +1,4 @@
+CustomerFullName,ContactPhoneNumber,VIN,RecallDescription,VehicleMake,VehicleModel,VehicleYear,PartsAvailabilityFlag,LoanerEligibility,Symptom,RiskDetails,RemedySteps,VehicleInterest,PreviousPrice,NewPrice
+John Smith,+17021833803,1HGBH41JXMN109186,Price drop on Honda Civic,Honda,Civic,2020,Available,Eligible,Customer interested in Honda Civic,Price reduction opportunity,Contact for test drive,Honda Civic 2020,$25000,$22000
+Sarah Johnson,+17021833913,2T1BURHE0JC123456,Price drop on Toyota Corolla,Toyota,Corolla,2019,Available,Not Eligible,Customer interested in Toyota Corolla,Price reduction opportunity,Contact for test drive,Toyota Corolla 2019,$22000,$19500
+Mike Davis,+17021833805,3VW2B7AJ8KM123789,Price drop on Volkswagen Jetta,Volkswagen,Jetta,2021,Available,Eligible,Customer interested in Volkswagen Jetta,Price reduction opportunity,Contact for test drive,Volkswagen Jetta 2021,$28000,$24500

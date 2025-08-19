@@ -29,7 +29,7 @@ export function extractUrlParams(): UrlParams {
   };
 }
 
-export function decodeAuthKey(authKey: string | null): any {
+export function decodeAuthKey(authKey: string | null): Record<string, unknown> | null {
   if (!authKey) return null;
   
   try {

@@ -14,7 +14,10 @@ export interface Agent {
   available: boolean;
   order: number;
   squadId: string;
-  faqs: any[];
+  faqs: Array<{
+    question: string;
+    answer: string;
+  }>;
   totalCalls: number;
   lastCallDate: string | null;
   age: number;
@@ -35,9 +38,10 @@ export async function fetchAgentList(
   agentCallType: string = 'outbound'
 ): Promise<Agent[]> {
   try {
-    const url = `${configs.route_base_url}conversation/agents/fetch-agent-list?enterpriseId=${enterpriseId}&teamId=${teamId}&agentUseCase=${agentUseCase}&agentType=${agentType}&agentCallType=${agentCallType}`;
+    // Use internal API route to avoid CORS issues
+    const url = `/api/fetch-agent-list?enterpriseId=${enterpriseId}&teamId=${teamId}&agentUseCase=${agentUseCase}&agentType=${agentType}&agentCallType=${agentCallType}`;
     
-    console.log('Fetching agents from URL:', url);
+    console.log('Fetching agents from internal API:', url);
     
     const response = await fetch(url);
 

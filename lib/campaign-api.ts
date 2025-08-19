@@ -3,16 +3,29 @@ import { configs } from '@/configs';
 export interface Customer {
   name: string;
   mobile: string;
-  vin: string;
-  recallDescription: string;
-  vehicleMake: string;
-  vehicleModel: string;
-  vehicleYear: string;
-  partsAvailabilityFlag: boolean | string;
-  loanerEligibility: boolean | string;
-  symptom: string;
-  riskDetails: string;
-  remedySteps: string;
+  customerDetails?: {
+    customerFullName?: string;
+    contactPhoneNumber?: string;
+    vin?: string;
+    recallDescription?: string;
+    vehicleMake?: string;
+    vehicleModel?: string;
+    vehicleYear?: string;
+    partsAvailabilityFlag?: string;
+    loanerEligibility?: string;
+    symptom?: string;
+    riskDetails?: string;
+    remedySteps?: string;
+  };
+  // Additional fields for new sales use cases
+  leadSource?: string;
+  interestLevel?: string;
+  vehicleInterest?: string;
+  previousPrice?: string;
+  newPrice?: string;
+  newVehicleDetails?: string;
+  formType?: string;
+  abandonmentTime?: string;
 }
 
 export interface LaunchCampaignPayload {
@@ -123,7 +136,50 @@ export interface CampaignData {
   scheduledDate: string;
   scheduledTime: string;
   totalRecords: number;
-  uploadedData?: any[];
+  uploadedData?: Array<{
+    CustomerFullName?: string;
+    'Customer Name'?: string;
+    name?: string;
+    ContactPhoneNumber?: string;
+    Phone?: string;
+    mobile?: string;
+    VIN?: string;
+    vin?: string;
+    RecallDescription?: string;
+    recallDescription?: string;
+    VehicleMake?: string;
+    vehicleMake?: string;
+    VehicleModel?: string;
+    vehicleModel?: string;
+    VehicleYear?: string;
+    vehicleYear?: string;
+    PartsAvailabilityFlag?: string | boolean;
+    partsAvailabilityFlag?: string | boolean;
+    LoanerEligibility?: string | boolean;
+    loanerEligibility?: string | boolean;
+    Symptom?: string;
+    symptom?: string;
+    RiskDetails?: string;
+    riskDetails?: string;
+    RemedySteps?: string;
+    remedySteps?: string;
+    LeadSource?: string;
+    leadSource?: string;
+    InterestLevel?: string;
+    interestLevel?: string;
+    VehicleInterest?: string;
+    vehicleInterest?: string;
+    PreviousPrice?: string;
+    previousPrice?: string;
+    NewPrice?: string;
+    newPrice?: string;
+    NewVehicleDetails?: string;
+    newVehicleDetails?: string;
+    FormType?: string;
+    formType?: string;
+    AbandonmentTime?: string;
+    abandonmentTime?: string;
+  }>;
 }
 
 export function transformCampaignData(
@@ -141,34 +197,44 @@ export function transformCampaignData(
     'maintenance-reminder': 'maintenance',
     'warranty-expiration': 'warranty',
     'seasonal-service': 'seasonal',
-    'follow-up-leads': 'followup',
-    'inventory-promotion': 'promotion',
-    'trade-in-offers': 'tradein'
+    'service-appointment-booking': 'service_appointment',
+    'customer-satisfaction-followup': 'customer_satisfaction',
+    'hot-lead-speed-contact': 'hot_lead_speed_contact',
+    'price-drop-alert': 'price_drop_alert',
+    'new-arrival-alert': 'new_arrival_alert',
+    'abandoned-callback': 'abandoned_callback'
   };
   
   const campaignUseCase = useCaseMapping[campaignData.subUseCase] || campaignData.subUseCase;
   
   // Transform uploaded data to customers format
-  const customers: Customer[] = campaignData.uploadedData?.map((row: any) => {
-    // Convert string "TRUE"/"FALSE" to boolean for flags
-    const convertToBoolean = (value: string | boolean): boolean => {
-      if (typeof value === 'boolean') return value;
-      return value?.toString().toUpperCase() === 'TRUE';
-    };
-
+  const customers: Customer[] = campaignData.uploadedData?.map((row) => {
     return {
       name: row.CustomerFullName || row['Customer Name'] || row.name || '',
       mobile: row.ContactPhoneNumber || row['Phone'] || row.mobile || '',
-      vin: row.VIN || row.vin || '',
-      recallDescription: row.RecallDescription || row.recallDescription || '',
-      vehicleMake: row.VehicleMake || row.vehicleMake || '',
-      vehicleModel: row.VehicleModel || row.vehicleModel || '',
-      vehicleYear: row.VehicleYear || row.vehicleYear || '',
-      partsAvailabilityFlag: convertToBoolean(row.PartsAvailabilityFlag || row.partsAvailabilityFlag || false),
-      loanerEligibility: convertToBoolean(row.LoanerEligibility || row.loanerEligibility || false),
-      symptom: row.Symptom || row.symptom || '',
-      riskDetails: row.RiskDetails || row.riskDetails || '',
-      remedySteps: row.RemedySteps || row.remedySteps || ''
+      customerDetails: {
+        customerFullName: row.CustomerFullName || row['Customer Name'] || row.name || '',
+        contactPhoneNumber: row.ContactPhoneNumber || row['Phone'] || row.mobile || '',
+        vin: row.VIN || row.vin || '',
+        recallDescription: row.RecallDescription || row.recallDescription || '',
+        vehicleMake: row.VehicleMake || row.vehicleMake || '',
+        vehicleModel: row.VehicleModel || row.vehicleModel || '',
+        vehicleYear: row.VehicleYear || row.vehicleYear || '',
+        partsAvailabilityFlag: row.PartsAvailabilityFlag?.toString() || row.partsAvailabilityFlag?.toString() || '',
+        loanerEligibility: row.LoanerEligibility?.toString() || row.loanerEligibility?.toString() || '',
+        symptom: row.Symptom || row.symptom || '',
+        riskDetails: row.RiskDetails || row.riskDetails || '',
+        remedySteps: row.RemedySteps || row.remedySteps || ''
+      },
+      // Additional fields for new sales use cases
+      leadSource: row.LeadSource || row.leadSource || '',
+      interestLevel: row.InterestLevel || row.interestLevel || '',
+      vehicleInterest: row.VehicleInterest || row.vehicleInterest || '',
+      previousPrice: row.PreviousPrice || row.previousPrice || '',
+      newPrice: row.NewPrice || row.newPrice || '',
+      newVehicleDetails: row.NewVehicleDetails || row.newVehicleDetails || '',
+      formType: row.FormType || row.formType || '',
+      abandonmentTime: row.AbandonmentTime || row.abandonmentTime || ''
     };
   }) || [];
 

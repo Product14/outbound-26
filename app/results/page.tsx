@@ -37,7 +37,7 @@ const statusColors: Record<string, string> = {
   Failed: 'bg-error/10 text-error border-error/20'
 }
 
-const statusIcons: Record<string, any> = {
+const statusIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   Running: Clock,
   Completed: CheckCircle,
   Scheduled: Calendar,
@@ -354,7 +354,7 @@ export default function CampaignResults() {
             <div className="flex flex-wrap gap-2 items-center">
               {searchTerm && (
                 <div className="flex items-center gap-1 px-3 py-1 rounded-full border border-[#4600F2] text-[#4600F2] text-sm">
-                  <span>Search: "{searchTerm}"</span>
+                  <span>Search: &quot;{searchTerm}&quot;</span>
                   <button
                     onClick={() => setSearchTerm('')}
                     className="ml-1 hover:bg-[#4600F2]/10 rounded-full p-0.5"
@@ -592,8 +592,8 @@ export default function CampaignResults() {
               <h3 className="text-page-heading text-text-primary mb-3">No campaigns found</h3>
               <p className="text-body text-text-secondary mb-8 max-w-md mx-auto">
                 {searchTerm || activeStatusFilters.length > 0 || activeCampaignTypeFilters.length > 0 || dateFilter
-                  ? 'No campaigns match your current filters. Try adjusting your search criteria or removing some filters to find the campaigns you\'re looking for.'
-                  : 'You haven\'t created any campaigns yet. Ready to start your first AI-powered outbound campaign?'}
+                  ? 'No campaigns match your current filters. Try adjusting your search criteria or removing some filters to find the campaigns you&apos;re looking for.'
+                  : 'You haven&apos;t created any campaigns yet. Ready to start your first AI-powered outbound campaign?'}
               </p>
               {searchTerm || activeStatusFilters.length > 0 || activeCampaignTypeFilters.length > 0 || dateFilter ? (
                 <Button 

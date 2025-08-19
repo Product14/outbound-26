@@ -165,7 +165,14 @@ export default function CampaignDetail() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [outcomeFilter, setOutcomeFilter] = useState('all')
   const [campaignData, setCampaignData] = useState<CampaignDetailResponse | null>(null)
-  const [callDetails, setCallDetails] = useState<any[]>([])
+  const [callDetails, setCallDetails] = useState<Array<{
+    customer: string;
+    phone: string;
+    vin: string;
+    status: string;
+    outcome: string;
+    [key: string]: unknown;
+  }>>([])
   const [lastRefresh, setLastRefresh] = useState(new Date())
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -318,7 +325,7 @@ export default function CampaignDetail() {
               </div>
               <h3 className="text-page-heading text-text-primary mb-3">Campaign Not Found</h3>
               <p className="text-body text-text-secondary mb-8 max-w-md mx-auto">
-                The campaign you're looking for doesn't exist or may have been deleted.
+                The campaign you&apos;re looking for doesn&apos;t exist or may have been deleted.
               </p>
               <Link href={buildUrlWithParams("/results")}>
                 <Button className="btn-primary">

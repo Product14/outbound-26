@@ -14,6 +14,15 @@ export interface ParsedCustomerData {
   Symptom: string;
   RiskDetails: string;
   RemedySteps: string;
+  // Additional fields for new sales use cases
+  LeadSource: string;
+  InterestLevel: string;
+  VehicleInterest: string;
+  PreviousPrice: string;
+  NewPrice: string;
+  NewVehicleDetails: string;
+  FormType: string;
+  AbandonmentTime: string;
 }
 
 export const REQUIRED_CSV_COLUMNS = [
@@ -28,8 +37,71 @@ export const REQUIRED_CSV_COLUMNS = [
   'LoanerEligibility',
   'Symptom',
   'RiskDetails',
-  'RemedySteps'
+  'RemedySteps',
+  // Additional fields for new sales use cases
+  'LeadSource',
+  'InterestLevel',
+  'VehicleInterest',
+  'PreviousPrice',
+  'NewPrice',
+  'NewVehicleDetails',
+  'FormType',
+  'AbandonmentTime'
 ];
+
+// Dynamic required fields based on use case
+export function getRequiredFieldsForUseCase(useCase: string, subUseCase: string): string[] {
+  const baseFields = ['CustomerFullName', 'ContactPhoneNumber'];
+  
+  if (useCase === 'service') {
+    return [
+      ...baseFields,
+      'VIN',
+      'RecallDescription',
+      'VehicleMake',
+      'VehicleModel',
+      'VehicleYear',
+      'PartsAvailabilityFlag',
+      'LoanerEligibility',
+      'Symptom',
+      'RiskDetails',
+      'RemedySteps'
+    ];
+  }
+  
+  if (useCase === 'sales') {
+    switch (subUseCase) {
+      case 'lead-qualification':
+        return [...baseFields, 'LeadSource', 'InterestLevel'];
+      case 'lead-enrichment':
+        return [...baseFields, 'LeadSource', 'InterestLevel'];
+      case 'price-drop-alert':
+        return [
+          ...baseFields,
+          'VIN',
+          'RecallDescription',
+          'VehicleMake',
+          'VehicleModel',
+          'VehicleYear',
+          'PartsAvailabilityFlag',
+          'LoanerEligibility',
+          'Symptom',
+          'RiskDetails',
+          'RemedySteps',
+          'VehicleInterest',
+          'PreviousPrice',
+          'NewPrice'
+        ];
+      case 'new-arrival-alert':
+        return [...baseFields, 'VehicleInterest', 'NewVehicleDetails'];
+      default:
+        return baseFields;
+    }
+  }
+  
+  // Default fallback
+  return baseFields;
+}
 
 export interface ParseResult {
   success: boolean;
@@ -39,22 +111,25 @@ export interface ParseResult {
   missingColumns: string[];
 }
 
-export function validateColumns(headers: string[]): string[] {
+export function validateColumns(headers: string[], requiredColumns: string[] = REQUIRED_CSV_COLUMNS): string[] {
   const normalizedHeaders = headers.map(h => h.trim());
-  const missingColumns = REQUIRED_CSV_COLUMNS.filter(
+  const missingColumns = requiredColumns.filter(
     required => !normalizedHeaders.includes(required)
   );
   return missingColumns;
 }
 
-export function parseCSVFile(file: File): Promise<ParseResult> {
+export function parseCSVFile(file: File, useCase?: string, subUseCase?: string): Promise<ParseResult> {
   return new Promise((resolve) => {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
         const headers = results.meta.fields || [];
-        const missingColumns = validateColumns(headers);
+        const requiredColumns = useCase && subUseCase 
+          ? getRequiredFieldsForUseCase(useCase, subUseCase)
+          : REQUIRED_CSV_COLUMNS;
+        const missingColumns = validateColumns(headers, requiredColumns);
         
         if (missingColumns.length > 0) {
           resolve({
@@ -71,35 +146,45 @@ export function parseCSVFile(file: File): Promise<ParseResult> {
         const validData: ParsedCustomerData[] = [];
         const errors: string[] = [];
 
-        results.data.forEach((row: any, index: number) => {
+        results.data.forEach((row, index: number) => {
+          const rowData = row as Record<string, unknown>;
           const rowErrors: string[] = [];
           
           // Check for required fields
-          REQUIRED_CSV_COLUMNS.forEach(column => {
-            if (!row[column] || row[column].toString().trim() === '') {
+          requiredColumns.forEach(column => {
+            if (!rowData[column] || rowData[column].toString().trim() === '') {
               rowErrors.push(`Row ${index + 1}: Missing ${column}`);
             }
           });
 
           // Validate phone number format (basic validation)
-          if (row.ContactPhoneNumber && !row.ContactPhoneNumber.match(/^\+?[\d\s\-\(\)]{10,}$/)) {
+          if (rowData.ContactPhoneNumber && !rowData.ContactPhoneNumber.toString().match(/^\+?[\d\s\-\(\)]{10,}$/)) {
             rowErrors.push(`Row ${index + 1}: Invalid phone number format`);
           }
 
           if (rowErrors.length === 0) {
             validData.push({
-              CustomerFullName: row.CustomerFullName?.toString().trim() || '',
-              ContactPhoneNumber: row.ContactPhoneNumber?.toString().trim() || '',
-              VIN: row.VIN?.toString().trim() || '',
-              RecallDescription: row.RecallDescription?.toString().trim() || '',
-              VehicleMake: row.VehicleMake?.toString().trim() || '',
-              VehicleModel: row.VehicleModel?.toString().trim() || '',
-              VehicleYear: row.VehicleYear?.toString().trim() || '',
-              PartsAvailabilityFlag: row.PartsAvailabilityFlag?.toString().trim() || '',
-              LoanerEligibility: row.LoanerEligibility?.toString().trim() || '',
-              Symptom: row.Symptom?.toString().trim() || '',
-              RiskDetails: row.RiskDetails?.toString().trim() || '',
-              RemedySteps: row.RemedySteps?.toString().trim() || ''
+              CustomerFullName: rowData.CustomerFullName?.toString().trim() || '',
+              ContactPhoneNumber: rowData.ContactPhoneNumber?.toString().trim() || '',
+              VIN: rowData.VIN?.toString().trim() || '',
+              RecallDescription: rowData.RecallDescription?.toString().trim() || '',
+              VehicleMake: rowData.VehicleMake?.toString().trim() || '',
+              VehicleModel: rowData.VehicleModel?.toString().trim() || '',
+              VehicleYear: rowData.VehicleYear?.toString().trim() || '',
+              PartsAvailabilityFlag: rowData.PartsAvailabilityFlag?.toString().trim() || '',
+              LoanerEligibility: rowData.LoanerEligibility?.toString().trim() || '',
+              Symptom: rowData.Symptom?.toString().trim() || '',
+              RiskDetails: rowData.RiskDetails?.toString().trim() || '',
+              RemedySteps: rowData.RemedySteps?.toString().trim() || '',
+              // Additional fields for new sales use cases
+              LeadSource: rowData.LeadSource?.toString().trim() || '',
+              InterestLevel: rowData.InterestLevel?.toString().trim() || '',
+              VehicleInterest: rowData.VehicleInterest?.toString().trim() || '',
+              PreviousPrice: rowData.PreviousPrice?.toString().trim() || '',
+              NewPrice: rowData.NewPrice?.toString().trim() || '',
+              NewVehicleDetails: rowData.NewVehicleDetails?.toString().trim() || '',
+              FormType: rowData.FormType?.toString().trim() || '',
+              AbandonmentTime: rowData.AbandonmentTime?.toString().trim() || ''
             });
           } else {
             errors.push(...rowErrors);
@@ -127,7 +212,7 @@ export function parseCSVFile(file: File): Promise<ParseResult> {
   });
 }
 
-export function parseExcelFile(file: File): Promise<ParseResult> {
+export function parseExcelFile(file: File, useCase?: string, subUseCase?: string): Promise<ParseResult> {
   return new Promise((resolve) => {
     const reader = new FileReader();
     
@@ -156,7 +241,10 @@ export function parseExcelFile(file: File): Promise<ParseResult> {
 
         // Get headers (first row)
         const headers = (jsonData[0] as string[]).map(h => h?.toString().trim());
-        const missingColumns = validateColumns(headers);
+        const requiredColumns = useCase && subUseCase 
+          ? getRequiredFieldsForUseCase(useCase, subUseCase)
+          : REQUIRED_CSV_COLUMNS;
+        const missingColumns = validateColumns(headers, requiredColumns);
         
         if (missingColumns.length > 0) {
           resolve({
@@ -174,8 +262,8 @@ export function parseExcelFile(file: File): Promise<ParseResult> {
         const errors: string[] = [];
 
         for (let i = 1; i < jsonData.length; i++) {
-          const row = jsonData[i] as any[];
-          const rowObj: any = {};
+          const row = jsonData[i] as Record<string, unknown>;
+          const rowObj: Record<string, string> = {};
           
           // Map row data to headers
           headers.forEach((header, index) => {
@@ -185,7 +273,7 @@ export function parseExcelFile(file: File): Promise<ParseResult> {
           const rowErrors: string[] = [];
           
           // Check for required fields
-          REQUIRED_CSV_COLUMNS.forEach(column => {
+          requiredColumns.forEach(column => {
             if (!rowObj[column] || rowObj[column] === '') {
               rowErrors.push(`Row ${i + 1}: Missing ${column}`);
             }
@@ -209,7 +297,16 @@ export function parseExcelFile(file: File): Promise<ParseResult> {
               LoanerEligibility: rowObj.LoanerEligibility || '',
               Symptom: rowObj.Symptom || '',
               RiskDetails: rowObj.RiskDetails || '',
-              RemedySteps: rowObj.RemedySteps || ''
+              RemedySteps: rowObj.RemedySteps || '',
+              // Additional fields for new sales use cases
+              LeadSource: rowObj.LeadSource || '',
+              InterestLevel: rowObj.InterestLevel || '',
+              VehicleInterest: rowObj.VehicleInterest || '',
+              PreviousPrice: rowObj.PreviousPrice || '',
+              NewPrice: rowObj.NewPrice || '',
+              NewVehicleDetails: rowObj.NewVehicleDetails || '',
+              FormType: rowObj.FormType || '',
+              AbandonmentTime: rowObj.AbandonmentTime || ''
             });
           } else {
             errors.push(...rowErrors);
@@ -249,15 +346,15 @@ export function parseExcelFile(file: File): Promise<ParseResult> {
   });
 }
 
-export async function parseUploadedFile(file: File): Promise<ParseResult> {
+export async function parseUploadedFile(file: File, useCase?: string, subUseCase?: string): Promise<ParseResult> {
   const fileExtension = file.name.split('.').pop()?.toLowerCase();
   
   switch (fileExtension) {
     case 'csv':
-      return parseCSVFile(file);
+      return parseCSVFile(file, useCase, subUseCase);
     case 'xlsx':
     case 'xls':
-      return parseExcelFile(file);
+      return parseExcelFile(file, useCase, subUseCase);
     default:
       return {
         success: false,

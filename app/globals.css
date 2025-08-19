@@ -84,6 +84,74 @@
     -moz-osx-font-smoothing: grayscale;
   }
   
+  /* Custom Range Input Styling */
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+  
+  /* Enhanced Focus States for Form Inputs */
+  input:focus,
+  textarea:focus,
+  select:focus {
+    outline: none;
+    border-color: #4600F2 !important;
+    box-shadow: 0 0 0 3px rgba(70, 0, 242, 0.1) !important;
+    transition: all 0.2s ease-in-out;
+  }
+  
+  /* Double border effect for focused inputs */
+  input:focus,
+  textarea:focus {
+    border: 2px solid #4600F2 !important;
+    border-radius: 6px;
+  }
+  
+  /* Enhanced hover states */
+  input:hover:not(:focus),
+  textarea:hover:not(:focus),
+  select:hover:not(:focus) {
+    border-color: #4600F2 !important;
+    transition: border-color 0.2s ease-in-out;
+  }
+  
+  input[type="range"]::-webkit-slider-track {
+    background: #E5E7EB;
+    height: 8px;
+    border-radius: 4px;
+  }
+  
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    background: #4600F2;
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    border: 2px solid #FFFFFF;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+  }
+  
+  input[type="range"]::-moz-range-track {
+    background: #E5E7EB;
+    height: 8px;
+    border-radius: 4px;
+    border: none;
+  }
+  
+  input[type="range"]::-moz-range-thumb {
+    background: #4600F2;
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    border: 2px solid #FFFFFF;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+  }
+  
   /* Typography System */
   .text-page-heading {
     @apply font-sans;

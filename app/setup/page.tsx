@@ -22,7 +22,7 @@ import { BarChart3 } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { extractUrlParams, buildUrlWithParams, type UrlParams } from '@/lib/url-utils'
 import { transformCampaignData, launchCampaign, type Customer } from '@/lib/campaign-api'
-import { parseUploadedFile, REQUIRED_CSV_COLUMNS, getRequiredFieldsForUseCase, type ParsedCustomerData } from '@/lib/file-parser'
+import { parseUploadedFile, REQUIRED_CSV_COLUMNS, type ParsedCustomerData } from '@/lib/file-parser'
 import { fetchAgentList, type Agent } from '@/lib/agent-api'
 import { useToast } from "@/hooks/use-toast"
 import { calculateAndFormatEstimatedTime, getShortEstimatedTime, calculateAndFormatTimeRange, getEstimatedTimeInMinutes, calculateEndDate } from '@/lib/time-utils'
@@ -211,9 +211,8 @@ export default function CampaignSetup() {
 
   // Get dynamic columns based on current use case
   const getDisplayColumns = () => {
-    if (campaignData.useCase && campaignData.subUseCase) {
-      return getRequiredFieldsForUseCase(campaignData.useCase, campaignData.subUseCase)
-    }
+    // For now, return the standard required columns
+    // This can be extended later to support different use cases
     return REQUIRED_CSV_COLUMNS
   }
   const [agentError, setAgentError] = useState<string | null>(null)
@@ -409,8 +408,8 @@ export default function CampaignSetup() {
       // Test the import
       console.log('parseUploadedFile function:', typeof parseUploadedFile)
       
-      // Parse the uploaded file with use case context
-      const parseResult = await parseUploadedFile(file, campaignData.useCase, campaignData.subUseCase)
+      // Parse the uploaded file
+      const parseResult = await parseUploadedFile(file)
       console.log('Parse result:', parseResult)
       
       // Complete the progress
@@ -1274,9 +1273,6 @@ export default function CampaignSetup() {
                         setSelectedUploadOption('upload')
                         setCrmSelection('')
                         setGoogleDriveLink('')
-                        setTimeout(() => {
-                          document.getElementById('sales-file-upload')?.click()
-                        }, 50)
                       }}
                     >
                       <div className="flex items-start space-x-3">
@@ -1294,26 +1290,65 @@ export default function CampaignSetup() {
                           </p>
                           {selectedUploadOption === 'upload' && (
                             <div className="mt-3">
-                              <div className="border-2 border-dashed border-[#E5E7EB] rounded-lg p-6 text-center hover:border-[#4600F2] hover:bg-[#4600F214] transition-all duration-300 bg-[#F9FAFB]">
-                                <Upload className="h-8 w-8 mx-auto mb-3 text-[#6B7280]" />
-                                <div className="space-y-2">
-                                  <p className="text-[13px] font-medium text-[#1A1A1A]">Drag and drop your CSV file here</p>
+                              {errors.fileUpload && (
+                                <div className="mb-4">
+                                  <p className="text-sm text-red-600 flex items-center">
+                                    <AlertCircle className="h-4 w-4 mr-1" />
+                                    Please upload a customer data file to continue
+                                  </p>
+                                </div>
+                              )}
+                                                              <div 
+                                className={`border-2 border-dashed rounded-lg p-8 text-center hover:border-[#4600F2] hover:bg-[#4600F214] transition-all duration-300 ${
+                                  errors.fileUpload 
+                                    ? 'border-red-400' 
+                                    : 'border-[#E5E7EB]'
+                                } bg-[#F4F5F8]`}
+                                onDrop={(e) => {
+                                  e.preventDefault()
+                                  const files = e.dataTransfer.files
+                                  if (files.length > 0) {
+                                    const file = files[0]
+                                    if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+                                      // Create a proper FileList-like object
+                                      const fileList = {
+                                        0: file,
+                                        length: 1,
+                                        item: (index: number) => index === 0 ? file : null,
+                                        [Symbol.iterator]: function* () {
+                                          yield file;
+                                        }
+                                      } as FileList;
+                                      
+                                      const event = {
+                                        target: { files: fileList }
+                                      } as unknown as React.ChangeEvent<HTMLInputElement>
+                                      handleFileUpload(event)
+                                      if (errors.fileUpload) {
+                                        setErrors(prev => ({ ...prev, fileUpload: false }))
+                                      }
+                                    }
+                                  }
+                                }}
+                                onDragOver={(e) => e.preventDefault()}
+                                onDragEnter={(e) => e.preventDefault()}
+                                onClick={(e) => {
+                                  // Prevent the parent container click from interfering
+                                  e.stopPropagation()
+                                }}
+                              >
+                                <Upload className={`h-12 w-12 mx-auto mb-4 ${
+                                  errors.fileUpload ? 'text-red-400' : 'text-[#6B7280]'
+                                }`} />
+                                <div className="space-y-3">
+                                  <p className="text-[14px] font-semibold text-[#1A1A1A]">Drag and drop your file here</p>
                                   <p className="text-[12px] text-[#6B7280]">Supports .csv files up to 10MB</p>
-                                  <Label htmlFor="sales-file-upload" className="cursor-pointer">
-                                    <Button 
-                                      type="button"
-                                      className="mt-2 h-8 px-3 text-[12px] rounded-lg font-medium bg-[#4600F2] text-white hover:bg-[#4600F2]/90"
-                                      size="sm"
-                                      onClick={() => {
-                                        document.getElementById('sales-file-upload')?.click()
-                                      }}
-                                    >
-                                      Browse Files
-                                    </Button>
+                                  <p className="text-[14px] text-[#6B7280]">or</p>
+                                  <div className="relative">
                                     <Input
                                       id="sales-file-upload"
                                       type="file"
-                                      accept=".csv"
+                                      accept=".xlsx,.csv"
                                       className="hidden"
                                       onChange={(e) => {
                                         handleFileUpload(e)
@@ -1322,9 +1357,96 @@ export default function CampaignSetup() {
                                         }
                                       }}
                                     />
-                                  </Label>
+                                    <button
+                                      type="button"
+                                      className={`mt-2 h-9 px-3 text-[12px] rounded-lg font-medium transition-colors ${
+                                        errors.fileUpload
+                                          ? 'bg-red-500 text-white hover:bg-red-600'
+                                          : 'bg-[#4600F2] text-white hover:bg-[#4600F2]/90'
+                                      }`}
+                                      onClick={(e) => {
+                                        e.preventDefault()
+                                        e.stopPropagation()
+                                        console.log('Browse Files clicked for sales upload')
+                                        const fileInput = document.getElementById('sales-file-upload') as HTMLInputElement
+                                        console.log('File input found:', !!fileInput)
+                                        if (fileInput) {
+                                          fileInput.click()
+                                          console.log('File input clicked')
+                                        }
+                                      }}
+                                    >
+                                      Browse Files
+                                    </button>
+                                  </div>
+                                </div>
+                                
+                                {/* Download sample file CTA for sales */}
+                                <div className="mt-4">
+                                  <button 
+                                    onClick={downloadSampleFile}
+                                    className="inline-flex items-center text-[12px] font-medium text-[#4600F2] hover:text-[#4600F2]/80 transition-colors"
+                                  >
+                                    <Download className="w-3 h-3 mr-1" />
+                                    Download sample file
+                                  </button>
                                 </div>
                               </div>
+                              
+                              {/* Upload Progress */}
+                              {isUploading && (
+                                <div className="mt-4">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium text-[#1A1A1A]">
+                                      {campaignData.fileName || 'Uploading file...'}
+                                    </span>
+                                    <span className="text-sm text-[#6B7280]">{uploadProgress}%</span>
+                                  </div>
+                                  <Progress value={uploadProgress} className="h-2" />
+                                </div>
+                              )}
+                              
+                              {/* Upload Success */}
+                              {uploadComplete && !isUploading && (
+                                <div className="mt-4">
+                                  <div className="flex items-center p-4 bg-green-50 border border-green-200 rounded-lg">
+                                    <CheckCircle className="h-5 w-5 text-green-600 mr-3" />
+                                    <div className="flex-1">
+                                      <p className="text-sm font-medium text-green-800">File uploaded successfully</p>
+                                      <p className="text-xs text-green-600 mt-1">
+                                        {campaignData.fileName} • {campaignData.totalRecords} records
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Upload Error */}
+                              {hasError && !isUploading && (
+                                <div className="mt-4">
+                                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                                    <div className="flex items-start">
+                                      <AlertCircle className="h-5 w-5 text-red-600 mr-3 mt-0.5" />
+                                      <div className="flex-1">
+                                        <p className="text-sm font-medium text-red-800 mb-2">Upload failed</p>
+                                        {parseErrors.length > 0 && (
+                                          <div className="space-y-1">
+                                            {parseErrors.map((error, index) => (
+                                              <p key={index} className="text-xs text-red-600">• {error}</p>
+                                            ))}
+                                          </div>
+                                        )}
+                                        {missingColumns.length > 0 && (
+                                          <div className="mt-2">
+                                            <p className="text-xs text-red-600 font-medium">Missing required columns:</p>
+                                            <p className="text-xs text-red-600">{missingColumns.join(', ')}</p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>

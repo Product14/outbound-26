@@ -1,5 +1,6 @@
 import { configs } from '@/configs';
 
+// Internal Customer interface for UI state management
 export interface Customer {
   name: string;
   mobile: string;
@@ -28,6 +29,23 @@ export interface Customer {
   abandonmentTime?: string;
 }
 
+// External API Customer interface - flatter structure expected by Spyne API
+export interface ApiCustomer {
+  name: string;
+  mobile: string;
+  // Service use case fields
+  vin?: string;
+  recallDescription?: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleYear?: string;
+  partsAvailabilityFlag?: boolean;
+  loanerEligibility?: boolean;
+  symptom?: string;
+  riskDetails?: string;
+  remedySteps?: string;
+}
+
 export interface LaunchCampaignPayload {
   name: string;
   campaignType: string;
@@ -35,7 +53,7 @@ export interface LaunchCampaignPayload {
   teamAgentMappingId: string;
   enterpriseId: string;
   teamId: string;
-  customers: Customer[];
+  customers: ApiCustomer[];
 }
 
 export interface CampaignApiResponse {
@@ -207,35 +225,46 @@ export function transformCampaignData(
   
   const campaignUseCase = useCaseMapping[campaignData.subUseCase] || campaignData.subUseCase;
   
-  // Transform uploaded data to customers format
-  const customers: Customer[] = campaignData.uploadedData?.map((row) => {
-    return {
+  // Transform uploaded data to API customers format (flatter structure)
+  const customers: ApiCustomer[] = campaignData.uploadedData?.map((row) => {
+    const customer: ApiCustomer = {
       name: row.CustomerFullName || row['Customer Name'] || row.name || '',
-      mobile: row.ContactPhoneNumber || row['Phone'] || row.mobile || '',
-      customerDetails: {
-        customerFullName: row.CustomerFullName || row['Customer Name'] || row.name || '',
-        contactPhoneNumber: row.ContactPhoneNumber || row['Phone'] || row.mobile || '',
-        vin: row.VIN || row.vin || '',
-        recallDescription: row.RecallDescription || row.recallDescription || '',
-        vehicleMake: row.VehicleMake || row.vehicleMake || '',
-        vehicleModel: row.VehicleModel || row.vehicleModel || '',
-        vehicleYear: row.VehicleYear || row.vehicleYear || '',
-        partsAvailabilityFlag: row.PartsAvailabilityFlag?.toString() || row.partsAvailabilityFlag?.toString() || '',
-        loanerEligibility: row.LoanerEligibility?.toString() || row.loanerEligibility?.toString() || '',
-        symptom: row.Symptom || row.symptom || '',
-        riskDetails: row.RiskDetails || row.riskDetails || '',
-        remedySteps: row.RemedySteps || row.remedySteps || ''
-      },
-      // Additional fields for new sales use cases
-      leadSource: row.LeadSource || row.leadSource || '',
-      interestLevel: row.InterestLevel || row.interestLevel || '',
-      vehicleInterest: row.VehicleInterest || row.vehicleInterest || '',
-      previousPrice: row.PreviousPrice || row.previousPrice || '',
-      newPrice: row.NewPrice || row.newPrice || '',
-      newVehicleDetails: row.NewVehicleDetails || row.newVehicleDetails || '',
-      formType: row.FormType || row.formType || '',
-      abandonmentTime: row.AbandonmentTime || row.abandonmentTime || ''
+      mobile: row.ContactPhoneNumber || row['Phone'] || row.mobile || ''
     };
+
+    // Add service-related fields if they exist
+    if (row.VIN || row.vin) {
+      customer.vin = row.VIN || row.vin || '';
+    }
+    if (row.RecallDescription || row.recallDescription) {
+      customer.recallDescription = row.RecallDescription || row.recallDescription || '';
+    }
+    if (row.VehicleMake || row.vehicleMake) {
+      customer.vehicleMake = row.VehicleMake || row.vehicleMake || '';
+    }
+    if (row.VehicleModel || row.vehicleModel) {
+      customer.vehicleModel = row.VehicleModel || row.vehicleModel || '';
+    }
+    if (row.VehicleYear || row.vehicleYear) {
+      customer.vehicleYear = row.VehicleYear || row.vehicleYear || '';
+    }
+    if (row.PartsAvailabilityFlag || row.partsAvailabilityFlag) {
+      customer.partsAvailabilityFlag = (row.PartsAvailabilityFlag?.toString() || row.partsAvailabilityFlag?.toString()) === 'true';
+    }
+    if (row.LoanerEligibility || row.loanerEligibility) {
+      customer.loanerEligibility = (row.LoanerEligibility?.toString() || row.loanerEligibility?.toString()) === 'true';
+    }
+    if (row.Symptom || row.symptom) {
+      customer.symptom = row.Symptom || row.symptom || '';
+    }
+    if (row.RiskDetails || row.riskDetails) {
+      customer.riskDetails = row.RiskDetails || row.riskDetails || '';
+    }
+    if (row.RemedySteps || row.remedySteps) {
+      customer.remedySteps = row.RemedySteps || row.remedySteps || '';
+    }
+
+    return customer;
   }) || [];
 
   return {
@@ -272,7 +301,8 @@ export async function launchCampaign(payload: LaunchCampaignPayload): Promise<Ca
 
 export async function fetchCampaignList(enterpriseId: string, teamId: string): Promise<CampaignListResponse> {
   try {
-    const response = await fetch(`${configs.route_base_url}conversation/campaign/list?enterpriseId=${enterpriseId}&teamId=${teamId}`);
+    console.log('Fetching campaigns from internal API:', `/api/fetch-campaign-list?enterpriseId=${enterpriseId}&teamId=${teamId}`);
+    const response = await fetch(`/api/fetch-campaign-list?enterpriseId=${enterpriseId}&teamId=${teamId}`);
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -287,7 +317,8 @@ export async function fetchCampaignList(enterpriseId: string, teamId: string): P
 
 export async function fetchCampaignDetails(campaignId: string): Promise<CampaignDetailResponse> {
   try {
-    const response = await fetch(`${configs.route_base_url}conversation/campaign/details/${campaignId}`);
+    console.log('Fetching campaign details from internal API:', `/api/fetch-campaign-details?campaignId=${campaignId}`);
+    const response = await fetch(`/api/fetch-campaign-details?campaignId=${campaignId}`);
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);

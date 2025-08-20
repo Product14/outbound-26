@@ -14,8 +14,6 @@ export function extractUrlParams(): UrlParams {
   }
 
   const urlParams = new URLSearchParams(window.location.search);
-
-  console.log(urlParams.get('auth_key'))
   
   // Handle both camelCase and underscore formats
   const enterpriseId = urlParams.get('enterprise_id');
@@ -46,6 +44,11 @@ export function decodeAuthKey(authKey: string | null): Record<string, unknown> |
 }
 
 export function buildUrlWithParams(basePath: string, additionalParams?: Record<string, string>): string {
+  // During SSR, return base path to avoid hydration mismatch
+  if (typeof window === 'undefined') {
+    return basePath;
+  }
+  
   const currentParams = extractUrlParams();
   const searchParams = new URLSearchParams();
   
@@ -55,7 +58,6 @@ export function buildUrlWithParams(basePath: string, additionalParams?: Record<s
   }
   if (currentParams.team_id) {
     searchParams.set('team_id', currentParams.team_id);
-    
   }
   if (currentParams.auth_key) {
     searchParams.set('auth_key', currentParams.auth_key);

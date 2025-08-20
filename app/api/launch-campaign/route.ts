@@ -25,20 +25,29 @@ export async function POST(request: NextRequest) {
 
     // Validate each customer has required fields
     for (const customer of payload.customers) {
-      if (!customer.name || !customer.mobile || !customer.vin || 
-          !customer.recallDescription || !customer.vehicleMake || 
-          !customer.vehicleModel || !customer.vehicleYear) {
+      if (!customer.name || !customer.mobile) {
         return NextResponse.json(
-          { error: 'Each customer must have name, mobile, vin, recallDescription, vehicleMake, vehicleModel, and vehicleYear' },
+          { error: 'Each customer must have name and mobile' },
           { status: 400 }
         );
+      }
+      
+      // For recall notification campaigns, validate additional required fields
+      if (payload.campaignUseCase === 'recall_notificaiton') {
+        if (!customer.vin || !customer.recallDescription || !customer.vehicleMake || 
+            !customer.vehicleModel || !customer.vehicleYear) {
+          return NextResponse.json(
+            { error: 'For recall notifications, each customer must have vin, recallDescription, vehicleMake, vehicleModel, and vehicleYear' },
+            { status: 400 }
+          );
+        }
       }
     }
 
     console.log('Campaign Launch Payload:', JSON.stringify(payload, null, 2));
     
     // Call the real Spyne API
-    const externalResponse = await fetch(`${configs.route_base_url}conversation/campaign/create`, {
+    const externalResponse = await fetch(`${configs.base_url}conversation/campaign/create`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -88,7 +88,7 @@ const getSteps = (useCase: string) => {
     return [
       { id: 1, name: 'Campaign Details', number: '01' },
       { id: 2, name: 'File Upload', number: '02' },
-      { id: 3, name: 'Review & Schedule', number: '03' },
+      { id: 3, name: 'Call Settings', number: '03' },
       { id: 4, name: 'Start Campaign', number: '04' }
     ]
   }
@@ -204,6 +204,16 @@ export default function CampaignSetup() {
   const [vinSolutionsStartTime, setVinSolutionsStartTime] = useState<string>('')
   const [vinSolutionsEndTime, setVinSolutionsEndTime] = useState<string>('')
   
+  // VinSolutions recurring lead filter state
+  const [enableRecurringLeads, setEnableRecurringLeads] = useState<boolean>(false)
+  const [leadAgeDays, setLeadAgeDays] = useState<number>(10)
+  
+  // Google Drive import state
+  const [isGoogleDriveLoading, setIsGoogleDriveLoading] = useState<boolean>(false)
+  const [googleDriveData, setGoogleDriveData] = useState<ParsedCustomerData[]>([])
+  const [googleDriveComplete, setGoogleDriveComplete] = useState<boolean>(false)
+  const [googleDriveErrors, setGoogleDriveErrors] = useState<string[]>([])
+  
   // Agent state
   const [availableAgents, setAvailableAgents] = useState<Agent[]>([])
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
@@ -231,7 +241,16 @@ export default function CampaignSetup() {
     fileUpload: false,
     scheduledDate: false,
     scheduledEndDate: false,
-    scheduledTime: false
+    scheduledTime: false,
+    callWindowStart: false,
+    callWindowEnd: false,
+    handoffBusinessHoursStart: false,
+    handoffBusinessHoursEnd: false,
+    // Sub-validation errors for file upload
+    crmSelection: false,
+    googleDriveLink: false,
+    vinSolutionsDateRange: false,
+    leadAgeDays: false
   })
   
   // Refs for scrolling to sections
@@ -277,6 +296,112 @@ export default function CampaignSetup() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+    }
+  }
+
+  // Google Drive utility functions
+  const validateGoogleDriveLink = (url: string): boolean => {
+    // Check if it's a valid Google Drive share link
+    const googleDriveRegex = /^https:\/\/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)\/(view|edit)(\?[^#]*)?(\#.*)?$/
+    const googleDriveOpenRegex = /^https:\/\/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)$/
+    const googleSheetsRegex = /^https:\/\/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/
+    
+    return googleDriveRegex.test(url) || googleDriveOpenRegex.test(url) || googleSheetsRegex.test(url)
+  }
+
+  const convertToDirectDownloadLink = (shareUrl: string): string => {
+    // Extract file ID from various Google Drive URL formats
+    let fileId = ''
+    
+    // Format: https://drive.google.com/file/d/FILE_ID/view
+    const driveMatch = shareUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)\//)
+    if (driveMatch) {
+      fileId = driveMatch[1]
+    }
+    
+    // Format: https://drive.google.com/open?id=FILE_ID
+    const openMatch = shareUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/)
+    if (openMatch) {
+      fileId = openMatch[1]
+    }
+    
+    // Format: https://docs.google.com/spreadsheets/d/FILE_ID/
+    const sheetsMatch = shareUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/)
+    if (sheetsMatch) {
+      fileId = sheetsMatch[1]
+      // For Google Sheets, export as CSV
+      return `https://docs.google.com/spreadsheets/d/${fileId}/export?format=csv`
+    }
+    
+    if (fileId) {
+      // Convert to direct download link
+      return `https://drive.google.com/uc?export=download&id=${fileId}`
+    }
+    
+    return shareUrl // Return original if can't parse
+  }
+
+  const fetchGoogleDriveData = async (shareUrl: string) => {
+    try {
+      setIsGoogleDriveLoading(true)
+      setGoogleDriveErrors([])
+      setGoogleDriveComplete(false)
+      
+      // Validate the URL format first
+      if (!validateGoogleDriveLink(shareUrl)) {
+        throw new Error('Invalid Google Drive link format. Please use a valid Google Drive share link.')
+      }
+      
+      // Convert to direct download link
+      const downloadUrl = convertToDirectDownloadLink(shareUrl)
+      
+      // Fetch the CSV data
+      const response = await fetch(downloadUrl, {
+        method: 'GET',
+        mode: 'cors'
+      })
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('File not found. Please check if the file exists and is publicly accessible.')
+        } else if (response.status === 403) {
+          throw new Error('Access denied. Please make sure the file is shared publicly or with link access.')
+        } else {
+          throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`)
+        }
+      }
+      
+      const csvText = await response.text()
+      
+      if (!csvText || csvText.trim().length === 0) {
+        throw new Error('The file appears to be empty.')
+      }
+      
+      // Parse the CSV data using the existing parser
+      const csvFile = new File([csvText], 'google-drive-data.csv', { type: 'text/csv' })
+      const parsedData = await parseUploadedFile(csvFile)
+      
+      // Set the parsed data
+      setGoogleDriveData(parsedData.data)
+      setCampaignData(prev => ({ ...prev, totalRecords: parsedData.data.length }))
+      setGoogleDriveComplete(true)
+      
+      // Clear any previous errors
+      setGoogleDriveErrors([])
+      
+      // Clear the googleDriveLink error if it exists
+      if (errors.googleDriveLink) {
+        setErrors(prev => ({ ...prev, googleDriveLink: false }))
+      }
+      
+    } catch (error) {
+      console.error('Google Drive fetch error:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch data from Google Drive'
+      setGoogleDriveErrors([errorMessage])
+      setGoogleDriveComplete(false)
+      setGoogleDriveData([])
+    } finally {
+      setIsGoogleDriveLoading(false)
     }
   }
 
@@ -459,12 +584,20 @@ export default function CampaignSetup() {
       newErrors.agentSelection = false
     } else if (step === 2) {
       newErrors.fileUpload = false
+      newErrors.crmSelection = false
+      newErrors.googleDriveLink = false
+      newErrors.vinSolutionsDateRange = false
+      newErrors.leadAgeDays = false
     } else if (step === 3) {
       newErrors.scheduledDate = false
       newErrors.scheduledEndDate = false
       newErrors.scheduledTime = false
     } else if (step === 4) {
-      // No validation needed for Call Settings step
+      // Reset call settings errors
+      newErrors.callWindowStart = false
+      newErrors.callWindowEnd = false
+      newErrors.handoffBusinessHoursStart = false
+      newErrors.handoffBusinessHoursEnd = false
     }
 
     if (step === 1) {
@@ -501,28 +634,44 @@ export default function CampaignSetup() {
           missingFields.push('Import Method Selection')
           isValid = false
         } else if (selectedUploadOption === 'crm' && !crmSelection) {
-          newErrors.fileUpload = true
+          newErrors.crmSelection = true
           missingFields.push('CRM Selection')
           isValid = false
         } else if (selectedUploadOption === 'crm' && crmSelection === 'vinsolutions') {
-          // Validate VinSolutions date/time fields
+          // Validate VinSolutions settings
+          if (enableRecurringLeads) {
+            // For recurring leads, validate lead age
+            if (!leadAgeDays || leadAgeDays < 1) {
+              newErrors.leadAgeDays = true
+              missingFields.push('Lead Age (must be at least 1 day)')
+              isValid = false
+            }
+          } else {
+            // For date range filter, validate date/time fields
           if (!vinSolutionsStartDate || !vinSolutionsEndDate) {
-            newErrors.fileUpload = true
+              newErrors.vinSolutionsDateRange = true
             missingFields.push('Date Range Selection')
             isValid = false
           } else if (!vinSolutionsStartTime || !vinSolutionsEndTime) {
-            newErrors.fileUpload = true
+              newErrors.vinSolutionsDateRange = true
             missingFields.push('Time Range Selection')
             isValid = false
           } else if (new Date(vinSolutionsStartDate) > new Date(vinSolutionsEndDate)) {
-            newErrors.fileUpload = true
+              newErrors.vinSolutionsDateRange = true
             missingFields.push('Valid Date Range (Start date must be before end date)')
             isValid = false
           }
-        } else if (selectedUploadOption === 'drive' && !googleDriveLink.trim()) {
-          newErrors.fileUpload = true
+          }
+        } else if (selectedUploadOption === 'drive') {
+          if (!googleDriveLink.trim()) {
+            newErrors.googleDriveLink = true
           missingFields.push('Google Drive Link')
           isValid = false
+          } else if (!googleDriveComplete) {
+            newErrors.googleDriveLink = true
+            missingFields.push('Google Drive Data Import (please fetch and validate the data)')
+            isValid = false
+          }
         } else if (selectedUploadOption === 'upload' && !uploadComplete) {
           newErrors.fileUpload = true
           missingFields.push('CSV File Upload')
@@ -538,22 +687,24 @@ export default function CampaignSetup() {
         }
       }
     } else if (step === 3) {
-      if (campaignData.schedule === 'scheduled') {
+      if (selectedCategory === 'sales') {
+        // For sales campaigns, both start and end dates are required
         if (!campaignData.scheduledDate) {
           newErrors.scheduledDate = true
-          missingFields.push('Scheduled Date')
-          if (!scrollTarget) scrollTarget = scheduleRef
-          isValid = false
-        }
-        if (!campaignData.scheduledTime) {
-          newErrors.scheduledTime = true
-          missingFields.push('Scheduled Time')
+          missingFields.push('Start Date')
           if (!scrollTarget) scrollTarget = scheduleRef
           isValid = false
         }
         
-        // Validate end date if provided
-        if (campaignData.scheduledEndDate) {
+        if (!campaignData.scheduledEndDate) {
+          newErrors.scheduledEndDate = true
+          missingFields.push('End Date')
+          if (!scrollTarget) scrollTarget = scheduleRef
+          isValid = false
+        }
+        
+        // Validate date relationship if both dates are provided
+        if (campaignData.scheduledDate && campaignData.scheduledEndDate) {
           const startDate = new Date(campaignData.scheduledDate)
           const endDate = new Date(campaignData.scheduledEndDate)
           
@@ -561,6 +712,89 @@ export default function CampaignSetup() {
             newErrors.scheduledEndDate = true
             missingFields.push('End date must be after start date')
             if (!scrollTarget) scrollTarget = scheduleRef
+            isValid = false
+          }
+        }
+      } else {
+        // For service campaigns, only validate if scheduled
+        if (campaignData.schedule === 'scheduled') {
+          if (!campaignData.scheduledDate) {
+            newErrors.scheduledDate = true
+            missingFields.push('Scheduled Date')
+            if (!scrollTarget) scrollTarget = scheduleRef
+            isValid = false
+          }
+          if (!campaignData.scheduledTime) {
+            newErrors.scheduledTime = true
+            missingFields.push('Scheduled Time')
+            if (!scrollTarget) scrollTarget = scheduleRef
+            isValid = false
+          }
+          
+          // Validate end date if provided
+          if (campaignData.scheduledEndDate) {
+            const startDate = new Date(campaignData.scheduledDate)
+            const endDate = new Date(campaignData.scheduledEndDate)
+            
+            if (endDate < startDate) {
+              newErrors.scheduledEndDate = true
+              missingFields.push('End date must be after start date')
+              if (!scrollTarget) scrollTarget = scheduleRef
+              isValid = false
+            }
+          }
+        }
+      }
+    } else if (step === 4) {
+      // Validate call window timing - required for all campaigns
+      if (!campaignData.callWindowStart) {
+        newErrors.callWindowStart = true
+        missingFields.push('Call Window Start Time')
+        isValid = false
+      }
+      if (!campaignData.callWindowEnd) {
+        newErrors.callWindowEnd = true
+        missingFields.push('Call Window End Time')
+        isValid = false
+      }
+      
+      // Validate call window times if both are provided
+      if (campaignData.callWindowStart && campaignData.callWindowEnd) {
+        const startTime = campaignData.callWindowStart.split(':').map(Number)
+        const endTime = campaignData.callWindowEnd.split(':').map(Number)
+        const startMinutes = startTime[0] * 60 + startTime[1]
+        const endMinutes = endTime[0] * 60 + endTime[1]
+        
+        if (endMinutes <= startMinutes) {
+          newErrors.callWindowEnd = true
+          missingFields.push('End time must be after start time')
+          isValid = false
+        }
+      }
+      
+      // For sales campaigns, validate handoff business hours
+      if (selectedCategory === 'sales') {
+        if (!campaignData.handoffSettings?.businessHoursStart) {
+          newErrors.handoffBusinessHoursStart = true
+          missingFields.push('Handoff Business Hours Start Time')
+          isValid = false
+        }
+        if (!campaignData.handoffSettings?.businessHoursEnd) {
+          newErrors.handoffBusinessHoursEnd = true
+          missingFields.push('Handoff Business Hours End Time')
+          isValid = false
+        }
+        
+        // Validate business hours times if both are provided
+        if (campaignData.handoffSettings?.businessHoursStart && campaignData.handoffSettings?.businessHoursEnd) {
+          const startTime = campaignData.handoffSettings.businessHoursStart.split(':').map(Number)
+          const endTime = campaignData.handoffSettings.businessHoursEnd.split(':').map(Number)
+          const startMinutes = startTime[0] * 60 + startTime[1]
+          const endMinutes = endTime[0] * 60 + endTime[1]
+          
+          if (endMinutes <= startMinutes) {
+            newErrors.handoffBusinessHoursEnd = true
+            missingFields.push('Business hours end time must be after start time')
             isValid = false
           }
         }
@@ -620,11 +854,25 @@ export default function CampaignSetup() {
       const agentId = selectedAgent?.agentId || "agent234" // Use selected agent ID or fallback
       
       // Create a clean campaign data object without script template for API
+      // Use Google Drive data if available, otherwise use uploaded file data
+      const effectiveUploadedData = selectedUploadOption === 'drive' && googleDriveComplete 
+        ? googleDriveData 
+        : uploadedData
+        
       const cleanCampaignData = {
         ...campaignData,
-        uploadedData,
+        uploadedData: effectiveUploadedData,
         // Exclude script template data to avoid template evaluation errors
-        scriptTemplate: undefined
+        scriptTemplate: undefined,
+        // Include VinSolutions recurring settings
+        vinSolutionsSettings: {
+          enableRecurringLeads,
+          leadAgeDays,
+          startDate: vinSolutionsStartDate,
+          endDate: vinSolutionsEndDate,
+          startTime: vinSolutionsStartTime,
+          endTime: vinSolutionsEndTime
+        }
       }
       
       const payload = transformCampaignData(
@@ -798,8 +1046,8 @@ export default function CampaignSetup() {
                       }`}
                     />
                     {errors.campaignName && (
-                      <p className="text-sm text-red-600 flex items-center mt-1">
-                        <AlertCircle className="h-4 w-4 mr-1" />
+                      <p className="text-[12px] text-red-600 flex items-center mt-1">
+                        <AlertCircle className="h-3 w-3 mr-1" />
                         Campaign name is required
                       </p>
                     )}
@@ -817,8 +1065,8 @@ export default function CampaignSetup() {
                       Select Campaign Type {(errors.useCase || errors.subUseCase) && <span className="text-red-500">*</span>}
                     </Label>
                     {(errors.useCase || errors.subUseCase) && (
-                      <p className="text-sm text-red-600 flex items-center">
-                        <AlertCircle className="h-4 w-4 mr-1" />
+                      <p className="text-[12px] text-red-600 flex items-center">
+                        <AlertCircle className="h-3 w-3 mr-1" />
                         Please select a use case and campaign type
                       </p>
                     )}
@@ -943,8 +1191,8 @@ export default function CampaignSetup() {
                       </div>
 
                       {errors.agentSelection && (
-                        <div className="flex items-center text-sm text-red-600">
-                          <AlertCircle className="h-4 w-4 mr-1" />
+                        <div className="flex items-center text-[12px] text-red-600">
+                          <AlertCircle className="h-3 w-3 mr-1" />
                           Please select an agent to continue
                         </div>
                       )}
@@ -1131,8 +1379,20 @@ export default function CampaignSetup() {
 
               {/* Sales Upload Options */}
               {selectedCategory === 'sales' && (
-                <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
-                  <h3 className="text-[16px] font-semibold text-[#1A1A1A] mb-4">Choose Import Method</h3>
+                <div className={`bg-white border rounded-lg p-6 transition-colors ${
+                  errors.fileUpload && !selectedUploadOption ? 'border-red-500' : 'border-[#E5E7EB]'
+                }`}>
+                  <h3 className={`text-[16px] font-semibold mb-4 ${
+                    errors.fileUpload && !selectedUploadOption ? 'text-red-600' : 'text-[#1A1A1A]'
+                  }`}>
+                    Choose Import Method {errors.fileUpload && !selectedUploadOption && <span className="text-red-500">*</span>}
+                  </h3>
+                  {errors.fileUpload && !selectedUploadOption && (
+                    <p className="text-[12px] text-red-600 flex items-center mb-4">
+                      <AlertCircle className="h-3 w-3 mr-1" />
+                      Please select an import method to continue
+                    </p>
+                  )}
                   <div className="grid grid-cols-1 gap-4">
                     {/* Option 1: Import from CRM */}
                     <div 
@@ -1147,6 +1407,10 @@ export default function CampaignSetup() {
                           setCrmSelection('')
                         }
                         setGoogleDriveLink('')
+                        // Clear file upload error when method is selected
+                        if (errors.fileUpload) {
+                          setErrors(prev => ({ ...prev, fileUpload: false }))
+                        }
                       }}
                     >
                       <div className="flex items-start space-x-3">
@@ -1164,8 +1428,18 @@ export default function CampaignSetup() {
                           </p>
                           {selectedUploadOption === 'crm' && (
                             <div className="mt-3 space-y-4" onClick={(e) => e.stopPropagation()}>
-                              <Select value={crmSelection} onValueChange={setCrmSelection}>
-                                <SelectTrigger className="w-full h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2] bg-white">
+                              <Select value={crmSelection} onValueChange={(value) => {
+                                setCrmSelection(value)
+                                // Clear CRM selection error when CRM is selected
+                                if (errors.crmSelection && value) {
+                                  setErrors(prev => ({ ...prev, crmSelection: false }))
+                                }
+                              }}>
+                                <SelectTrigger className={`w-full h-10 text-[14px] bg-white ${
+                                  errors.crmSelection
+                                    ? 'border-red-500 focus:border-red-500' 
+                                    : 'border-[#E5E7EB] focus:border-[#4600F2]'
+                                }`}>
                                   <SelectValue placeholder="Select your CRM" />
                                 </SelectTrigger>
                                 <SelectContent className="bg-white">
@@ -1173,12 +1447,70 @@ export default function CampaignSetup() {
                                   <SelectItem value="others">Others</SelectItem>
                                 </SelectContent>
                               </Select>
+                              {errors.crmSelection && (
+                                <p className="text-[12px] text-red-600 mt-1">Please select a CRM system</p>
+                              )}
                               
                               {/* VinSolutions Date/Time Filters */}
                               {crmSelection === 'vinsolutions' && (
                                 <div className="mt-4 p-4 bg-white rounded-lg border border-[#E5E7EB]" onClick={(e) => e.stopPropagation()}>
-                                  <h3 className="text-[16px] font-semibold text-[#1A1A1A] mb-4">Lead Date Range Filter</h3>
+                                  <h3 className="text-[16px] font-semibold text-[#1A1A1A] mb-4">Lead Filter Options</h3>
                                   
+                                  {/* Filter Type Toggle */}
+                                  <div className="mb-6">
+                                    <div className="flex items-center space-x-4">
+                                      <div 
+                                        className={`flex items-center space-x-2 p-3 rounded-lg border cursor-pointer transition-all ${
+                                          !enableRecurringLeads 
+                                            ? 'border-[#4600F2] bg-[#4600F2]/5 shadow-sm' 
+                                            : 'border-[#E5E7EB] bg-white hover:border-[#D1D5DB]'
+                                        }`}
+                                        onClick={() => {
+                                          setEnableRecurringLeads(false)
+                                          if (errors.leadAgeDays) {
+                                            setErrors(prev => ({ ...prev, leadAgeDays: false }))
+                                          }
+                                        }}
+                                      >
+                                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                                          !enableRecurringLeads ? 'border-[#4600F2] bg-[#4600F2]' : 'border-[#D1D5DB]'
+                                        }`}>
+                                          {!enableRecurringLeads && <div className="w-2 h-2 rounded-full bg-white" />}
+                                        </div>
+                                        <span className="text-[14px] font-medium text-[#1A1A1A]">Date Range Filter</span>
+                                      </div>
+                                      
+                                      <div 
+                                        className={`flex items-center space-x-2 p-3 rounded-lg border cursor-pointer transition-all ${
+                                          enableRecurringLeads 
+                                            ? 'border-[#4600F2] bg-[#4600F2]/5 shadow-sm' 
+                                            : 'border-[#E5E7EB] bg-white hover:border-[#D1D5DB]'
+                                        }`}
+                                        onClick={() => {
+                                          setEnableRecurringLeads(true)
+                                          if (errors.vinSolutionsDateRange) {
+                                            setErrors(prev => ({ ...prev, vinSolutionsDateRange: false }))
+                                          }
+                                        }}
+                                      >
+                                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                                          enableRecurringLeads ? 'border-[#4600F2] bg-[#4600F2]' : 'border-[#D1D5DB]'
+                                        }`}>
+                                          {enableRecurringLeads && <div className="w-2 h-2 rounded-full bg-white" />}
+                                        </div>
+                                        <span className="text-[14px] font-medium text-[#1A1A1A]">Recurring Lead Age</span>
+                                      </div>
+                                    </div>
+                                    <p className="text-[12px] text-[#6B7280] mt-2">
+                                      {!enableRecurringLeads 
+                                        ? 'Import leads created within a specific date range' 
+                                        : 'Automatically call leads when they reach a specific age (e.g., call 10-day old leads)'
+                                      }
+                                    </p>
+                                  </div>
+
+                                  {!enableRecurringLeads ? (
+                                    /* Date Range Filter */
                                   <div className="space-y-4">
                                     {/* Start Date/Time Row */}
                                     <div>
@@ -1186,13 +1518,25 @@ export default function CampaignSetup() {
                                       <div className="grid grid-cols-2 gap-3">
                                         <DatePicker
                                           value={vinSolutionsStartDate}
-                                          onChange={setVinSolutionsStartDate}
+                                            onChange={(value) => {
+                                              setVinSolutionsStartDate(value)
+                                              if (errors.vinSolutionsDateRange && value) {
+                                                setErrors(prev => ({ ...prev, vinSolutionsDateRange: false }))
+                                              }
+                                            }}
                                           placeholder="Select start date"
+                                            className={errors.vinSolutionsDateRange ? 'border-red-500' : ''}
                                         />
                                         <TimePicker
                                           value={vinSolutionsStartTime}
-                                          onChange={setVinSolutionsStartTime}
+                                            onChange={(value) => {
+                                              setVinSolutionsStartTime(value)
+                                              if (errors.vinSolutionsDateRange && value) {
+                                                setErrors(prev => ({ ...prev, vinSolutionsDateRange: false }))
+                                              }
+                                            }}
                                           placeholder="Select start time"
+                                            className={errors.vinSolutionsDateRange ? 'border-red-500' : ''}
                                         />
                                       </div>
                                     </div>
@@ -1203,18 +1547,75 @@ export default function CampaignSetup() {
                                       <div className="grid grid-cols-2 gap-3">
                                         <DatePicker
                                           value={vinSolutionsEndDate}
-                                          onChange={setVinSolutionsEndDate}
+                                            onChange={(value) => {
+                                              setVinSolutionsEndDate(value)
+                                              if (errors.vinSolutionsDateRange && value) {
+                                                setErrors(prev => ({ ...prev, vinSolutionsDateRange: false }))
+                                              }
+                                            }}
                                           placeholder="Select end date"
+                                            className={errors.vinSolutionsDateRange ? 'border-red-500' : ''}
                                         />
                                         <TimePicker
                                           value={vinSolutionsEndTime}
-                                          onChange={setVinSolutionsEndTime}
+                                            onChange={(value) => {
+                                              setVinSolutionsEndTime(value)
+                                              if (errors.vinSolutionsDateRange && value) {
+                                                setErrors(prev => ({ ...prev, vinSolutionsDateRange: false }))
+                                              }
+                                            }}
                                           placeholder="Select end time"
+                                            className={errors.vinSolutionsDateRange ? 'border-red-500' : ''}
                                         />
                                       </div>
                                     </div>
+                                      {errors.vinSolutionsDateRange && (
+                                        <p className="text-[12px] text-red-600 mt-1">Please select valid date and time range</p>
+                                      )}
                                   </div>
+                                  ) : (
+                                    /* Recurring Lead Age Filter */
+                                    <div className="space-y-4">
+                                      <div>
+                                        <Label className={`text-[14px] font-medium mb-2 block ${
+                                          errors.leadAgeDays ? 'text-red-600' : 'text-[#1A1A1A]'
+                                        }`}>
+                                          Call leads that are {errors.leadAgeDays && <span className="text-red-500">*</span>}
+                                        </Label>
+                                        <div className="flex items-center space-x-3">
+                                          <Input
+                                            type="number"
+                                            min="1"
+                                            max="365"
+                                            value={leadAgeDays}
+                                            onChange={(e) => {
+                                              const value = parseInt(e.target.value) || 0
+                                              setLeadAgeDays(value)
+                                              if (errors.leadAgeDays && value >= 1) {
+                                                setErrors(prev => ({ ...prev, leadAgeDays: false }))
+                                              }
+                                            }}
+                                            className={`w-20 h-10 text-[14px] text-center ${
+                                              errors.leadAgeDays 
+                                                ? 'border-red-500 focus:border-red-500' 
+                                                : 'border-[#E5E7EB] focus:border-[#4600F2]'
+                                            }`}
+                                            placeholder="10"
+                                          />
+                                          <span className="text-[14px] text-[#1A1A1A] font-medium">days old</span>
                                 </div>
+                                        {errors.leadAgeDays && (
+                                          <p className="text-[12px] text-red-600 mt-1">Please enter a valid number of days (1-365)</p>
+                                        )}
+                                        <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                          <p className="text-[12px] text-blue-800">
+                                            <strong>Example:</strong> If set to {leadAgeDays} days, the system will automatically call leads that were created exactly {leadAgeDays} days ago. A lead created on January 1st will be called on January {leadAgeDays + 1}th.
+                                          </p>
+                                        </div>
+                                      </div>
+                            </div>
+                          )}
+                        </div>
                               )}
                             </div>
                           )}
@@ -1233,6 +1634,10 @@ export default function CampaignSetup() {
                         setSelectedUploadOption('drive')
                         setCrmSelection('')
                         setGoogleDriveLink('')
+                        // Clear file upload error when method is selected
+                        if (errors.fileUpload) {
+                          setErrors(prev => ({ ...prev, fileUpload: false }))
+                        }
                       }}
                     >
                       <div className="flex items-start space-x-3">
@@ -1249,13 +1654,125 @@ export default function CampaignSetup() {
                             Provide a shareable Google Drive link to your customer data file
                           </p>
                           {selectedUploadOption === 'drive' && (
-                            <div className="mt-3">
+                            <div className="mt-3 space-y-3">
+                              <div className="flex gap-2">
                               <Input
                                 placeholder="Paste your Google Drive shareable link here"
                                 value={googleDriveLink}
-                                onChange={(e) => setGoogleDriveLink(e.target.value)}
-                                className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2] bg-white"
-                              />
+                                  onChange={(e) => {
+                                    setGoogleDriveLink(e.target.value)
+                                    // Reset states when link changes
+                                    setGoogleDriveComplete(false)
+                                    setGoogleDriveData([])
+                                    setGoogleDriveErrors([])
+                                    // Clear Google Drive link error when link is provided
+                                    if (errors.googleDriveLink && e.target.value.trim()) {
+                                      setErrors(prev => ({ ...prev, googleDriveLink: false }))
+                                    }
+                                  }}
+                                  className={`flex-1 h-10 text-[14px] bg-white ${
+                                    errors.googleDriveLink
+                                      ? 'border-red-500 focus:border-red-500' 
+                                      : 'border-[#E5E7EB] focus:border-[#4600F2]'
+                                  }`}
+                                />
+                                <Button
+                                  type="button"
+                                  onClick={() => fetchGoogleDriveData(googleDriveLink)}
+                                  disabled={!googleDriveLink.trim() || isGoogleDriveLoading}
+                                  className="h-10 px-4 text-[14px] bg-[#4600F2] hover:bg-[#4600F2]/90 text-white rounded-lg font-medium disabled:opacity-50"
+                                >
+                                  {isGoogleDriveLoading ? 'Fetching...' : 'Fetch Data'}
+                                </Button>
+                            </div>
+                              
+                              {/* Error Messages */}
+                              {errors.googleDriveLink && !googleDriveLink.trim() && (
+                                <p className="text-[12px] text-red-600 mt-1">Google Drive link is required</p>
+                              )}
+                              {googleDriveErrors.length > 0 && (
+                                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                                  <div className="flex items-start">
+                                    <AlertCircle className="h-4 w-4 text-red-600 mr-2 mt-0.5 flex-shrink-0" />
+                                    <div className="flex-1">
+                                      <p className="text-[12px] font-medium text-red-800 mb-1">Import failed</p>
+                                      {googleDriveErrors.map((error, index) => (
+                                        <p key={index} className="text-[12px] text-red-600">• {error}</p>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Loading State */}
+                              {isGoogleDriveLoading && (
+                                <div className="flex items-center justify-center py-8">
+                                  <div className="animate-spin h-6 w-6 border-2 border-[#4600F2] border-t-transparent rounded-full" />
+                                  <span className="ml-3 text-[14px] text-[#6B7280]">Fetching data from Google Drive...</span>
+                                </div>
+                              )}
+                              
+                              {/* Success State - Show Parsed Data */}
+                              {googleDriveComplete && googleDriveData.length > 0 && (
+                                <div className="mt-4">
+                                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                                    <div className="flex items-start">
+                                      <CheckCircle className="h-5 w-5 text-green-600 mr-3 mt-0.5" />
+                                      <div className="flex-1">
+                                        <p className="text-[14px] font-medium text-green-800 mb-2">Import successful!</p>
+                                        <p className="text-[12px] text-green-700">
+                                          Found {googleDriveData.length} customer records
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Customer Data Preview */}
+                                  <div className="mt-4 border border-[#E5E7EB] rounded-lg overflow-hidden">
+                                    <div className="bg-[#F9FAFB] border-b border-[#E5E7EB] px-4 py-3">
+                                      <h4 className="text-[14px] font-semibold text-[#1A1A1A]">Customer Data Preview</h4>
+                                      <p className="text-[12px] text-[#6B7280] mt-1">
+                                        Showing first 5 records of {googleDriveData.length} total
+                                      </p>
+                                    </div>
+                                    <div className="p-4">
+                                      <div className="overflow-x-auto">
+                                        <table className="w-full text-[12px]">
+                                          <thead>
+                                            <tr className="border-b border-[#E5E7EB]">
+                                              {Object.keys(googleDriveData[0] || {}).slice(0, 5).map((key) => (
+                                                <th key={key} className="text-left py-2 px-2 text-[#6B7280] font-medium">
+                                                  {key}
+                                                </th>
+                                              ))}
+                                              {Object.keys(googleDriveData[0] || {}).length > 5 && (
+                                                <th className="text-left py-2 px-2 text-[#6B7280] font-medium">...</th>
+                                              )}
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {googleDriveData.slice(0, 5).map((row, index) => (
+                                              <tr key={index} className="border-b border-[#F3F4F6] last:border-b-0">
+                                                {Object.values(row).slice(0, 5).map((value, cellIndex) => (
+                                                  <td key={cellIndex} className="py-2 px-2 text-[#1A1A1A]">
+                                                    {String(value).length > 20 
+                                                      ? String(value).substring(0, 20) + '...' 
+                                                      : String(value)
+                                                    }
+                                                  </td>
+                                                ))}
+                                                {Object.values(row).length > 5 && (
+                                                  <td className="py-2 px-2 text-[#6B7280]">...</td>
+                                                )}
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1273,6 +1790,10 @@ export default function CampaignSetup() {
                         setSelectedUploadOption('upload')
                         setCrmSelection('')
                         setGoogleDriveLink('')
+                        // Clear file upload error when method is selected
+                        if (errors.fileUpload) {
+                          setErrors(prev => ({ ...prev, fileUpload: false }))
+                        }
                       }}
                     >
                       <div className="flex items-start space-x-3">
@@ -1292,8 +1813,8 @@ export default function CampaignSetup() {
                             <div className="mt-3">
                               {errors.fileUpload && (
                                 <div className="mb-4">
-                                  <p className="text-sm text-red-600 flex items-center">
-                                    <AlertCircle className="h-4 w-4 mr-1" />
+                                  <p className="text-[12px] text-red-600 flex items-center">
+                                    <AlertCircle className="h-3 w-3 mr-1" />
                                     Please upload a customer data file to continue
                                   </p>
                                 </div>
@@ -1476,8 +1997,8 @@ export default function CampaignSetup() {
                 }`}>
                   {errors.fileUpload && (
                     <div className="mb-4">
-                      <p className="text-sm text-red-600 flex items-center">
-                        <AlertCircle className="h-4 w-4 mr-1" />
+                      <p className="text-[12px] text-red-600 flex items-center">
+                        <AlertCircle className="h-3 w-3 mr-1" />
                         Please upload a customer data file to continue
                       </p>
                     </div>
@@ -1725,24 +2246,7 @@ export default function CampaignSetup() {
                         <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Choose how you want to reach customers</p>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 overflow-hidden">
-                        <div
-                          className={`flex items-center space-x-3 p-4 border rounded-lg cursor-pointer transition-all overflow-hidden ${
-                            campaignData.channels.email ? 'border-[#4600F2] bg-[#4600F2]/5' : 'border-[#E5E7EB] bg-white hover:border-[#D1D5D8]'
-                          }`}
-                          onClick={() => setCampaignData(prev => ({ ...prev, channels: { ...prev.channels, email: !prev.channels.email } }))}
-                        >
-                          <div className="p-2 bg-[#EEF2FF] rounded-lg flex-shrink-0"><Mail className="h-5 w-5 text-[#6366F1]" /></div>
-                          <span className="text-[14px] font-medium text-[#1A1A1A] truncate">Email</span>
-                        </div>
-                        <div
-                          className={`flex items-center space-x-3 p-4 border rounded-lg cursor-pointer transition-all overflow-hidden ${
-                            campaignData.channels.sms ? 'border-[#4600F2] bg-[#4600F2]/5' : 'border-[#E5E7EB] bg-white hover:border-[#D1D5D8]'
-                          }`}
-                          onClick={() => setCampaignData(prev => ({ ...prev, channels: { ...prev.channels, sms: !prev.channels.sms } }))}
-                        >
-                          <div className="p-2 bg-[#ECFDF5] rounded-lg flex-shrink-0"><MessageSquare className="h-5 w-5 text-[#10B981]" /></div>
-                          <span className="text-[14px] font-medium text-[#1A1A1A] truncate">SMS</span>
-                        </div>
+                        {/* Voice AI - First and Available */}
                         <div
                           className={`flex items-center space-x-3 p-4 border rounded-lg cursor-pointer transition-all overflow-hidden ${
                             campaignData.channels.voiceAi ? 'border-[#4600F2] bg-[#4600F2]/5' : 'border-[#E5E7EB] bg-white hover:border-[#D1D5D8]'
@@ -1751,6 +2255,32 @@ export default function CampaignSetup() {
                         >
                           <div className="p-2 bg-[#F0F9FF] rounded-lg flex-shrink-0"><Phone className="h-5 w-5 text-[#0EA5E9]" /></div>
                           <span className="text-[14px] font-medium text-[#1A1A1A] truncate">Voice AI</span>
+                        </div>
+                        
+                        {/* Email - Coming Soon */}
+                        <div className="relative flex items-center space-x-3 p-4 border border-[#E5E7EB] bg-gray-50 rounded-lg cursor-not-allowed transition-all overflow-hidden opacity-60">
+                          <div className="p-2 bg-[#EEF2FF] rounded-lg flex-shrink-0"><Mail className="h-5 w-5 text-[#6366F1]" /></div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[14px] font-medium text-[#1A1A1A] truncate">Email</span>
+                          </div>
+                          <div className="absolute top-1 right-1">
+                            <span className="text-[10px] font-medium text-[#6B7280] bg-white px-2 py-0.5 rounded-full border border-[#E5E7EB]">
+                              Coming Soon
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {/* SMS - Coming Soon */}
+                        <div className="relative flex items-center space-x-3 p-4 border border-[#E5E7EB] bg-gray-50 rounded-lg cursor-not-allowed transition-all overflow-hidden opacity-60">
+                          <div className="p-2 bg-[#ECFDF5] rounded-lg flex-shrink-0"><MessageSquare className="h-5 w-5 text-[#10B981]" /></div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[14px] font-medium text-[#1A1A1A] truncate">SMS</span>
+                          </div>
+                          <div className="absolute top-1 right-1">
+                            <span className="text-[10px] font-medium text-[#6B7280] bg-white px-2 py-0.5 rounded-full border border-[#E5E7EB]">
+                              Coming Soon
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1913,8 +2443,8 @@ export default function CampaignSetup() {
                       </h3>
                       <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Choose when to launch your AI-powered calling campaign</p>
                       {(errors.scheduledDate || errors.scheduledTime) && (
-                        <p className="text-sm text-red-600 flex items-center mt-2">
-                          <AlertCircle className="h-4 w-4 mr-1" />
+                        <p className="text-[12px] text-red-600 flex items-center mt-2">
+                          <AlertCircle className="h-3 w-3 mr-1" />
                           Please select both date and time for scheduled campaigns
                         </p>
                       )}
@@ -1982,8 +2512,8 @@ export default function CampaignSetup() {
                                   minDate={new Date().toISOString().split('T')[0]}
                                 />
                                 {errors.scheduledDate && (
-                                  <p className="text-sm text-red-600 flex items-center mt-1">
-                                    <AlertCircle className="h-4 w-4 mr-1" />
+                                  <p className="text-[12px] text-red-600 flex items-center mt-1">
+                                    <AlertCircle className="h-3 w-3 mr-1" />
                                     Date is required
                                   </p>
                                 )}
@@ -2005,8 +2535,8 @@ export default function CampaignSetup() {
                                   placeholder="Select time"
                                 />
                                 {errors.scheduledTime && (
-                                  <p className="text-sm text-red-600 flex items-center mt-1">
-                                    <AlertCircle className="h-4 w-4 mr-1" />
+                                  <p className="text-[12px] text-red-600 flex items-center mt-1">
+                                    <AlertCircle className="h-3 w-3 mr-1" />
                                     Time is required
                                   </p>
                                 )}
@@ -2181,7 +2711,9 @@ export default function CampaignSetup() {
               {selectedCategory === 'sales' && (
                 <>
                   {/* Schedule & Pacing */}
-              <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
+              <div className={`bg-white border rounded-lg p-6 transition-colors ${
+                errors.scheduledDate || errors.scheduledEndDate ? 'border-red-500' : 'border-[#E5E7EB]'
+              }`}>
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-[16px] font-bold text-[#1A1A1A]">Schedule Campaign</h3>
@@ -2190,61 +2722,146 @@ export default function CampaignSetup() {
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">Start Date</Label>
+                      <Label className={`text-[14px] font-medium mb-2 block ${
+                        errors.scheduledDate ? 'text-red-600' : 'text-[#1A1A1A]/60'
+                      }`}>
+                        Start Date {errors.scheduledDate && <span className="text-red-500">*</span>}
+                      </Label>
                       <DatePicker
                         value={campaignData.scheduledDate || ""}
                         onChange={(value) => {
                           setCampaignData(prev => ({ ...prev, scheduledDate: value }))
+                          // Clear start date error if value is provided
                           if (errors.scheduledDate && value) {
                             setErrors(prev => ({ ...prev, scheduledDate: false }))
+                          }
+                          // Validate end date against new start date if end date exists
+                          if (value && campaignData.scheduledEndDate) {
+                            const startDate = new Date(value)
+                            const endDate = new Date(campaignData.scheduledEndDate)
+                            if (endDate < startDate) {
+                              setErrors(prev => ({ ...prev, scheduledEndDate: true }))
+                            } else {
+                              setErrors(prev => ({ ...prev, scheduledEndDate: false }))
+                            }
                           }
                         }}
                         placeholder="Select start date"
                         minDate={new Date().toISOString().split('T')[0]}
+                        className={errors.scheduledDate ? 'border-red-500' : ''}
                       />
+                      {errors.scheduledDate && (
+                        <p className="text-[12px] text-red-600 flex items-center mt-1">
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          Start date is required
+                        </p>
+                      )}
                     </div>
                     <div>
-                      <Label className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">End Date</Label>
+                      <Label className={`text-[14px] font-medium mb-2 block ${
+                        errors.scheduledEndDate ? 'text-red-600' : 'text-[#1A1A1A]/60'
+                      }`}>
+                        End Date {errors.scheduledEndDate && <span className="text-red-500">*</span>}
+                      </Label>
                       <DatePicker
                         value={campaignData.scheduledEndDate || ""}
                         onChange={(value) => {
                           setCampaignData(prev => ({ ...prev, scheduledEndDate: value }))
+                          // Clear end date error when value is provided
                           if (errors.scheduledEndDate && value) {
                             setErrors(prev => ({ ...prev, scheduledEndDate: false }))
+                          }
+                          // Validate end date against start date
+                          if (value && campaignData.scheduledDate) {
+                            const startDate = new Date(campaignData.scheduledDate)
+                            const endDate = new Date(value)
+                            if (endDate < startDate) {
+                              setErrors(prev => ({ ...prev, scheduledEndDate: true }))
+                            }
                           }
                         }}
                         placeholder="Select end date"
                         minDate={campaignData.scheduledDate || new Date().toISOString().split('T')[0]}
+                        className={errors.scheduledEndDate ? 'border-red-500' : ''}
                       />
+                      {errors.scheduledEndDate && (
+                        <p className="text-[12px] text-red-600 flex items-center mt-1">
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          {!campaignData.scheduledEndDate 
+                            ? 'End date is required' 
+                            : 'End date must be after start date'
+                          }
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Quiet Hours */}
-              <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
+              <div className={`bg-white border rounded-lg p-6 transition-colors ${
+                errors.callWindowStart || errors.callWindowEnd ? 'border-red-500' : 'border-[#E5E7EB]'
+              }`}>
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-[16px] font-bold text-[#1A1A1A]">Quiet Hours</h3>
+                    <h3 className={`text-[16px] font-bold ${
+                      errors.callWindowStart || errors.callWindowEnd ? 'text-red-600' : 'text-[#1A1A1A]'
+                    }`}>
+                      Quiet Hours {(errors.callWindowStart || errors.callWindowEnd) && <span className="text-red-500">*</span>}
+                    </h3>
                     <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Define acceptable calling hours (lead&apos;s local time)</p>
+                    {(errors.callWindowStart || errors.callWindowEnd) && (
+                      <p className="text-[12px] text-red-600 flex items-center mt-2">
+                        <AlertCircle className="h-3 w-3 mr-1" />
+                        {errors.callWindowStart && !errors.callWindowEnd && 'Start time is required'}
+                        {!errors.callWindowStart && errors.callWindowEnd && 'End time is required'}
+                        {errors.callWindowStart && errors.callWindowEnd && 'Start and end times are required'}
+                      </p>
+                    )}
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">Start Time</Label>
+                      <Label className={`text-[14px] font-medium mb-2 block ${
+                        errors.callWindowStart ? 'text-red-600' : 'text-[#1A1A1A]/60'
+                      }`}>
+                        Start Time {errors.callWindowStart && <span className="text-red-500">*</span>}
+                      </Label>
                       <TimePicker
                         value={campaignData.callWindowStart || "08:00"}
-                        onChange={(value) => setCampaignData(prev => ({ ...prev, callWindowStart: value }))}
+                        onChange={(value) => {
+                          setCampaignData(prev => ({ ...prev, callWindowStart: value }))
+                          if (errors.callWindowStart && value) {
+                            setErrors(prev => ({ ...prev, callWindowStart: false }))
+                          }
+                        }}
                         placeholder="Select start time"
+                        className={errors.callWindowStart ? 'border-red-500' : ''}
                       />
+                      {errors.callWindowStart && (
+                        <p className="text-[12px] text-red-600 mt-1">Start time is required</p>
+                      )}
                     </div>
                     <div>
-                      <Label className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">End Time</Label>
+                      <Label className={`text-[14px] font-medium mb-2 block ${
+                        errors.callWindowEnd ? 'text-red-600' : 'text-[#1A1A1A]/60'
+                      }`}>
+                        End Time {errors.callWindowEnd && <span className="text-red-500">*</span>}
+                      </Label>
                       <TimePicker
                         value={campaignData.callWindowEnd || "20:00"}
-                        onChange={(value) => setCampaignData(prev => ({ ...prev, callWindowEnd: value }))}
+                        onChange={(value) => {
+                          setCampaignData(prev => ({ ...prev, callWindowEnd: value }))
+                          if (errors.callWindowEnd && value) {
+                            setErrors(prev => ({ ...prev, callWindowEnd: false }))
+                          }
+                        }}
                         placeholder="Select end time"
+                        className={errors.callWindowEnd ? 'border-red-500' : ''}
                       />
+                      {errors.callWindowEnd && (
+                        <p className="text-[12px] text-red-600 mt-1">End time is required</p>
+                      )}
                     </div>
                   </div>
                   
@@ -2415,6 +3032,71 @@ export default function CampaignSetup() {
         )
 
       case 4:
+        // For service use case, step 4 is "Start Campaign", for sales it's "Handoff Settings"
+        if (selectedCategory === 'service') {
+          return (
+            <div className="max-w-3xl">
+              <div className="space-y-6">
+                <div className="bg-transparent border-0 p-0">
+                  <div className="mb-4">
+                    <h1 className="text-[24px] font-bold text-[#1A1A1A] leading-[1.4]">Campaign Started!</h1>
+                    <p className="text-[14px] text-[#6B7280] mt-2 leading-[1.5]">
+                      Your AI-powered outbound calling campaign is now active and running
+                    </p>
+                  </div>
+                </div>
+
+                {/* Campaign Status Overview */}
+                <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-[14px] font-medium text-[#666666] mb-1">Campaign ID</p>
+                      <p className="text-[16px] font-mono text-[#1A1A1A]">{createdCampaignId || 'Loading...'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[14px] font-medium text-[#666666] mb-2">Status</p>
+                      <Badge className="bg-[#4600F2] text-white px-3 py-1 text-[12px]">
+                        <Zap className="h-4 w-4 mr-2" />
+                        {campaignData.schedule === 'now' ? 'Running' : 'Scheduled'}
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-[14px] font-medium text-[#666666] mb-1">
+                        {campaignData.schedule === 'now' ? 'Campaign Time Range' : 'Scheduled Time Range'}
+                      </p>
+                      <p className="text-[16px] text-[#1A1A1A]">
+                        {getEstimatedTimeRange()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex space-x-4">
+                  <Button 
+                    onClick={() => router.push(`/results/${createdCampaignId}`)}
+                    size="lg"
+                    className="flex-1 h-11 text-[14px] bg-[#4600F2] hover:bg-[#4600F2]/90 text-white rounded-lg font-medium"
+                  >
+                    <BarChart3 className="h-5 w-5 mr-2" />
+                    View Campaign Analytics
+                  </Button>
+                  <Button 
+                    onClick={() => router.push('/setup')}
+                    variant="outline"
+                    size="lg"
+                    className="flex-1 h-11 text-[14px] border-[#E5E7EB] text-[#1A1A1A] hover:bg-[#F3F4F6] rounded-lg font-medium"
+                  >
+                    <Plus className="h-5 w-5 mr-2" />
+                    Setup Another Campaign
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )
+        }
+        
+        // Sales use case - show handoff settings
         return (
           <div className="max-w-3xl">
             <div className="space-y-6">
@@ -2422,84 +3104,13 @@ export default function CampaignSetup() {
                 <div className="mb-4">
                   <h1 className="text-[24px] font-bold text-[#1A1A1A] leading-[1.4]">Handoff Settings</h1>
                   <p className="text-[14px] text-[#6B7280] mt-2 leading-[1.5]">
-                    Configure secondary actions and human agent handoff settings
+                    Configure human agent handoff settings for your sales campaign
                   </p>
                 </div>
               </div>
 
 
 
-              {/* Secondary Actions */}
-              <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-[16px] font-bold text-[#1A1A1A]">Secondary Actions</h3>
-                    <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Additional actions to offer during conversations</p>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-3">
-                      <Checkbox 
-                        id="send_inventory_link" 
-                        checked={campaignData.secondaryActions?.sendInventoryLink || false}
-                        onCheckedChange={(checked) => setCampaignData(prev => ({ 
-                          ...prev, 
-                          secondaryActions: { 
-                            ...prev.secondaryActions, 
-                            sendInventoryLink: checked as boolean 
-                          } 
-                        }))}
-                      />
-                      <div className="flex-1">
-                        <Label htmlFor="send_inventory_link" className="text-[14px] font-medium text-[#1A1A1A]">
-                          Send Inventory Link
-                        </Label>
-                        <p className="text-[13px] text-[#6B7280] mt-1">Share relevant vehicle listings</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-3">
-                      <Checkbox 
-                        id="email_quote" 
-                        checked={campaignData.secondaryActions?.emailQuote || false}
-                        onCheckedChange={(checked) => setCampaignData(prev => ({ 
-                          ...prev, 
-                          secondaryActions: { 
-                            ...prev.secondaryActions, 
-                            emailQuote: checked as boolean 
-                          } 
-                        }))}
-                      />
-                      <div className="flex-1">
-                        <Label htmlFor="email_quote" className="text-[14px] font-medium text-[#1A1A1A]">
-                          Email Quote
-                        </Label>
-                        <p className="text-[13px] text-[#6B7280] mt-1">Send pricing information via email</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-3">
-                      <Checkbox 
-                        id="text_finance_link" 
-                        checked={campaignData.secondaryActions?.textFinanceLink || false}
-                        onCheckedChange={(checked) => setCampaignData(prev => ({ 
-                          ...prev, 
-                          secondaryActions: { 
-                            ...prev.secondaryActions, 
-                            textFinanceLink: checked as boolean 
-                          } 
-                        }))}
-                      />
-                      <div className="flex-1">
-                        <Label htmlFor="text_finance_link" className="text-[14px] font-medium text-[#1A1A1A]">
-                          Text Finance Link
-                        </Label>
-                        <p className="text-[13px] text-[#6B7280] mt-1">Send financing application link via SMS</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
 
               {/* Human Handoff Settings */}
               <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
@@ -2537,35 +3148,73 @@ export default function CampaignSetup() {
                     
                     {/* Business Hours */}
                     <div>
-                      <h4 className="text-[14px] font-semibold text-[#1A1A1A] mb-3">Business Hours</h4>
+                      <h4 className={`text-[14px] font-semibold mb-3 ${
+                        errors.handoffBusinessHoursStart || errors.handoffBusinessHoursEnd ? 'text-red-600' : 'text-[#1A1A1A]'
+                      }`}>
+                        Business Hours {(errors.handoffBusinessHoursStart || errors.handoffBusinessHoursEnd) && <span className="text-red-500">*</span>}
+                      </h4>
+                      {(errors.handoffBusinessHoursStart || errors.handoffBusinessHoursEnd) && (
+                        <p className="text-[12px] text-red-600 flex items-center mb-3">
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          {errors.handoffBusinessHoursStart && !errors.handoffBusinessHoursEnd && 'Start time is required'}
+                          {!errors.handoffBusinessHoursStart && errors.handoffBusinessHoursEnd && 'End time is required'}
+                          {errors.handoffBusinessHoursStart && errors.handoffBusinessHoursEnd && 'Start and end times are required'}
+                        </p>
+                      )}
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <Label className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">Start Time</Label>
+                          <Label className={`text-[14px] font-medium mb-2 block ${
+                            errors.handoffBusinessHoursStart ? 'text-red-600' : 'text-[#1A1A1A]/60'
+                          }`}>
+                            Start Time {errors.handoffBusinessHoursStart && <span className="text-red-500">*</span>}
+                          </Label>
                           <TimePicker
                             value={campaignData.handoffSettings?.businessHoursStart || "09:00"}
-                            onChange={(value) => setCampaignData(prev => ({ 
+                            onChange={(value) => {
+                              setCampaignData(prev => ({ 
                               ...prev, 
                               handoffSettings: { 
                                 ...prev.handoffSettings, 
                                 businessHoursStart: value 
                               } 
-                            }))}
+                              }))
+                              if (errors.handoffBusinessHoursStart && value) {
+                                setErrors(prev => ({ ...prev, handoffBusinessHoursStart: false }))
+                              }
+                            }}
                             placeholder="Select start time"
+                            className={errors.handoffBusinessHoursStart ? 'border-red-500' : ''}
                           />
+                          {errors.handoffBusinessHoursStart && (
+                            <p className="text-[12px] text-red-600 mt-1">Start time is required</p>
+                          )}
                         </div>
                         <div>
-                          <Label className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">End Time</Label>
+                          <Label className={`text-[14px] font-medium mb-2 block ${
+                            errors.handoffBusinessHoursEnd ? 'text-red-600' : 'text-[#1A1A1A]/60'
+                          }`}>
+                            End Time {errors.handoffBusinessHoursEnd && <span className="text-red-500">*</span>}
+                          </Label>
                           <TimePicker
                             value={campaignData.handoffSettings?.businessHoursEnd || "17:00"}
-                            onChange={(value) => setCampaignData(prev => ({ 
+                            onChange={(value) => {
+                              setCampaignData(prev => ({ 
                               ...prev, 
                               handoffSettings: { 
                                 ...prev.handoffSettings, 
                                 businessHoursEnd: value 
                               } 
-                            }))}
+                              }))
+                              if (errors.handoffBusinessHoursEnd && value) {
+                                setErrors(prev => ({ ...prev, handoffBusinessHoursEnd: false }))
+                              }
+                            }}
                             placeholder="Select end time"
+                            className={errors.handoffBusinessHoursEnd ? 'border-red-500' : ''}
                           />
+                          {errors.handoffBusinessHoursEnd && (
+                            <p className="text-[12px] text-red-600 mt-1">End time is required</p>
+                          )}
                         </div>
                       </div>
                       <p className="text-[13px] text-[#6B7280] mt-3">
@@ -2904,20 +3553,7 @@ export default function CampaignSetup() {
                   )}
                   <Button
                     onClick={nextStep}
-                    disabled={
-                      (currentStep === 1 && (!campaignData.campaignName || !selectedCategory || !campaignData.subUseCase || (campaignData.subUseCase && selectedCategory === 'service' && !selectedAgent))) ||
-                      (currentStep === 2 && (
-                        selectedCategory === 'sales' 
-                          ? (!selectedUploadOption || 
-                             (selectedUploadOption === 'crm' && !crmSelection) ||
-                             (selectedUploadOption === 'crm' && crmSelection === 'vinsolutions' && (!vinSolutionsStartDate || !vinSolutionsEndDate || !vinSolutionsStartTime || !vinSolutionsEndTime)) ||
-                             (selectedUploadOption === 'drive' && !googleDriveLink.trim()) ||
-                             (selectedUploadOption === 'upload' && !uploadComplete))
-                          : !uploadComplete
-                      )) ||
-
-                      isLaunching
-                    }
+                    disabled={isLaunching}
                     size="lg"
                     className="h-11 px-4 text-[14px] bg-[#4600F2] hover:bg-[#4600F2]/90 text-white rounded-lg font-medium"
                   >

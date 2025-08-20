@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Search, Download, Phone, CheckCircle, Clock, AlertCircle, BarChart3, Plus, Loader2, X, Copy, Check, CalendarIcon } from 'lucide-react'
 import Link from "next/link"
 import { fetchCampaignList, type CampaignListItem } from '@/lib/campaign-api'
@@ -23,6 +24,49 @@ import { cn } from '@/lib/utils'
 const mapCampaignType = (campaignType: string): string => {
   if (campaignType === 'recall') return 'Service'
   return campaignType // 'Sales', 'Service', etc.
+}
+
+// Map campaignUseCase to display labels
+const useCaseDisplayMapping: Record<string, { label: string; color: string }> = {
+  // Sales sub-usecases
+  'hot_lead_speed_contact': { label: 'Hot Lead Speed Contact', color: 'bg-green-100 text-green-800 border-green-200' },
+  'price_drop_alert': { label: 'Price Drop Alert', color: 'bg-green-100 text-green-800 border-green-200' },
+  'new_arrival_alert': { label: 'New Arrival Alert', color: 'bg-green-100 text-green-800 border-green-200' },
+  'abandoned_callback': { label: 'Abandoned Callback', color: 'bg-green-100 text-green-800 border-green-200' },
+  'lead-qualification': { label: 'Lead Qualification', color: 'bg-green-100 text-green-800 border-green-200' },
+  'lead-enrichment': { label: 'Lead Enrichment', color: 'bg-green-100 text-green-800 border-green-200' },
+  
+  // Service sub-usecases
+  'recall_notificaiton': { label: 'Recall Notification', color: 'bg-blue-100 text-blue-800 border-blue-200' }, // Note: keeping API typo
+  'recall-notification': { label: 'Recall Notification', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+  'maintenance': { label: 'Maintenance Reminder', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+  'maintenance-reminder': { label: 'Maintenance Reminder', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+  'warranty': { label: 'Warranty Expiration', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+  'warranty-expiration': { label: 'Warranty Expiration', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+  'seasonal': { label: 'Seasonal Service', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+  'seasonal-service': { label: 'Seasonal Service', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+  'service_appointment': { label: 'Service Appointment Booking', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+  'service-appointment-booking': { label: 'Service Appointment Booking', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+  'customer_satisfaction': { label: 'Customer Satisfaction Follow-up', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+  'customer-satisfaction-followup': { label: 'Customer Satisfaction Follow-up', color: 'bg-blue-100 text-blue-800 border-blue-200' }
+}
+
+// Get display information for campaign usecase
+const getCampaignUseCaseDisplay = (campaignUseCase?: string, campaignType?: string) => {
+  if (!campaignUseCase) {
+    // Fallback to generic campaign type
+    if (campaignType === 'Sales') {
+      return { label: 'Sales', color: 'bg-green-100 text-green-800 border-green-200' }
+    } else if (campaignType === 'Service' || campaignType === 'recall') {
+      return { label: 'Service', color: 'bg-blue-100 text-blue-800 border-blue-200' }
+    }
+    return { label: 'Campaign', color: 'bg-gray-100 text-gray-800 border-gray-200' }
+  }
+  
+  return useCaseDisplayMapping[campaignUseCase] || { 
+    label: campaignUseCase.replace(/[_-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), 
+    color: 'bg-gray-100 text-gray-800 border-gray-200' 
+  }
 }
 
 const useCaseColors: Record<string, string> = {
@@ -55,6 +99,7 @@ export default function CampaignResults() {
   const [sortBy, setSortBy] = useState<{ field: string; order: 'asc' | 'desc' }>({ field: 'createdAt', order: 'desc' })
   const [agents, setAgents] = useState<Agent[]>([])
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState('sales')
         
   // Get URL parameters or use defaults for local testing
   const urlParams = extractUrlParams();
@@ -109,11 +154,25 @@ export default function CampaignResults() {
     loadAgents()
   }, [enterpriseId, teamId])
 
+  // Calculate campaign counts for tabs
+  const salesCampaignCount = campaigns.filter(campaign => {
+    const campaignType = mapCampaignType(campaign.campaignType)
+    return campaignType.toLowerCase() === 'sales'
+  }).length
+
+  const serviceCampaignCount = campaigns.filter(campaign => {
+    const campaignType = mapCampaignType(campaign.campaignType)
+    return campaignType.toLowerCase() === 'service'
+  }).length
+
   const filteredCampaigns = campaigns.filter(campaign => {
     const matchesSearch = campaign.name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = activeStatusFilters.length === 0 || activeStatusFilters.includes(campaign.status.toLowerCase())
     const campaignType = mapCampaignType(campaign.campaignType)
     const matchesCampaignType = activeCampaignTypeFilters.length === 0 || activeCampaignTypeFilters.includes(campaignType.toLowerCase())
+    
+    // Tab filter - filter campaigns based on active tab
+    const matchesTab = activeTab === 'sales' ? campaignType.toLowerCase() === 'sales' : campaignType.toLowerCase() === 'service'
     
     // Date filter - check if any date field matches the selected date
     let matchesDate = true
@@ -133,7 +192,7 @@ export default function CampaignResults() {
                    isSameDay(campaignCompletedDate, selectedDate)
     }
     
-    return matchesSearch && matchesStatus && matchesCampaignType && matchesDate
+    return matchesSearch && matchesStatus && matchesCampaignType && matchesDate && matchesTab
   })
 
   // Sort the filtered campaigns
@@ -250,6 +309,32 @@ export default function CampaignResults() {
                 New Campaign
               </Button>
             </Link>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="mb-8">
+          <div className="flex items-center border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab('sales')}
+              className={`px-4 py-3 text-base border-b-2 transition-all duration-200 ${
+                activeTab === 'sales'
+                  ? 'text-black font-semibold border-[#4600F2] bg-transparent'
+                  : 'text-gray-500 font-normal border-transparent hover:text-gray-700'
+              }`}
+            >
+              Sales ({salesCampaignCount})
+            </button>
+            <button
+              onClick={() => setActiveTab('service')}
+              className={`px-4 py-3 text-base border-b-2 transition-all duration-200 ${
+                activeTab === 'service'
+                  ? 'text-black font-semibold border-[#4600F2] bg-transparent'
+                  : 'text-gray-500 font-normal border-transparent hover:text-gray-700'
+              }`}
+            >
+              Service ({serviceCampaignCount})
+            </button>
           </div>
         </div>
 
@@ -458,12 +543,14 @@ export default function CampaignResults() {
                             {campaign.name}
                           </h3>
                           <div className="flex gap-2">
-                            <Badge className="text-xs bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100 hover:text-blue-800 pointer-events-none">
-                              {mapCampaignType(campaign.campaignType)}
-                            </Badge>
-                            <Badge className="text-xs bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-100 hover:text-purple-800 pointer-events-none">
-                              Recall
-                            </Badge>
+                            {(() => {
+                              const useCaseDisplay = getCampaignUseCaseDisplay(campaign.campaignUseCase, campaign.campaignType)
+                              return (
+                                <Badge className={`text-xs ${useCaseDisplay.color} hover:${useCaseDisplay.color} pointer-events-none`}>
+                                  {useCaseDisplay.label}
+                                </Badge>
+                              )
+                            })()}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">

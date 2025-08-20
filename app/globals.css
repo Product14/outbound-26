@@ -339,3 +339,51 @@
   .rounded-xl { border-radius: var(--radius-xl); }
   .rounded-full { border-radius: var(--radius-full); }
 }
+
+@layer utilities {
+  /* Live Feed Animations */
+  @keyframes slideInFromTop {
+    0% {
+      transform: translateY(-20px);
+      opacity: 0;
+    }
+    100% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  .animate-slideInFromTop {
+    animation: slideInFromTop 0.5s ease-out;
+  }
+
+  /* Pulsing gradient for progress bar */
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s infinite linear;
+  }
+
+  /* Breathing effect for live indicators */
+  @keyframes breathe {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.1);
+      opacity: 0.8;
+    }
+  }
+
+  .animate-breathe {
+    animation: breathe 2s ease-in-out infinite;
+  }
+}

@@ -89,10 +89,7 @@ export function TimePicker({ value, onChange, className, placeholder = "Select t
       >
         <div className="flex items-center">
           <Clock className="mr-2 h-4 w-4 text-[#6B7280]" />
-          <span className={cn(
-            "text-[#1A1A1A]",
-            value && "bg-[#4600F2]/10 px-2 py-1 rounded"
-          )}>
+          <span className="text-[#1A1A1A]">
             {selectedSlot ? selectedSlot.display : placeholder}
           </span>
         </div>

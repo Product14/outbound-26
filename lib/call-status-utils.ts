@@ -94,10 +94,16 @@ export function calculateCampaignStats(totalCalls: number): {
   answerRate: number;
   appointmentCount: number;
   avgCallDuration: string;
+  successRate: number;
+  failedCalls: number;
+  noAnswerCalls: number;
 } {
   let connectedCalls = 0;
   let appointmentCount = 0;
   let totalDurationSeconds = 0;
+  let successfulCalls = 0;
+  let failedCalls = 0;
+  let noAnswerCalls = 0;
   
   for (let i = 0; i < totalCalls; i++) {
     const result = generateCallStatus(i, totalCalls);
@@ -113,10 +119,20 @@ export function calculateCampaignStats(totalCalls: number): {
     
     if (result.appointment === 'Yes') {
       appointmentCount++;
+      successfulCalls++;
+    }
+    
+    if (result.status === 'Failed') {
+      failedCalls++;
+    }
+    
+    if (result.outcome === 'No Answer') {
+      noAnswerCalls++;
     }
   }
   
   const answerRate = totalCalls > 0 ? Math.round((connectedCalls / totalCalls) * 100) : 0;
+  const successRate = totalCalls > 0 ? Math.round((successfulCalls / totalCalls) * 100) : 0;
   
   // Calculate average duration
   const avgDurationSeconds = totalCalls > 0 ? Math.round(totalDurationSeconds / totalCalls) : 0;
@@ -124,7 +140,7 @@ export function calculateCampaignStats(totalCalls: number): {
   const avgSeconds = avgDurationSeconds % 60;
   const avgCallDuration = `${avgMinutes}:${avgSeconds.toString().padStart(2, '0')}`;
   
-  return { answerRate, appointmentCount, avgCallDuration };
+  return { answerRate, appointmentCount, avgCallDuration, successRate, failedCalls, noAnswerCalls };
 }
 
 /**

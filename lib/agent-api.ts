@@ -39,7 +39,7 @@ export async function fetchAgentList(
 ): Promise<Agent[]> {
   try {
     // Use internal API route to avoid CORS issues
-    const url = `${configs.base_url}/api/fetch-agent-list?enterpriseId=${enterpriseId}&teamId=${teamId}&agentUseCase=${agentUseCase}&agentType=${agentType}&agentCallType=${agentCallType}`;
+    const url = `${configs.base_url}api/fetch-agent-list?enterpriseId=${enterpriseId}&teamId=${teamId}&agentUseCase=${agentUseCase}&agentType=${agentType}&agentCallType=${agentCallType}`;
     
     console.log('Fetching agents from internal API:', url);
     

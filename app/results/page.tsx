@@ -267,7 +267,6 @@ export default function CampaignResults() {
   }
 
   const formatDate = (dateString: string) => {
-    console.log('Formatting date:', dateString, 'Type:', typeof dateString)
     
     if (!dateString) {
       console.log('Date string is empty or null')
@@ -275,7 +274,6 @@ export default function CampaignResults() {
     }
     
     const date = new Date(dateString)
-    console.log('Parsed date:', date, 'Is valid:', !isNaN(date.getTime()))
     
     if (isNaN(date.getTime())) {
       console.log('Invalid date detected:', dateString)
@@ -553,7 +551,7 @@ export default function CampaignResults() {
                             })()}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        {/* <div className="flex items-center gap-2">
                           {agents.length > 0 ? (
                             <>
                               <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 border border-gray-200">
@@ -573,7 +571,7 @@ export default function CampaignResults() {
                               <span className="text-sm text-text-secondary font-medium">Agent</span>
                             </>
                           )}
-                        </div>
+                        </div> */}
                       </div>
 
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">

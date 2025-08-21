@@ -301,7 +301,6 @@ export async function launchCampaign(payload: LaunchCampaignPayload): Promise<Ca
 
 export async function fetchCampaignList(enterpriseId: string, teamId: string): Promise<CampaignListResponse> {
   try {
-    console.log('Fetching campaigns from internal API:', `/api/fetch-campaign-list?enterpriseId=${enterpriseId}&teamId=${teamId}`);
     const response = await fetch(`/api/fetch-campaign-list?enterpriseId=${enterpriseId}&teamId=${teamId}`);
 
     if (!response.ok) {
@@ -317,7 +316,6 @@ export async function fetchCampaignList(enterpriseId: string, teamId: string): P
 
 export async function fetchCampaignDetails(campaignId: string): Promise<CampaignDetailResponse> {
   try {
-    console.log('Fetching campaign details from internal API:', `/api/fetch-campaign-details?campaignId=${campaignId}`);
     const response = await fetch(`/api/fetch-campaign-details?campaignId=${campaignId}`);
 
     if (!response.ok) {

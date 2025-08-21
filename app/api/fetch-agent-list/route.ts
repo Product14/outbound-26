@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Cookie': 'sails.sid=s%3A5hTtG7qSrJDh_79d5l6pRJhjK3lrf2-7.T1DBBnkuRHbndCoO2WiP62DNRKUkUj379OU%2BfRdggLE'
+        'Cookie': 'sails.sid=s%3A1qIYgfILXja4FsVoQ11K-gFZLGt7k3Qt.wkgWzjwWlv41sosK9FmWKUJ%2F1ZYwtml%2FaTuWNGWli%2BQ'
       },
     });
 

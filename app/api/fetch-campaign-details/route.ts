@@ -13,8 +13,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log(`Fetching campaign details for campaign ${campaignId}`);
-
     const response = await fetch(
       `${configs.base_url}conversation/campaign/details/${campaignId}`,
       {
@@ -25,8 +23,6 @@ export async function GET(request: NextRequest) {
         },
       }
     );
-
-    console.log(`Campaign details API response status: ${response.status}`);
 
     if (!response.ok) {
       console.error(`Failed to fetch campaign details: ${response.status} ${response.statusText}`);

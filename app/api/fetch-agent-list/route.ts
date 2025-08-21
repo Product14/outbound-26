@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Build the external API URL - using base_url to match the curl command
+    // Build the external API URL - using the correct external endpoint path
     const externalUrl = `${configs.base_url}conversation/agents/fetch-agent-list?enterpriseId=${enterpriseId}&teamId=${teamId}&agentUseCase=${agentUseCase}&agentType=${agentType}&agentCallType=${agentCallType}`;
     
     console.log('Proxying request to:', externalUrl);
@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        'Cookie': 'sails.sid=s%3A5hTtG7qSrJDh_79d5l6pRJhjK3lrf2-7.T1DBBnkuRHbndCoO2WiP62DNRKUkUj379OU%2BfRdggLE'
       },
     });
 

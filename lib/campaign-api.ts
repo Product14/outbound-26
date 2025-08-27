@@ -1,5 +1,43 @@
 import { configs } from '@/configs';
 
+// Campaign Types API interfaces
+export interface CampaignType {
+  name: string;
+  description: string;
+  isActive: boolean;
+  requiredKeys: RequiredKey[];
+}
+
+export interface RequiredKey {
+  name: string;
+  isActive: boolean;
+}
+
+export interface CampaignTypeGroup {
+  _id: string;
+  campaignFor: string;
+  campaignTypes: CampaignType[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+}
+
+export interface CampaignTypesResponse {
+  success: boolean;
+  data: CampaignTypeGroup[];
+}
+
+// Key Mapping API interfaces
+export interface KeyMappingRequest {
+  requiredKeys: string[];
+  availableKeys: string[];
+}
+
+export interface KeyMappingResponse {
+  [requiredKey: string]: string;
+}
+
 // Internal Customer interface for UI state management
 export interface Customer {
   name: string;
@@ -47,13 +85,44 @@ export interface ApiCustomer {
 }
 
 export interface LaunchCampaignPayload {
+  isCreated?: boolean;
   name: string;
   campaignType: string;
   campaignUseCase: string;
   teamAgentMappingId: string;
   enterpriseId: string;
   teamId: string;
+  campaignId?: string;
   customers: ApiCustomer[];
+  communicationChannel?: string;
+  startDate?: string;
+  endDate?: string;
+  quietHours?: {
+    start: string;
+    startInterval: string;
+    end: string;
+    endInterval: string;
+  };
+  callLimits?: {
+    dailyContactLimit: number;
+    hourlyThrottle: number;
+    maxConcurrentCalls: number;
+  };
+  retryLogic?: {
+    maxAttempts: number;
+    retryDelay: number;
+    smsSwitchover: boolean;
+  };
+  complianceSettings?: string[];
+  voicemailConfig?: {
+    method: string;
+    voicemailMessage: string;
+  };
+  handoffSettings?: {
+    targerType: string;
+    targetPhone: string[];
+  };
+  escalationTriggers?: string[];
 }
 
 export interface CampaignApiResponse {
@@ -152,8 +221,41 @@ export interface CampaignData {
   fileName: string;
   schedule: string;
   scheduledDate: string;
+  scheduledEndDate: string;
   scheduledTime: string;
   totalRecords: number;
+  // Compliance settings from UI
+  compliance?: {
+    includeRecordingConsent?: boolean;
+    includeSmsOptOut?: boolean;
+    doNotCallList?: boolean;
+  };
+  // Call window settings from UI
+  callWindowStart?: string;
+  callWindowEnd?: string;
+  // Voicemail settings from UI
+  voicemailStrategy?: string;
+  voicemailMessage?: string;
+  // Retry settings from UI
+  maxRetryAttempts?: number;
+  retryDelayMinutes?: number;
+  // Call limits from UI
+  maxCallsPerHour?: number;
+  maxCallsPerDay?: number;
+  maxConcurrentCalls?: number;
+  // Handoff settings from UI
+  handoffSettings?: {
+    target?: string;
+    businessHoursStart?: string;
+    businessHoursEnd?: string;
+  };
+  // Escalation triggers from UI
+  escalationTriggers?: {
+    leadRequestsPerson?: boolean;
+    complexFinancing?: boolean;
+    pricingNegotiation?: boolean;
+    technicalQuestions?: boolean;
+  };
   uploadedData?: Array<{
     CustomerFullName?: string;
     'Customer Name'?: string;
@@ -200,82 +302,279 @@ export interface CampaignData {
   }>;
 }
 
+// Create initial campaign (after agent selection, before customer upload)
+export function createInitialCampaignPayload(
+  campaignName: string,
+  campaignType: string,
+  campaignUseCase: string,
+  teamAgentMappingId: string,
+  enterpriseId: string,
+  teamId: string
+): LaunchCampaignPayload {
+  return {
+    isCreated: false, // Only true when final Start Campaign is clicked
+    name: campaignName,
+    campaignType,
+    campaignUseCase,
+    teamAgentMappingId,
+    enterpriseId,
+    teamId,
+    customers: [], // Empty initially, will be added later
+    communicationChannel: "voice",
+    complianceSettings: ["DNC_CHECK", "TCPA_COMPLIANT", "GDPR_COMPLIANT"]
+  };
+}
+
 export function transformCampaignData(
   campaignData: CampaignData, 
   enterpriseId: string, 
   teamId: string,
-  teamAgentMappingId: string = "agent234" // Default value from your API example
+  teamAgentMappingId: string = "agent234", // Default value from your API example
+  existingCampaignId?: string // For final launch with existing campaign ID
 ): LaunchCampaignPayload {
   // Transform the use case to campaign type
   const campaignType = campaignData.useCase === 'sales' ? 'Sales' : 'Service';
   
   // Transform subUseCase to the required format for campaignUseCase
-  const useCaseMapping: { [key: string]: string } = {
-    'recall-notification': 'recall_notificaiton', // Note: keeping the typo as in API example
-    'maintenance-reminder': 'maintenance',
-    'warranty-expiration': 'warranty',
-    'seasonal-service': 'seasonal',
-    'service-appointment-booking': 'service_appointment',
-    'customer-satisfaction-followup': 'customer_satisfaction',
-    'hot-lead-speed-contact': 'hot_lead_speed_contact',
-    'price-drop-alert': 'price_drop_alert',
-    'new-arrival-alert': 'new_arrival_alert',
-    'abandoned-callback': 'abandoned_callback'
-  };
+  // Convert kebab-case back to the original API format (with underscores and proper casing)
+  let campaignUseCase = campaignData.subUseCase;
   
-  const campaignUseCase = useCaseMapping[campaignData.subUseCase] || campaignData.subUseCase;
+  // Convert kebab-case to title case with underscores for API compatibility
+  if (campaignUseCase) {
+    // First convert kebab-case to title case with spaces
+    campaignUseCase = campaignUseCase
+      .replace(/[_-]/g, ' ')
+      .replace(/\b\w/g, l => l.toUpperCase());
+    
+    // Then replace spaces with underscores for API format
+    campaignUseCase = campaignUseCase.replace(/\s+/g, '_');
+  }
   
   // Transform uploaded data to API customers format (flatter structure)
-  const customers: ApiCustomer[] = campaignData.uploadedData?.map((row) => {
+  console.log('transformCampaignData - uploadedData:', {
+    uploadedData: campaignData.uploadedData,
+    uploadedDataLength: campaignData.uploadedData?.length,
+    sampleRow: campaignData.uploadedData?.[0]
+  })
+  
+  const customers: ApiCustomer[] = campaignData.uploadedData?.map((row, index) => {
+    console.log(`Processing customer row ${index}:`, row)
+    console.log('Available keys in row:', Object.keys(row))
+    
+    // Helper function to find value by checking multiple possible column names
+    const findValue = (possibleKeys: string[]): string => {
+      for (const key of possibleKeys) {
+        const value = (row as any)[key]
+        if (value && value.toString().trim() !== '') {
+          return value.toString().trim()
+        }
+      }
+      return ''
+    }
+    
     const customer: ApiCustomer = {
-      name: row.CustomerFullName || row['Customer Name'] || row.name || '',
-      mobile: row.ContactPhoneNumber || row['Phone'] || row.mobile || ''
+      name: findValue([
+        'CustomerFullName', 'Customer Name', 'name', 'CUSTOMER_NAME', 
+        'customer_name', 'full_name', 'fullName', 'Name'
+      ]),
+      mobile: findValue([
+        'ContactPhoneNumber', 'Phone', 'mobile', 'PHONE_NUMBER', 
+        'phone_number', 'contact_phone', 'contactPhone', 'Mobile'
+      ]),
+      // Always include all fields with empty string defaults
+      vin: findValue([
+        'VIN', 'vin', 'vehicle_vin', 'vehicleVin', 'VEHICLE_VIN'
+      ]),
+      recallDescription: findValue([
+        'RecallDescription', 'recallDescription', 'recall_description', 
+        'RECALL_DESCRIPTION', 'Recall Description'
+      ]),
+      vehicleMake: findValue([
+        'VehicleMake', 'vehicleMake', 'vehicle_make', 'VEHICLE_MAKE', 
+        'Vehicle Make', 'make', 'Make'
+      ]),
+      vehicleModel: findValue([
+        'VehicleModel', 'vehicleModel', 'vehicle_model', 'VEHICLE_MODEL', 
+        'Vehicle Model', 'model', 'Model'
+      ]),
+      vehicleYear: findValue([
+        'VehicleYear', 'vehicleYear', 'vehicle_year', 'VEHICLE_YEAR', 
+        'Vehicle Year', 'year', 'Year'
+      ]),
+      partsAvailabilityFlag: findValue([
+        'PartsAvailabilityFlag', 'partsAvailabilityFlag', 'parts_availability_flag', 
+        'PARTS_AVAILABILITY_FLAG', 'Parts Available'
+      ]).toLowerCase() === 'true',
+      loanerEligibility: findValue([
+        'LoanerEligibility', 'loanerEligibility', 'loaner_eligibility', 
+        'LOANER_ELIGIBILITY', 'Loaner Eligible'
+      ]).toLowerCase() === 'true',
+      symptom: findValue([
+        'Symptom', 'symptom', 'SYMPTOM', 'symptoms'
+      ]),
+      riskDetails: findValue([
+        'RiskDetails', 'riskDetails', 'risk_details', 'RISK_DETAILS', 
+        'Risk Details'
+      ]),
+      remedySteps: findValue([
+        'RemedySteps', 'remedySteps', 'remedy_steps', 'REMEDY_STEPS', 
+        'Remedy Steps'
+      ])
     };
 
-    // Add service-related fields if they exist
-    if (row.VIN || row.vin) {
-      customer.vin = row.VIN || row.vin || '';
-    }
-    if (row.RecallDescription || row.recallDescription) {
-      customer.recallDescription = row.RecallDescription || row.recallDescription || '';
-    }
-    if (row.VehicleMake || row.vehicleMake) {
-      customer.vehicleMake = row.VehicleMake || row.vehicleMake || '';
-    }
-    if (row.VehicleModel || row.vehicleModel) {
-      customer.vehicleModel = row.VehicleModel || row.vehicleModel || '';
-    }
-    if (row.VehicleYear || row.vehicleYear) {
-      customer.vehicleYear = row.VehicleYear || row.vehicleYear || '';
-    }
-    if (row.PartsAvailabilityFlag || row.partsAvailabilityFlag) {
-      customer.partsAvailabilityFlag = (row.PartsAvailabilityFlag?.toString() || row.partsAvailabilityFlag?.toString()) === 'true';
-    }
-    if (row.LoanerEligibility || row.loanerEligibility) {
-      customer.loanerEligibility = (row.LoanerEligibility?.toString() || row.loanerEligibility?.toString()) === 'true';
-    }
-    if (row.Symptom || row.symptom) {
-      customer.symptom = row.Symptom || row.symptom || '';
-    }
-    if (row.RiskDetails || row.riskDetails) {
-      customer.riskDetails = row.RiskDetails || row.riskDetails || '';
-    }
-    if (row.RemedySteps || row.remedySteps) {
-      customer.remedySteps = row.RemedySteps || row.remedySteps || '';
-    }
-
+    console.log(`Transformed customer ${index}:`, customer)
     return customer;
   }) || [];
 
-  return {
+  // Build compliance settings based on UI selections
+  const complianceSettings: string[] = [];
+  if (campaignData.compliance?.doNotCallList) {
+    complianceSettings.push("DNC_CHECK");
+  }
+  if (campaignData.compliance?.includeRecordingConsent) {
+    complianceSettings.push("TCPA_COMPLIANT");
+  }
+  if (campaignData.compliance?.includeSmsOptOut) {
+    complianceSettings.push("GDPR_COMPLIANT");
+  }
+  
+  // If no compliance settings selected, use defaults
+  if (complianceSettings.length === 0) {
+    complianceSettings.push("DNC_CHECK", "TCPA_COMPLIANT", "GDPR_COMPLIANT");
+  }
+
+  // Transform quiet hours from UI format to API format
+  let quietHours: LaunchCampaignPayload['quietHours'] | undefined;
+  if (campaignData.callWindowStart && campaignData.callWindowEnd) {
+    // Convert UI time format (e.g., "09:00", "17:00") to API quiet hours format
+    // The API expects quiet hours (when NOT to call), so we need to invert the logic
+    const startHour = parseInt(campaignData.callWindowStart.split(':')[0]);
+    const endHour = parseInt(campaignData.callWindowEnd.split(':')[0]);
+    
+    // If call window is 9 AM to 5 PM, quiet hours are 5 PM to 9 AM next day
+    quietHours = {
+      start: campaignData.callWindowEnd, // End of call window becomes start of quiet hours
+      startInterval: "evening",
+      end: campaignData.callWindowStart, // Start of call window becomes end of quiet hours
+      endInterval: "morning"
+    };
+  }
+
+  // Transform escalation triggers from UI boolean format to API string array format
+  const escalationTriggers: string[] = [];
+  if (campaignData.escalationTriggers?.leadRequestsPerson) {
+    escalationTriggers.push("customer_angry");
+  }
+  if (campaignData.escalationTriggers?.complexFinancing) {
+    escalationTriggers.push("technical_issue");
+  }
+  if (campaignData.escalationTriggers?.pricingNegotiation) {
+    escalationTriggers.push("payment_dispute");
+  }
+  if (campaignData.escalationTriggers?.technicalQuestions) {
+    escalationTriggers.push("technical_issue");
+  }
+  
+  // If no escalation triggers selected, use defaults
+  if (escalationTriggers.length === 0) {
+    escalationTriggers.push("customer_angry", "technical_issue", "payment_dispute");
+  }
+
+  // Add call limits if available from UI
+  const callLimits: LaunchCampaignPayload['callLimits'] | undefined = 
+    (campaignData.maxCallsPerDay || campaignData.maxCallsPerHour || campaignData.maxConcurrentCalls) ? {
+      dailyContactLimit: campaignData.maxCallsPerDay || 100,
+      hourlyThrottle: campaignData.maxCallsPerHour || 10,
+      maxConcurrentCalls: campaignData.maxConcurrentCalls || 5
+    } : undefined;
+
+  // Add retry logic if available from UI
+  const retryLogic: LaunchCampaignPayload['retryLogic'] | undefined = 
+    (campaignData.maxRetryAttempts || campaignData.retryDelayMinutes) ? {
+      maxAttempts: campaignData.maxRetryAttempts || 3,
+      retryDelay: (campaignData.retryDelayMinutes || 60) * 60, // Convert minutes to seconds
+      smsSwitchover: true // Default to true for SMS fallback
+    } : undefined;
+
+  // Add handoff settings if available from UI
+  const handoffSettings: LaunchCampaignPayload['handoffSettings'] | undefined = 
+    campaignData.handoffSettings?.target ? {
+      targerType: campaignData.handoffSettings.target === 'round_robin' ? 'human_agent' : 'specific_user',
+      targetPhone: ["+1-555-000-1234", "+1-555-000-5678"] // Default phone numbers, could be made configurable
+    } : undefined;
+
+  const basePayload: LaunchCampaignPayload = {
+    isCreated: true, // Set to true only in final campaign launch
     name: campaignData.campaignName,
     campaignType,
     campaignUseCase,
     teamAgentMappingId,
     enterpriseId: enterpriseId, 
     teamId: teamId, 
-    customers
+    customers,
+    communicationChannel: "voice",
+    // Always include all optional fields with proper defaults
+    complianceSettings: complianceSettings.length > 0 ? complianceSettings : ["DNC_CHECK", "TCPA_COMPLIANT", "GDPR_COMPLIANT"],
+    quietHours: quietHours || {
+      start: "20:00",
+      startInterval: "evening",
+      end: "08:00",
+      endInterval: "morning"
+    },
+    callLimits: callLimits || {
+      dailyContactLimit: 100,
+      hourlyThrottle: 10,
+      maxConcurrentCalls: 5
+    },
+    retryLogic: retryLogic || {
+      maxAttempts: 3,
+      retryDelay: 3600,
+      smsSwitchover: true
+    },
+    handoffSettings: handoffSettings || {
+      targerType: "human_agent",
+      targetPhone: ["+1-555-000-1234", "+1-555-000-5678"]
+    },
+    voicemailConfig: {
+      method: campaignData.voicemailStrategy || "leave_message",
+      voicemailMessage: campaignData.voicemailMessage || "Hi, this is a follow-up call regarding your recent inquiry. Please call us back at your convenience."
+    },
+    escalationTriggers: escalationTriggers.length > 0 ? escalationTriggers : ["customer_angry", "technical_issue", "payment_dispute"],
+    // Always include start and end dates (with defaults if not provided)
+    startDate: "",
+    endDate: ""
   };
+
+  // Add campaign ID if it exists (for final launch)
+  if (existingCampaignId) {
+    basePayload.campaignId = existingCampaignId;
+  }
+
+  // Set scheduling information
+  if (campaignData.schedule === 'scheduled' && campaignData.scheduledDate && campaignData.scheduledTime) {
+    // For scheduled campaigns, use provided date/time
+    basePayload.startDate = new Date(`${campaignData.scheduledDate}T${campaignData.scheduledTime}:00.000Z`).toISOString();
+    
+    // Calculate end date based on provided end date or add 1 month as default
+    if (campaignData.scheduledEndDate) {
+      basePayload.endDate = new Date(`${campaignData.scheduledEndDate}T23:59:59.000Z`).toISOString();
+    } else {
+      const endDate = new Date(basePayload.startDate);
+      endDate.setMonth(endDate.getMonth() + 1);
+      basePayload.endDate = endDate.toISOString();
+    }
+  } else {
+    // For "Start Now" campaigns, use current date/time
+    const now = new Date();
+    basePayload.startDate = now.toISOString();
+    
+    // End date 1 month from now for "Start Now" campaigns
+    const endDate = new Date(now);
+    endDate.setMonth(endDate.getMonth() + 1);
+    basePayload.endDate = endDate.toISOString();
+  }
+
+  return basePayload;
 }
 
 export async function launchCampaign(payload: LaunchCampaignPayload): Promise<CampaignApiResponse> {
@@ -325,6 +624,47 @@ export async function fetchCampaignDetails(campaignId: string): Promise<Campaign
     return await response.json();
   } catch (error) {
     console.error('Error fetching campaign details:', error);
+    throw error;
+  }
+}
+
+export async function fetchCampaignTypes(): Promise<CampaignTypesResponse> {
+  try {
+    const response = await fetch('/api/fetch-campaign-types');
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching campaign types:', error);
+    throw error;
+  }
+}
+
+export async function processKeyMapping(requiredKeys: string[], availableKeys: string[]): Promise<KeyMappingResponse> {
+  try {
+    const payload: KeyMappingRequest = {
+      requiredKeys,
+      availableKeys
+    };
+
+    const response = await fetch('/api/keys-mapping', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error processing key mapping:', error);
     throw error;
   }
 }

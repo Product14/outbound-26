@@ -14,18 +14,20 @@ import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { TimePicker } from "@/components/ui/time-picker"
 import { DatePicker } from "@/components/ui/date-picker"
-import { ArrowRight, ArrowLeft, Upload, FileText, Calendar, CheckCircle, Download, AlertCircle, Zap, Clock, Users, Database, Plus, X, TrendingUp, Wrench, Play, Pause, MessageSquare, Shield, Link as LinkIcon, Cloud, Mail, Phone } from 'lucide-react'
+import { ArrowRight, ArrowLeft, Upload, FileText, Calendar, CheckCircle, Download, AlertCircle, Zap, Clock, Users, Database, Plus, X, TrendingUp, Wrench, Play, Pause, MessageSquare, Shield, Link as LinkIcon, Cloud, Mail, Phone, Loader2 } from 'lucide-react'
 import Link from "next/link"
 import { useRouter } from 'next/navigation'
 import { cn } from "@/lib/utils"
 import { BarChart3 } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { extractUrlParams, buildUrlWithParams, type UrlParams } from '@/lib/url-utils'
-import { transformCampaignData, launchCampaign, type Customer } from '@/lib/campaign-api'
-import { parseUploadedFile, REQUIRED_CSV_COLUMNS, type ParsedCustomerData } from '@/lib/file-parser'
+import { transformCampaignData, launchCampaign, createInitialCampaignPayload, fetchCampaignTypes, processKeyMapping, type Customer, type CampaignTypesResponse, type CampaignType } from '@/lib/campaign-api'
+import { parseUploadedFile, REQUIRED_CSV_COLUMNS, type ParsedCustomerData, type ParseResult } from '@/lib/file-parser'
 import { fetchAgentList, type Agent } from '@/lib/agent-api'
 import { useToast } from "@/hooks/use-toast"
 import { calculateAndFormatEstimatedTime, getShortEstimatedTime, calculateAndFormatTimeRange, getEstimatedTimeInMinutes, calculateEndDate } from '@/lib/time-utils'
+import { storeCampaignData, getCampaignData, updateCampaignId, updateKeyMapping, updateUploadedData, clearCampaignData } from '@/lib/storage-utils'
+import CSVMappingStep from '@/components/csv-mapping/CSVMappingStep'
 
 interface SubCase {
   value: string;
@@ -218,12 +220,248 @@ export default function CampaignSetup() {
   const [availableAgents, setAvailableAgents] = useState<Agent[]>([])
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
   const [isLoadingAgents, setIsLoadingAgents] = useState(false)
+  
+  // API integration state
+  const [campaignTypes, setCampaignTypes] = useState<CampaignTypesResponse | null>(null)
+  const [isLoadingCampaignTypes, setIsLoadingCampaignTypes] = useState(false)
+  const [storedCampaignId, setStoredCampaignId] = useState<string | null>(null)
+  const [requiredKeys, setRequiredKeys] = useState<string[]>([])
+  const [keyMapping, setKeyMapping] = useState<Record<string, string> | null>(null)
+  const [isProcessingKeyMapping, setIsProcessingKeyMapping] = useState(false)
+  
+  // New CSV mapping system state
+  const [showCSVMappingStep, setShowCSVMappingStep] = useState(false)
+  const [csvParseResult, setCsvParseResult] = useState<ParseResult | null>(null)
+  // OLD MAPPING SYSTEM STATE - COMMENTED OUT
+  // const [useNewMappingSystem, setUseNewMappingSystem] = useState(true)
+
+  // Get required keys for the selected use case from API data
+  const getRequiredKeysForUseCase = () => {
+    if (!campaignTypes || !campaignData.subUseCase) {
+      return []
+    }
+
+    const categoryData = campaignTypes.data.find(group => 
+      group.campaignFor.toLowerCase() === selectedCategory.toLowerCase()
+    )
+    
+    if (!categoryData) return []
+
+    const selectedCampaignType = categoryData.campaignTypes.find(type => 
+      type.name === campaignData.subUseCase || 
+      type.name.replace(/[_\s]/g, '-').toLowerCase() === campaignData.subUseCase.replace(/[_\s]/g, '-').toLowerCase()
+    )
+
+    return selectedCampaignType?.requiredKeys?.map(key => key.name) || []
+  }
+
+  // Get dynamic use cases from API data
+  const getDynamicUseCases = () => {
+    if (!campaignTypes) {
+      return useCases // Return static use cases as fallback
+    }
+
+    const dynamicUseCases: any = {}
+    
+    campaignTypes.data.forEach(group => {
+      const categoryKey = group.campaignFor.toLowerCase()
+      const existingCategory = useCases[categoryKey as keyof typeof useCases]
+      
+      if (existingCategory) {
+        dynamicUseCases[categoryKey] = {
+          ...existingCategory,
+          subCases: group.campaignTypes.map(type => ({
+            value: type.name.replace(/[_\s]/g, '-').toLowerCase(),
+            label: type.name.replace(/[_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            requiredFields: type.requiredKeys?.map(key => key.name) || [],
+            disabled: !type.isActive
+          }))
+        }
+      }
+    })
+
+    // Fill in any missing categories with static data
+    Object.keys(useCases).forEach(key => {
+      if (!dynamicUseCases[key]) {
+        dynamicUseCases[key] = useCases[key as keyof typeof useCases]
+      }
+    })
+
+    return dynamicUseCases
+  }
 
   // Get dynamic columns based on current use case
   const getDisplayColumns = () => {
-    // For now, return the standard required columns
-    // This can be extended later to support different use cases
+    const apiRequiredKeys = getRequiredKeysForUseCase()
+    if (apiRequiredKeys.length > 0) {
+      return apiRequiredKeys
+    }
+    // If no API keys and we have uploaded data, use actual columns from the data
+    if (uploadedData.length > 0) {
+      return Object.keys(uploadedData[0])
+    }
+    // Final fallback to hardcoded columns
     return REQUIRED_CSV_COLUMNS
+  }
+
+  // Process key mapping when file is uploaded
+  const processUploadedFile = async (data: any[], fileName: string, isGoogleDriveData: boolean = false) => {
+    const apiRequiredKeys = getRequiredKeysForUseCase()
+    
+    if (data.length > 0) {
+      try {
+        setIsProcessingKeyMapping(true)
+        const availableKeys = Object.keys(data[0])
+        
+        console.log('Processing key mapping:', {
+          requiredKeys: apiRequiredKeys,
+          availableKeys
+        })
+        
+        // Always attempt key mapping, even if no specific required keys from API
+        // This helps with column standardization and mapping
+        const keysToMap = apiRequiredKeys.length > 0 ? apiRequiredKeys : availableKeys
+        const mapping = await processKeyMapping(keysToMap, availableKeys)
+        
+        console.log('Key mapping result:', {
+          apiRequiredKeys,
+          availableKeys,
+          keysToMap,
+          mapping
+        })
+        
+        setKeyMapping(mapping)
+        setRequiredKeys(keysToMap)
+        
+        // After key mapping, validate that the transformed data has all required fields
+        if (apiRequiredKeys.length > 0) {
+          const transformedData = data.map(row => {
+            const transformedRow: any = {}
+            apiRequiredKeys.forEach(requiredKey => {
+              const mappedKey = mapping[requiredKey]
+              if (mappedKey && row[mappedKey] !== undefined) {
+                transformedRow[requiredKey] = row[mappedKey]
+              } else {
+                transformedRow[requiredKey] = '' // Set empty for missing mapped fields
+              }
+            })
+            return transformedRow
+          })
+          
+          // Check for missing required fields in transformed data
+          const missingFields: string[] = []
+          console.log('Validating transformed data:', {
+            apiRequiredKeys,
+            transformedDataSample: transformedData[0],
+            mapping
+          })
+          
+          apiRequiredKeys.forEach(requiredKey => {
+            const hasData = transformedData.some(row => {
+              // Check both the required key and the original mapped field
+              const value = row[requiredKey]
+              return value && value.toString().trim() !== ''
+            })
+            
+            console.log(`Checking required key "${requiredKey}":`, {
+              hasData,
+              mappedKey: mapping[requiredKey],
+              sampleValue: transformedData[0]?.[requiredKey]
+            })
+            
+            if (!hasData) {
+              // Double-check by looking at the mapping
+              const mappedKey = mapping[requiredKey]
+              if (mappedKey) {
+                const hasOriginalData = data.some(row => {
+                  const value = row[mappedKey]
+                  return value && value.toString().trim() !== ''
+                })
+                console.log(`Double-checking original data for "${mappedKey}":`, {
+                  hasOriginalData,
+                  sampleOriginalValue: data[0]?.[mappedKey]
+                })
+                if (!hasOriginalData) {
+                  missingFields.push(requiredKey)
+                }
+              } else {
+                console.log(`No mapping found for required key "${requiredKey}"`)
+                missingFields.push(requiredKey)
+              }
+            }
+          })
+          
+          if (missingFields.length > 0) {
+            setMissingColumns(missingFields)
+            setParseErrors([`Missing required data after column mapping: ${missingFields.join(', ')}`])
+            toast({
+              title: "Missing Required Data",
+              description: `Some required fields are missing data: ${missingFields.join(', ')}`,
+              variant: "destructive",
+            })
+          } else {
+            setMissingColumns([])
+            setParseErrors([])
+            // Apply the transformed data for display
+            if (isGoogleDriveData) {
+              setGoogleDriveData(transformedData)
+            } else {
+              setUploadedData(transformedData)
+            }
+            toast({
+              title: "File Processed",
+              description: "Column mapping completed successfully.",
+            })
+          }
+        } else {
+          // No specific required keys from API, but still apply any mapping that was done
+          const mappedData = data.map(row => {
+            const mappedRow: any = {}
+            Object.keys(row).forEach(originalKey => {
+              // Find if this key has a mapping
+              const mappedKey = Object.keys(mapping).find(reqKey => mapping[reqKey] === originalKey)
+              if (mappedKey) {
+                mappedRow[mappedKey] = row[originalKey]
+              } else {
+                mappedRow[originalKey] = row[originalKey]
+              }
+            })
+            return mappedRow
+          })
+          
+          if (isGoogleDriveData) {
+            setGoogleDriveData(mappedData)
+          } else {
+            setUploadedData(mappedData)
+          }
+          setMissingColumns([])
+          setParseErrors([])
+          toast({
+            title: "File Processed",
+            description: "Column mapping completed successfully.",
+          })
+        }
+        
+        // Store the mapping and uploaded data
+        updateKeyMapping(keysToMap, mapping)
+        updateUploadedData(data)
+        
+      } catch (error) {
+        console.error('Error processing key mapping:', error)
+        toast({
+          title: "Warning",
+          description: "Column mapping failed. Using available columns as-is.",
+          variant: "destructive",
+        })
+        
+        // Fallback: use available keys directly
+        const availableKeys = Object.keys(data[0])
+        setRequiredKeys(availableKeys)
+        updateUploadedData(data)
+      } finally {
+        setIsProcessingKeyMapping(false)
+      }
+    }
   }
   const [agentError, setAgentError] = useState<string | null>(null)
   const [playingAgentId, setPlayingAgentId] = useState<string | null>(null)
@@ -377,13 +615,24 @@ export default function CampaignSetup() {
         throw new Error('The file appears to be empty.')
       }
       
-      // Parse the CSV data using the existing parser
+      // Parse the CSV data using the existing parser with dynamic columns
       const csvFile = new File([csvText], 'google-drive-data.csv', { type: 'text/csv' })
-      const parsedData = await parseUploadedFile(csvFile)
+      const apiRequiredKeys = getRequiredKeysForUseCase()
+      const parsedData = await parseUploadedFile(csvFile, apiRequiredKeys.length > 0 ? apiRequiredKeys : undefined)
       
-      // Set the parsed data
+      // Set the parsed data initially
       setGoogleDriveData(parsedData.data)
       setCampaignData(prev => ({ ...prev, totalRecords: parsedData.data.length }))
+      
+      // Always use new mapping system for Google Drive data
+      setUploadedData(parsedData.data)
+      setCsvParseResult(parsedData)
+      setShowCSVMappingStep(true)
+      
+      // OLD MAPPING SYSTEM - COMMENTED OUT
+      // Process key mapping for the parsed data
+      // await processUploadedFile(parsedData.data, 'google-drive-data.csv', true)
+      
       setGoogleDriveComplete(true)
       
       // Clear any previous errors
@@ -422,12 +671,10 @@ export default function CampaignSetup() {
   useEffect(() => {
     const params = extractUrlParams()
     setUrlParams(params)
-    console.log('Extracted URL params:', params)
   }, [])
 
   // Fetch agents based on selected use case
   const loadAgents = useCallback(async () => {
-    console.log('loadAgents called with URL params:', urlParams)
     
     if (!urlParams.enterprise_id || !urlParams.team_id) {
       console.error('Missing enterprise_id or team_id in URL params:', {
@@ -443,39 +690,58 @@ export default function CampaignSetup() {
     
     try {
       // Determine agent parameters based on use case
-      let agentUseCase = 'recall_notification'
-      let agentType = 'Service'
+      let agentType = selectedCategory === 'sales' ? 'Sales' : 'Service'
       
-      if (selectedCategory === 'sales') {
-        agentType = 'Sales'
-        // Map sales use cases to appropriate agent use cases
-        const salesUseCaseMapping: { [key: string]: string } = {
-          'lead-qualification': 'lead_qualification',
-          'lead-enrichment': 'lead_enrichment',
-          'price-drop-alert': 'price_drop_alert',
-          'new-arrival-alert': 'new_arrival_alert'
-        }
-        agentUseCase = salesUseCaseMapping[campaignData.subUseCase] || 'sales_general'
-      } else if (campaignData.subUseCase === 'recall-notification') {
-        agentUseCase = 'recall_notification'
-        agentType = 'Service'
+      // Convert subUseCase to agent use case format (lowercase with underscores)
+      let agentUseCase = 'recall_notification' // Default fallback
+      
+      if (campaignData.subUseCase) {
+        // Convert kebab-case to lowercase with underscores
+        agentUseCase = campaignData.subUseCase.replace(/-/g, '_').toLowerCase()
       }
       
-      console.log('Fetching agents with params:', {
+      console.log('Agent loading parameters:', {
         enterpriseId: urlParams.enterprise_id,
         teamId: urlParams.team_id,
         agentUseCase,
         agentType,
-        agentCallType: 'outbound'
+        selectedCategory,
+        subUseCase: campaignData.subUseCase
       })
       
-      const agents = await fetchAgentList(
+      
+      // First try to get outbound agents for the specific use case
+      let agents = await fetchAgentList(
         urlParams.enterprise_id,
         urlParams.team_id,
         agentUseCase,
         agentType,
         'outbound'
       )
+      
+      // If no outbound agents found, try to get any agents for the use case
+      if (!agents || agents.length === 0) {
+        console.log('No outbound agents found, trying to get any agents for use case:', agentUseCase)
+        agents = await fetchAgentList(
+          urlParams.enterprise_id,
+          urlParams.team_id,
+          agentUseCase,
+          agentType,
+          undefined // Don't filter by call type
+        )
+      }
+      
+      // If still no agents found, try without use case filter (get all agents for the type)
+      if (!agents || agents.length === 0) {
+        console.log('No agents found for specific use case, trying to get all agents for type:', agentType)
+        agents = await fetchAgentList(
+          urlParams.enterprise_id,
+          urlParams.team_id,
+          undefined, // Don't filter by use case
+          agentType,
+          undefined // Don't filter by call type
+        )
+      }
       
       console.log('Fetched agents:', agents)
       setAvailableAgents(agents)
@@ -492,6 +758,28 @@ export default function CampaignSetup() {
     }
   }, [urlParams, selectedCategory, campaignData.subUseCase])
 
+  // Load campaign types on component mount
+  useEffect(() => {
+    const loadCampaignTypes = async () => {
+      try {
+        setIsLoadingCampaignTypes(true)
+        const response = await fetchCampaignTypes()
+        setCampaignTypes(response)
+      } catch (error) {
+        console.error('Error loading campaign types:', error)
+        toast({
+          title: "Error",
+          description: "Failed to load campaign types. Using default options.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoadingCampaignTypes(false)
+      }
+    }
+
+    loadCampaignTypes()
+  }, [])
+
   // Load agents when any use case is selected and URL params are available
   useEffect(() => {
     if (campaignData.subUseCase && urlParams.enterprise_id && urlParams.team_id) {
@@ -502,6 +790,131 @@ export default function CampaignSetup() {
       setAgentError(null)
     }
   }, [campaignData.subUseCase, urlParams.enterprise_id, urlParams.team_id, loadAgents])
+
+  // Load stored campaign data on mount
+  useEffect(() => {
+    const stored = getCampaignData()
+    if (stored?.campaignId) {
+      setStoredCampaignId(stored.campaignId)
+    }
+  }, [])
+
+  // Function to clear campaign data and start fresh
+  const startFreshCampaign = () => {
+    clearCampaignData()
+    setStoredCampaignId(null)
+    setKeyMapping(null)
+    setShowCSVMappingStep(false)
+    setCsvParseResult(null)
+    setRequiredKeys([])
+    setCampaignData({
+      campaignName: '',
+      useCase: 'sales',
+      subUseCase: '',
+      bcdDetails: '',
+      fileName: '',
+      schedule: 'now',
+      scheduledDate: '',
+      scheduledEndDate: '',
+      scheduledTime: '',
+      totalRecords: 0,
+      channels: {
+        email: false,
+        sms: true,
+        voiceAi: true,
+      },
+      scriptTemplate: {
+        voiceIntroduction: "Hi {first_name}, I have exciting news! We just received the {vehicle_interest} that matches what you were looking for. It's exactly what you described – would you like me to hold it for a test drive today or tomorrow?",
+        corePitch: '',
+        objectionHandling: '',
+        legalConsent: 'This call may be recorded for quality purposes.',
+        optOut: 'Reply STOP to opt out of future messages.',
+        handoffOffer: 'Would you like me to connect you with a specialist?',
+      },
+      compliance: {
+        includeRecordingConsent: true,
+        includeSmsOptOut: true,
+      },
+      maxRetryAttempts: 3,
+      retryDelayMinutes: 60,
+      callWindowStart: '09:00',
+      callWindowEnd: '17:00',
+      timezone: 'America/New_York',
+      doNotCallList: true,
+      maxCallsPerHour: 50,
+      maxCallsPerDay: 200,
+      maxConcurrentCalls: 5,
+      voicemailStrategy: 'leave_message',
+      disconnectedCallRetry: true,
+      busySignalRetry: true,
+      noAnswerRetry: true,
+      busyCustomerRetry: true,
+      voicemailMessage: '',
+      primaryGoal: 'book_test_drive',
+      secondaryActions: {
+        sendInventoryLink: false,
+        emailQuote: false,
+        textFinanceLink: false,
+      },
+      handoffSettings: {
+        target: 'round_robin',
+        businessHoursStart: '09:00',
+        businessHoursEnd: '17:00',
+      },
+      escalationTriggers: {
+        leadRequestsPerson: false,
+        complexFinancing: false,
+        pricingNegotiation: false,
+        technicalQuestions: false,
+      }
+    })
+    setCurrentStep(1)
+    setSelectedAgent(null)
+    setUploadedData([])
+    setUploadComplete(false)
+    setHasError(false)
+    toast({
+      title: "Campaign Reset",
+      description: "Starting fresh campaign setup.",
+    })
+  }
+
+  // Handle CSV mapping completion
+  const handleCSVMappingComplete = async (mappedData: any[], keyMapping: Record<string, string>) => {
+    console.log('CSV mapping completed:', { mappedData, keyMapping })
+    
+    // Update the uploaded data with mapped data
+    setUploadedData(mappedData)
+    setKeyMapping(keyMapping)
+    
+    // Hide the mapping step
+    setShowCSVMappingStep(false)
+    
+    // Continue with traditional flow if needed
+    if (mappedData.length > 0) {
+      // Update campaign data
+      setCampaignData(prev => ({ ...prev, totalRecords: mappedData.length }))
+      
+      // OLD MAPPING SYSTEM - COMMENTED OUT
+      // Process any additional key mapping if needed
+      // await processUploadedFile(mappedData, 'mapped-data.csv', false)
+    }
+  }
+
+  // Handle skipping the new mapping system (DEPRECATED - not used anymore)
+  const handleSkipCSVMapping = async () => {
+    console.log('Skip mapping called - this should not happen anymore')
+    // Do nothing since we always use the new mapping system
+    
+    // OLD MAPPING SYSTEM - COMMENTED OUT
+    // console.log('Skipping new CSV mapping system')
+    // setShowCSVMappingStep(false)
+    // setUseNewMappingSystem(false)
+    // Continue with traditional key mapping
+    // if (uploadedData.length > 0) {
+    //   await processUploadedFile(uploadedData, 'uploaded-data.csv')
+    // }
+  }
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -533,27 +946,48 @@ export default function CampaignSetup() {
       // Test the import
       console.log('parseUploadedFile function:', typeof parseUploadedFile)
       
-      // Parse the uploaded file
-      const parseResult = await parseUploadedFile(file)
+      // Get API required keys for dynamic validation
+      const apiRequiredKeys = getRequiredKeysForUseCase()
+      console.log('Using required columns for validation:', apiRequiredKeys)
+      
+      // Parse the uploaded file with dynamic required columns
+      const parseResult = await parseUploadedFile(file, apiRequiredKeys.length > 0 ? apiRequiredKeys : undefined)
       console.log('Parse result:', parseResult)
       
       // Complete the progress
       clearInterval(progressInterval)
       setUploadProgress(100)
-      setTimeout(() => {
+      setTimeout(async () => {
         setIsUploading(false)
         
-        if (parseResult.success) {
+        // File parsing is now always successful if we have data
+        // The actual validation happens after key mapping
+        if (parseResult.data && parseResult.data.length > 0) {
           console.log('File parsed successfully:', parseResult.totalRecords, 'records')
-          setUploadComplete(true)
           setUploadedData(parseResult.data)
           setCampaignData(prev => ({ ...prev, totalRecords: parseResult.totalRecords }))
+          setCsvParseResult(parseResult)
+          
+          // Always use the new CSV mapping system for better UX
+          setShowCSVMappingStep(true)
+          setUploadComplete(true) // Still set this to show the file was processed
+          
+          // OLD MAPPING SYSTEM - COMMENTED OUT
+          // Check if we should use the new mapping system
+          // if (useNewMappingSystem) {
+          //   // Show the new CSV mapping step (regardless of auto-suggestions)
+          //   setShowCSVMappingStep(true)
+          //   setUploadComplete(true) // Still set this to show the file was processed
+          // } else {
+          //   // Use the traditional key mapping system
+          //   await processUploadedFile(parseResult.data, file.name)
+          //   setUploadComplete(true)
+          // }
         } else {
-          console.log('File parsing failed:', parseResult.errors)
+          console.log('File parsing failed - no data extracted')
           setHasError(true)
-          setParseErrors(parseResult.errors)
-          setMissingColumns(parseResult.missingColumns)
           setUploadedData([])
+          setParseErrors(parseResult.errors)
         }
       }, 500)
       
@@ -648,33 +1082,54 @@ export default function CampaignSetup() {
             }
           } else {
             // For date range filter, validate date/time fields
-          if (!vinSolutionsStartDate || !vinSolutionsEndDate) {
+            if (!vinSolutionsStartDate || !vinSolutionsEndDate) {
               newErrors.vinSolutionsDateRange = true
-            missingFields.push('Date Range Selection')
-            isValid = false
-          } else if (!vinSolutionsStartTime || !vinSolutionsEndTime) {
+              missingFields.push('Date Range Selection')
+              isValid = false
+            } else if (!vinSolutionsStartTime || !vinSolutionsEndTime) {
               newErrors.vinSolutionsDateRange = true
-            missingFields.push('Time Range Selection')
-            isValid = false
-          } else if (new Date(vinSolutionsStartDate) > new Date(vinSolutionsEndDate)) {
+              missingFields.push('Time Range Selection')
+              isValid = false
+            } else if (new Date(vinSolutionsStartDate) > new Date(vinSolutionsEndDate)) {
               newErrors.vinSolutionsDateRange = true
-            missingFields.push('Valid Date Range (Start date must be before end date)')
-            isValid = false
+              missingFields.push('Valid Date Range (Start date must be before end date)')
+              isValid = false
+            }
           }
+          
+          // Also check if there are missing required fields after key mapping
+          if (uploadComplete && missingColumns.length > 0) {
+            newErrors.crmSelection = true
+            missingFields.push(`Missing required data: ${missingColumns.join(', ')}`)
+            isValid = false
           }
         } else if (selectedUploadOption === 'drive') {
           if (!googleDriveLink.trim()) {
             newErrors.googleDriveLink = true
-          missingFields.push('Google Drive Link')
-          isValid = false
+            missingFields.push('Google Drive Link')
+            isValid = false
           } else if (!googleDriveComplete) {
             newErrors.googleDriveLink = true
             missingFields.push('Google Drive Data Import (please fetch and validate the data)')
             isValid = false
           }
+          
+          // Also check if there are missing required fields after key mapping
+          if (googleDriveComplete && missingColumns.length > 0) {
+            newErrors.googleDriveLink = true
+            missingFields.push(`Missing required data: ${missingColumns.join(', ')}`)
+            isValid = false
+          }
         } else if (selectedUploadOption === 'upload' && !uploadComplete) {
           newErrors.fileUpload = true
           missingFields.push('CSV File Upload')
+          isValid = false
+        }
+        
+        // Also check if there are missing required fields after key mapping
+        if (uploadComplete && missingColumns.length > 0) {
+          newErrors.fileUpload = true
+          missingFields.push(`Missing required data: ${missingColumns.join(', ')}`)
           isValid = false
         }
       } else {
@@ -685,22 +1140,32 @@ export default function CampaignSetup() {
           if (!scrollTarget) scrollTarget = fileUploadRef
           isValid = false
         }
+        
+        // Also check if there are missing required fields after key mapping
+        if (uploadComplete && missingColumns.length > 0) {
+          newErrors.fileUpload = true
+          missingFields.push(`Missing required data: ${missingColumns.join(', ')}`)
+          if (!scrollTarget) scrollTarget = fileUploadRef
+          isValid = false
+        }
       }
     } else if (step === 3) {
       if (selectedCategory === 'sales') {
-        // For sales campaigns, both start and end dates are required
-        if (!campaignData.scheduledDate) {
-          newErrors.scheduledDate = true
-          missingFields.push('Start Date')
-          if (!scrollTarget) scrollTarget = scheduleRef
-          isValid = false
-        }
-        
-        if (!campaignData.scheduledEndDate) {
-          newErrors.scheduledEndDate = true
-          missingFields.push('End Date')
-          if (!scrollTarget) scrollTarget = scheduleRef
-          isValid = false
+        // For sales campaigns, dates are only required if scheduled (not for "Start Now")
+        if (campaignData.schedule === 'scheduled') {
+          if (!campaignData.scheduledDate) {
+            newErrors.scheduledDate = true
+            missingFields.push('Start Date')
+            if (!scrollTarget) scrollTarget = scheduleRef
+            isValid = false
+          }
+          
+          if (!campaignData.scheduledEndDate) {
+            newErrors.scheduledEndDate = true
+            missingFields.push('End Date')
+            if (!scrollTarget) scrollTarget = scheduleRef
+            isValid = false
+          }
         }
         
         // Validate date relationship if both dates are provided
@@ -816,6 +1281,41 @@ export default function CampaignSetup() {
     return isValid
   }
 
+  // Store initial campaign data locally after agent selection (no API call yet)
+  const storeInitialCampaignData = () => {
+    if (!selectedAgent || !urlParams.enterprise_id || !urlParams.team_id) {
+      console.error('Missing required data for campaign data storage')
+      return
+    }
+
+    try {
+      // Store campaign data locally without API call
+      storeCampaignData({
+        campaignName: campaignData.campaignName,
+        useCase: selectedCategory,
+        subUseCase: campaignData.subUseCase,
+        selectedAgent: selectedAgent.id,
+        teamAgentMappingId: selectedAgent.agentId || selectedAgent.id,
+        enterpriseId: urlParams.enterprise_id,
+        teamId: urlParams.team_id
+      })
+      
+      console.log('Campaign data stored locally for:', campaignData.campaignName)
+      
+      toast({
+        title: "Campaign Details Saved",
+        description: "Campaign configuration has been saved. Continue to upload customer data.",
+      })
+    } catch (error) {
+      console.error('Error storing campaign data:', error)
+      toast({
+        title: "Error",
+        description: "Failed to save campaign data. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
   const nextStep = async () => {
     const maxStep = selectedCategory === 'sales' ? 5 : 4
     
@@ -823,6 +1323,11 @@ export default function CampaignSetup() {
       // Validate current step before proceeding
       if (!validateStep(currentStep)) {
         return // Stop if validation fails
+      }
+
+      // Store initial campaign data after step 1 (Campaign Details) if agent is selected
+      if (currentStep === 1 && selectedAgent) {
+        storeInitialCampaignData()
       }
 
       // If we're launching the campaign (moving from step 3 to 4 for service, or step 4 to 5 for sales), create and save the campaign
@@ -844,8 +1349,6 @@ export default function CampaignSetup() {
     const effectiveEnterpriseId = urlParams.enterprise_id 
     const effectiveTeamId = urlParams.team_id 
     
-
-    console.log('Using enterprise_id:', effectiveEnterpriseId, 'team_id:', effectiveTeamId)
 
     try {
       setIsLaunching(true)
@@ -875,11 +1378,19 @@ export default function CampaignSetup() {
         }
       }
       
+      console.log('Campaign data for transformation:', {
+        effectiveUploadedData,
+        uploadedDataLength: effectiveUploadedData?.length,
+        cleanCampaignDataUploadedData: cleanCampaignData.uploadedData,
+        sampleData: effectiveUploadedData?.[0]
+      })
+      
       const payload = transformCampaignData(
         cleanCampaignData,
         effectiveEnterpriseId,
         effectiveTeamId,
-        agentId
+        agentId,
+        storedCampaignId || undefined // Pass the stored campaign ID for final launch
       )
 
       console.log('Launching campaign with payload:', payload)
@@ -991,7 +1502,7 @@ export default function CampaignSetup() {
   }
 
   const getRequiredFields = () => {
-    return REQUIRED_CSV_COLUMNS
+    return getDisplayColumns()
   }
 
   const resetUpload = () => {
@@ -1129,7 +1640,7 @@ export default function CampaignSetup() {
                           What type of campaign would you like to run?
                         </div>
                         <div className="flex flex-wrap gap-3">
-                          {useCases[selectedCategory].subCases.map((subCase) => (
+                          {getDynamicUseCases()[selectedCategory].subCases.map((subCase: any) => (
                             <button
                               key={subCase.value}
                               type="button"
@@ -1369,7 +1880,7 @@ export default function CampaignSetup() {
                     <div className="flex flex-wrap gap-2">
                       {getRequiredFields().map((field) => (
                         <Badge key={field} variant="outline" className="border-[#3B82F6] text-[#3B82F6] text-[12px] bg-white rounded-full">
-                          {field}
+                          {field.replace(/[_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                         </Badge>
                       ))}
                     </div>
@@ -1711,9 +2222,22 @@ export default function CampaignSetup() {
                                   <span className="ml-3 text-[14px] text-[#6B7280]">Fetching data from Google Drive...</span>
                                 </div>
                               )}
+
+                              {/* Key Mapping Processing State for Google Drive */}
+                              {!isGoogleDriveLoading && isProcessingKeyMapping && googleDriveData.length > 0 && (
+                                <div className="flex items-center justify-center py-8">
+                                  <div className="flex items-center space-x-3">
+                                    <Loader2 className="h-5 w-5 animate-spin text-[#4600F2]" />
+                                    <div>
+                                      <p className="text-[14px] font-semibold text-[#1A1A1A]">Processing column mapping...</p>
+                                      <p className="text-[12px] text-[#6B7280]">Analyzing imported data structure</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                               
                               {/* Success State - Show Parsed Data */}
-                              {googleDriveComplete && googleDriveData.length > 0 && (
+                              {googleDriveComplete && googleDriveData.length > 0 && !isProcessingKeyMapping && (
                                 <div className="mt-4">
                                   <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                                     <div className="flex items-start">
@@ -1888,12 +2412,9 @@ export default function CampaignSetup() {
                                       onClick={(e) => {
                                         e.preventDefault()
                                         e.stopPropagation()
-                                        console.log('Browse Files clicked for sales upload')
                                         const fileInput = document.getElementById('sales-file-upload') as HTMLInputElement
-                                        console.log('File input found:', !!fileInput)
                                         if (fileInput) {
                                           fileInput.click()
-                                          console.log('File input clicked')
                                         }
                                       }}
                                     >
@@ -1936,6 +2457,8 @@ export default function CampaignSetup() {
                                       <p className="text-sm font-medium text-green-800">File uploaded successfully</p>
                                       <p className="text-xs text-green-600 mt-1">
                                         {campaignData.fileName} • {campaignData.totalRecords} records
+                                        {isProcessingKeyMapping && " • Processing column mapping..."}
+                                        {keyMapping && " • Column mapping completed"}
                                       </p>
                                     </div>
                                   </div>
@@ -2071,15 +2594,69 @@ export default function CampaignSetup() {
 
               {uploadComplete && !hasError && (
                 <div className="mt-6">
-                  <div className="flex items-center p-6 bg-[#22C55E]/10 border-2 border-[#22C55E] rounded-lg mb-6">
-                    <CheckCircle className="h-6 w-6 text-[#22C55E] mr-4" />
-                    <div>
-                      <p className="font-semibold text-[#1A1A1A] text-[16px]">File uploaded successfully</p>
-                      <p className="text-[#6B7280] text-[14px]">{campaignData.fileName} • {campaignData.totalRecords} rows detected</p>
+                  <div className="flex items-center justify-between p-6 bg-[#22C55E]/10 border-2 border-[#22C55E] rounded-lg mb-6">
+                    <div className="flex items-center">
+                      <CheckCircle className="h-6 w-6 text-[#22C55E] mr-4" />
+                      <div>
+                        <p className="font-semibold text-[#1A1A1A] text-[16px]">File uploaded successfully</p>
+                        <p className="text-[#6B7280] text-[14px]">{campaignData.fileName} • {campaignData.totalRecords} rows detected</p>
+                      </div>
                     </div>
+                    {/* OLD MAPPING SYSTEM TOGGLE - COMMENTED OUT
+                    <div className="flex items-center gap-3">
+                      <Label htmlFor="mapping-system" className="text-sm font-medium text-gray-700">
+                        Use New Mapping System
+                      </Label>
+                      <Checkbox 
+                        id="mapping-system"
+                        checked={useNewMappingSystem}
+                        onCheckedChange={(checked) => {
+                          setUseNewMappingSystem(checked as boolean)
+                          if (checked) {
+                            setShowCSVMappingStep(true)
+                          } else {
+                            setShowCSVMappingStep(false)
+                            // Process with traditional system
+                            if (uploadedData.length > 0) {
+                              processUploadedFile(uploadedData, campaignData.fileName || 'uploaded-data.csv')
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                    */}
                   </div>
 
+                  {/* CSV Mapping Step */}
+                  {showCSVMappingStep && csvParseResult && (
+                    <div className="mb-6">
+                      <CSVMappingStep
+                        csvData={uploadedData}
+                        parseResult={csvParseResult}
+                        existingKeyMapping={keyMapping || undefined}
+                        apiRequiredFields={getRequiredKeysForUseCase()}
+                        onMappingComplete={handleCSVMappingComplete}
+                        onSkipMapping={handleSkipCSVMapping}
+                        showSkipOption={false}
+                      />
+                    </div>
+                  )}
+
+                  {/* Key Mapping Processing Loader */}
+                  {isProcessingKeyMapping && !showCSVMappingStep && (
+                    <div className="flex items-center justify-center p-8 bg-white border border-[#E5E7EB] rounded-lg mb-6">
+                      <div className="flex items-center space-x-3">
+                        <Loader2 className="h-5 w-5 animate-spin text-[#4600F2]" />
+                        <div>
+                          <p className="text-[16px] font-semibold text-[#1A1A1A]">Processing data mapping...</p>
+                          <p className="text-[14px] text-[#6B7280]">Analyzing columns and mapping fields</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Complete Uploaded Data Preview - All 12 Columns */}
+                  {!isProcessingKeyMapping && !showCSVMappingStep && (
                   <div className="border border-[#E5E7EB] rounded-lg bg-white">
                     <div className="bg-[#F4F5F8] border-b border-[#E5E7EB] px-6 py-4">
                       <h3 className="text-[16px] font-semibold text-[#1A1A1A]">Uploaded Data Preview</h3>
@@ -2108,7 +2685,7 @@ export default function CampaignSetup() {
                               {getDisplayColumns().map((field) => (
                                 <td key={field} className="px-2 py-3 text-[#1A1A1A] max-w-[150px]">
                                   <div className="truncate" title={row[field as keyof typeof row]}>
-                                    {row[field as keyof typeof row] || 'N/A'}
+                                    {row[field as keyof typeof row] !== undefined ? row[field as keyof typeof row] : 'N/A'}
                                   </div>
                                 </td>
                               ))}
@@ -2126,6 +2703,7 @@ export default function CampaignSetup() {
                       </div>
                     </div>
                   </div>
+                  )}
                 </div>
               )}
 
@@ -2135,16 +2713,18 @@ export default function CampaignSetup() {
                     <AlertCircle className="h-6 w-6 text-[#EF4444] mr-4 mt-0.5" />
                     <div className="flex-1">
                       <p className="font-semibold text-[#1A1A1A] text-[16px]">
-                        {missingColumns.length > 0 ? 'Missing Required Columns' : 'File Validation Error'}
+                        {missingColumns.length > 0 ? 'Missing Required Data' : 'File Validation Error'}
                       </p>
                       
                       {missingColumns.length > 0 && (
                         <div className="mb-4">
-                          <p className="text-[#6B7280] text-[14px] mb-2">The following required columns are missing:</p>
+                          <p className="text-[#6B7280] text-[14px] mb-2">
+                            The following required fields are missing data after column mapping:
+                          </p>
                           <div className="flex flex-wrap gap-2 mb-3">
                             {missingColumns.map((column) => (
                               <Badge key={column} variant="outline" className="border-[#EF4444] text-[#EF4444] bg-white">
-                                {column}
+                                {column.replace(/[_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                               </Badge>
                             ))}
                           </div>
@@ -2225,21 +2805,16 @@ export default function CampaignSetup() {
               <div className="bg-transparent border-0 p-0">
                 <div className="mb-4">
                   <h1 className="text-[24px] font-bold text-[#1A1A1A] leading-[1.4]">
-                    {selectedCategory === 'sales' ? 'Call Settings' : 'Review & Schedule'}
+                    Call Settings
                   </h1>
                   <p className="text-[14px] text-[#6B7280] mt-2 leading-[1.5]">
-                    {selectedCategory === 'sales' 
-                      ? 'Configure call pacing, retry logic, and voicemail handling for your sales campaign'
-                      : 'Review your campaign details and schedule execution'
-                    }
+                    Configure call pacing, retry logic, and voicemail handling for your campaign
                   </p>
                 </div>
               </div>
 
-              {selectedCategory === 'sales' ? (
-                <>
-                  {/* Communication Channels */}
-                  <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
+              {/* Communication Channels */}
+              <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
                     <div className="space-y-4">
                       <div>
                         <h3 className="text-[16px] font-bold text-[#1A1A1A]">Communication Channels</h3>
@@ -2320,9 +2895,7 @@ export default function CampaignSetup() {
                       </div>
                     </div>
                   </div>
-                </>
-              ) : (
-                <>
+
                   {/* Campaign Summary */}
                   <div className="bg-white border border-[#E5E7EB] rounded-lg">
                     <div className="bg-[#F4F5F8] border-b border-[#E5E7EB] px-6 py-4">
@@ -2704,13 +3277,8 @@ export default function CampaignSetup() {
                       </div>
                     </div>
                   </div>
-                </>
-              )}
 
-              {/* Sales-specific additional sections */}
-              {selectedCategory === 'sales' && (
-                <>
-                  {/* Schedule & Pacing */}
+              {/* Schedule & Pacing */}
               <div className={`bg-white border rounded-lg p-6 transition-colors ${
                 errors.scheduledDate || errors.scheduledEndDate ? 'border-red-500' : 'border-[#E5E7EB]'
               }`}>
@@ -3025,8 +3593,6 @@ export default function CampaignSetup() {
                   </RadioGroup>
                 </div>
               </div>
-                </>
-              )}
             </div>
           </div>
         )
@@ -3315,6 +3881,22 @@ export default function CampaignSetup() {
             </div>
           </div>
         )
+        
+      case 4:
+        return selectedCategory === 'service' ? (
+          // Service Step 4: Review & Schedule (Final step for service)
+          <div className="max-w-3xl">
+            <div className="space-y-6">
+              <div className="bg-transparent border-0 p-0">
+                <div className="mb-4">
+                  <h1 className="text-[24px] font-bold text-[#1A1A1A] leading-[1.4]">Review & Schedule</h1>
+                  <p className="text-[14px] text-[#6B7280] mt-2 leading-[1.5]">Review your campaign details and schedule execution</p>
+                </div>
+              </div>
+              {/* Review content would go here */}
+            </div>
+          </div>
+        ) : null // Sales step 4 would be handled separately
 
       case 5:
         return (

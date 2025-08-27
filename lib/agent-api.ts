@@ -33,18 +33,24 @@ export interface AgentListResponse {
 export async function fetchAgentList(
   enterpriseId: string, 
   teamId: string, 
-  agentUseCase: string = 'recall_notification',
-  agentType: string = 'Service',
-  agentCallType: string = 'outbound'
+  agentUseCase?: string,
+  agentType?: string,
+  agentCallType?: string
 ): Promise<Agent[]> {
   try {
+    // Build query parameters, only including defined values
+    const params = new URLSearchParams();
+    params.append('enterpriseId', enterpriseId);
+    params.append('teamId', teamId);
+    
+    if (agentUseCase) params.append('agentUseCase', agentUseCase);
+    if (agentType) params.append('agentType', agentType);
+    if (agentCallType) params.append('agentCallType', agentCallType);
+    
     // Use internal API route to avoid CORS issues
-    const url = `/api/fetch-agent-list?enterpriseId=${enterpriseId}&teamId=${teamId}&agentUseCase=${agentUseCase}&agentType=${agentType}&agentCallType=${agentCallType}`;
+    const url = `/api/fetch-agent-list?${params.toString()}`;
         
     const response = await fetch(url);
-
-    console.log('API Response status:', response.status);
-    console.log('API Response ok:', response.ok);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -53,7 +59,6 @@ export async function fetchAgentList(
     }
 
     const agents: Agent[] = await response.json();
-    console.log('API Response data:', agents);
     return agents;
   } catch (error) {
     console.error('Error fetching agent list:', error);

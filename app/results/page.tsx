@@ -124,7 +124,6 @@ export default function CampaignResults() {
         
         if (response.success) {
           setCampaigns(response.campaigns)
-          console.log('Loaded campaigns:', response.campaigns)
         } else {
           throw new Error('Failed to fetch campaigns')
         }
@@ -142,7 +141,6 @@ export default function CampaignResults() {
       try {
         const agentList = await fetchAgentList(enterpriseId, teamId)
         setAgents(agentList)
-        console.log('Loaded agents:', agentList)
       } catch (error) {
         console.error('Error loading agents:', error)
         // Don't fail the whole page if agent fetch fails
@@ -269,14 +267,12 @@ export default function CampaignResults() {
   const formatDate = (dateString: string) => {
     
     if (!dateString) {
-      console.log('Date string is empty or null')
       return 'No date'
     }
     
     const date = new Date(dateString)
     
     if (isNaN(date.getTime())) {
-      console.log('Invalid date detected:', dateString)
       return 'Invalid date'
     }
     

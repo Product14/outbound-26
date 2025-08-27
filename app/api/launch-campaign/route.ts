@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       }
       
       // For recall notification campaigns, validate additional required fields
-      if (payload.campaignUseCase === 'recall_notificaiton') {
+      if (payload.campaignUseCase === 'recall_notification') {
         if (!customer.vin || !customer.recallDescription || !customer.vehicleMake || 
             !customer.vehicleModel || !customer.vehicleYear) {
           return NextResponse.json(
@@ -62,7 +62,6 @@ export async function POST(request: NextRequest) {
     }
     
     const result = await externalResponse.json();
-    console.log('API Response:', JSON.stringify(result, null, 2));
 
     return NextResponse.json(result);
     

@@ -1295,7 +1295,7 @@ export default function CampaignSetup() {
         useCase: selectedCategory,
         subUseCase: campaignData.subUseCase,
         selectedAgent: selectedAgent.id,
-        teamAgentMappingId: selectedAgent.agentId || selectedAgent.id,
+        teamAgentMappingId: selectedAgent.id,
         enterpriseId: urlParams.enterprise_id,
         teamId: urlParams.team_id
       })
@@ -1354,7 +1354,7 @@ export default function CampaignSetup() {
       setIsLaunching(true)
       
       // Transform campaign data to the required payload format
-      const agentId = selectedAgent?.agentId || "agent234" // Use selected agent ID or fallback
+      const agentId = selectedAgent?.id // Use selected agent ID or fallback
       
       // Create a clean campaign data object without script template for API
       // Use Google Drive data if available, otherwise use uploaded file data

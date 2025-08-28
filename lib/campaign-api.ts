@@ -82,6 +82,8 @@ export interface ApiCustomer {
   symptom?: string;
   riskDetails?: string;
   remedySteps?: string;
+  // Allow additional dynamic metadata fields with camel case keys
+  [key: string]: string | number | boolean | undefined;
 }
 
 export interface LaunchCampaignPayload {
@@ -357,14 +359,19 @@ export function transformCampaignData(
     sampleRow: campaignData.uploadedData?.[0]
   })
   
-  const customers: ApiCustomer[] = campaignData.uploadedData?.map((row, index) => {
+  const customers: ApiCustomer[] = campaignData.uploadedData?.map((row: Record<string, any>, index) => {
     console.log(`Processing customer row ${index}:`, row)
     console.log('Available keys in row:', Object.keys(row))
     
     // Helper function to find value by checking multiple possible column names
+    // Now works with camel case keys from parsed data
     const findValue = (possibleKeys: string[]): string => {
       for (const key of possibleKeys) {
-        const value = (row as any)[key]
+        // Convert the possible key to camel case to match the parsed data
+        const camelKey = key.replace(/[^a-zA-Z0-9]+(.)/g, (_, chr) => chr.toUpperCase())
+                           .replace(/^[A-Z]/, (chr) => chr.toLowerCase());
+        
+        const value = (row as any)[camelKey] || (row as any)[key];
         if (value && value.toString().trim() !== '') {
           return value.toString().trim()
         }
@@ -421,6 +428,28 @@ export function transformCampaignData(
         'Remedy Steps'
       ])
     };
+
+    // Add all additional metadata fields from the parsed data
+    // This ensures all fields from the CSV/Excel are included with camel case keys
+    Object.keys(row).forEach(key => {
+      if (!customer.hasOwnProperty(key)) {
+        // Convert the value appropriately based on its content
+        const value = row[key];
+        if (typeof value === 'string') {
+          const trimmedValue = value.toString().trim();
+          if (trimmedValue !== '') {
+            // Check if it's a boolean field
+            if (trimmedValue.toLowerCase() === 'true' || trimmedValue.toLowerCase() === 'false') {
+              (customer as any)[key] = trimmedValue.toLowerCase() === 'true';
+            } else {
+              (customer as any)[key] = trimmedValue;
+            }
+          }
+        } else if (value !== undefined && value !== null) {
+          (customer as any)[key] = value;
+        }
+      }
+    });
 
     console.log(`Transformed customer ${index}:`, customer)
     return customer;

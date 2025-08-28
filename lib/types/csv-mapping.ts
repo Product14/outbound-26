@@ -114,7 +114,7 @@ export const generateCSVFieldMapping = (
     let spyneProperty: string | null = null;
     let mappingStatus: 'mapped' | 'unmapped' = 'unmapped';
 
-    // Check existing key mapping first
+    // Check existing key mapping first - now works with camel case keys
     if (existingKeyMapping && existingKeyMapping[header]) {
       importAs = existingKeyMapping[header];
       mappingStatus = 'mapped';

@@ -711,7 +711,9 @@ export default function CampaignSetup() {
         agentUseCase,
         agentType,
         selectedCategory,
-        subUseCase: campaignData.subUseCase
+        subUseCase: campaignData.subUseCase,
+        originalSubUseCase: campaignData.subUseCase,
+        convertedAgentUseCase: agentUseCase
       })
       
       
@@ -2656,7 +2658,7 @@ export default function CampaignSetup() {
                               </td>
                               {getDisplayColumns().map((field: string) => (
                                 <td key={field} className="px-2 py-3 text-[#1A1A1A] max-w-[150px]">
-                                  <div className="truncate" title={row[field as keyof typeof row]}>
+                                  <div className="truncate" title={String(row[field as keyof typeof row] || '')}>
                                     {row[field as keyof typeof row] !== undefined ? row[field as keyof typeof row] : 'N/A'}
                                   </div>
                                 </td>

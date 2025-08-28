@@ -1,19 +1,9 @@
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+import { convertKeysToCamelCase } from './utils';
 
 export interface ParsedCustomerData {
-  CustomerFullName: string;
-  ContactPhoneNumber: string;
-  VIN: string;
-  RecallDescription: string;
-  VehicleMake: string;
-  VehicleModel: string;
-  VehicleYear: string;
-  PartsAvailabilityFlag: string;
-  LoanerEligibility: string;
-  Symptom: string;
-  RiskDetails: string;
-  RemedySteps: string;
+  [key: string]: string | number | boolean;
 }
 
 export const REQUIRED_CSV_COLUMNS = [
@@ -125,7 +115,10 @@ export function parseCSVFile(file: File, requiredColumns: string[] = REQUIRED_CS
           Object.keys(row).forEach(key => {
             rowData[key] = row[key]?.toString().trim() || '';
           });
-          validData.push(rowData);
+          
+          // Convert all keys to camel case to ensure consistent metadata format
+          const camelCaseRowData = convertKeysToCamelCase(rowData);
+          validData.push(camelCaseRowData);
         });
 
         // Generate mapping suggestions
@@ -207,7 +200,10 @@ export function parseExcelFile(file: File, requiredColumns: string[] = REQUIRED_
           Object.keys(rowObj).forEach(key => {
             dynamicRowData[key] = rowObj[key] || '';
           });
-          validData.push(dynamicRowData);
+          
+          // Convert all keys to camel case to ensure consistent metadata format
+          const camelCaseRowData = convertKeysToCamelCase(dynamicRowData);
+          validData.push(camelCaseRowData);
         }
 
         // Generate mapping suggestions for Excel

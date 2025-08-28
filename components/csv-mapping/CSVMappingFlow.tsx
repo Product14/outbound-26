@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, ArrowRight, Upload } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -7,14 +7,11 @@ import { toast } from 'sonner';
 
 import CSVFieldMappingTable from './CSVFieldMappingTable';
 import DataPreviewTable from './DataPreviewTable';
-import { 
-  CSVFieldMapping, 
-  generateCSVFieldMapping, 
+import {
+  CSVFieldMapping,
+  generateCSVFieldMapping,
   validateMappingCompleteness,
-  requiresSpyneProperty,
-  getSpynePropertiesForImport,
-  getImportCategoryFromValue,
-  CAMPAIGN_MAPPING_CONFIG 
+  getImportCategoryFromValue
 } from '@/lib/types/csv-mapping';
 
 // Step indicator component
@@ -94,53 +91,26 @@ export default function CSVMappingFlow({
         idx !== index &&
         item.importAs === value &&
         item.mappingStatus === 'mapped' &&
-        !requiresSpyneProperty(value) &&
+
         value !== 'do_not_import'
     );
 
     if (isAlreadyMapped) {
-      const config = Object.values(CAMPAIGN_MAPPING_CONFIG).find(c => c.value === value);
-      toast.error(`${config?.label || value} can only be mapped to one column`);
+      const readableLabel = getImportCategoryFromValue(value);
+      toast.error(`${readableLabel} can only be mapped to one column`);
       return;
     }
 
     mapping.importAs = value;
     mapping.spyneProperty = null;
     
-    // Update mapping status based on whether spyne properties are required
-    if (requiresSpyneProperty(value)) {
-      mapping.mappingStatus = 'unmapped';
-    } else {
-      mapping.mappingStatus = value === 'do_not_import' ? 'mapped' : 'mapped';
-    }
+    // Update mapping status
+    mapping.mappingStatus = value === 'do_not_import' ? 'mapped' : 'mapped';
     
     setCsvMappings(updatedMappings);
   };
 
-  // Handle spyne property change
-  const handleSpynePropertyChange = (index: number, value: string) => {
-    const updatedMappings = [...csvMappings];
-    const mapping = updatedMappings[index];
-    
-    // Check if this spyne property is already mapped
-    const isAlreadyMapped = updatedMappings.some(
-      (item, idx) => 
-        idx !== index &&
-        item.spyneProperty === value &&
-        item.mappingStatus === 'mapped'
-    );
 
-    if (isAlreadyMapped) {
-      const spyneProperties = getSpynePropertiesForImport(mapping.importAs);
-      const property = spyneProperties.find(p => p.value === value);
-      toast.error(`${property?.label || value} can only be mapped to one column`);
-      return;
-    }
-
-    mapping.spyneProperty = value;
-    mapping.mappingStatus = 'mapped';
-    setCsvMappings(updatedMappings);
-  };
 
   // Generate preview data based on current mappings
   const generatePreviewData = () => {
@@ -202,43 +172,7 @@ export default function CSVMappingFlow({
     });
   };
 
-  // Handle next step
-  const handleNext = () => {
-    if (currentStep === 0) {
-      // Validate mappings before proceeding
-      const validation = validateMappingCompleteness(csvMappings, apiRequiredFields);
-      
-      if (!validation.isValid) {
-        toast.error(
-          `Missing required mappings: ${validation.missingRequired.join(', ')}`
-        );
-        return;
-      }
 
-      if (validation.unmappedCount > 0) {
-        toast.warning(
-          `${validation.unmappedCount} column(s) are not mapped and will be ignored`
-        );
-      }
-
-      // Generate preview data
-      const preview = generatePreviewData();
-      setPreviewData(preview);
-      setCurrentStep(1);
-    } else {
-      // Complete the flow
-      onComplete(previewData);
-    }
-  };
-
-  // Handle previous step
-  const handlePrevious = () => {
-    if (currentStep === 0) {
-      onCancel();
-    } else {
-      setCurrentStep(currentStep - 1);
-    }
-  };
 
   // Pagination calculations for preview
   const totalPages = Math.ceil(previewData.length / itemsPerPage);
@@ -248,7 +182,7 @@ export default function CSVMappingFlow({
 
   // Preview table handlers
   const handleInputChange = (field: string, value: string) => {
-    setEditedData(prev => ({ ...prev, [field]: value }));
+    setEditedData((prev: any) => ({ ...prev, [field]: value }));
   };
 
   const handleEditClick = (index: number, rowData: any) => {
@@ -316,7 +250,6 @@ export default function CSVMappingFlow({
         <CSVFieldMappingTable
           csvMappings={csvMappings}
           onImportAsChange={handleImportAsChange}
-          onSpynePropertyChange={handleSpynePropertyChange}
           apiRequiredFields={apiRequiredFields}
         />
       )}
@@ -350,35 +283,7 @@ export default function CSVMappingFlow({
         </div>
       )}
 
-      {/* Navigation */}
-      <div className="flex items-center justify-between">
-        <Button
-          variant="outline"
-          onClick={handlePrevious}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          {currentStep === 0 ? 'Cancel' : 'Previous'}
-        </Button>
 
-        <Button
-          onClick={handleNext}
-          className="flex items-center gap-2"
-          disabled={currentStep === 0 && mappedCount === 0}
-        >
-          {currentStep === steps.length - 1 ? (
-            <>
-              <Upload className="h-4 w-4" />
-              Complete Setup
-            </>
-          ) : (
-            <>
-              Next
-              <ArrowRight className="h-4 w-4" />
-            </>
-          )}
-        </Button>
-      </div>
     </div>
   );
 }

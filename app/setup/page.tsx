@@ -237,22 +237,27 @@ export default function CampaignSetup() {
 
   // Get required keys for the selected use case from API data
   const getRequiredKeysForUseCase = () => {
-    if (!campaignTypes || !campaignData.subUseCase) {
+    if (!campaignData.subUseCase) {
       return []
     }
 
-    const categoryData = campaignTypes.data.find(group => 
-      group.campaignFor.toLowerCase() === selectedCategory.toLowerCase()
-    )
+    // Use the dynamic use cases data which already handles API integration correctly
+    const dynamicUseCases = getDynamicUseCases()
+    const categoryData = dynamicUseCases[selectedCategory]
     
-    if (!categoryData) return []
+    if (!categoryData) {
+      return []
+    }
 
-    const selectedCampaignType = categoryData.campaignTypes.find(type => 
-      type.name === campaignData.subUseCase || 
-      type.name.replace(/[_\s]/g, '-').toLowerCase() === campaignData.subUseCase.replace(/[_\s]/g, '-').toLowerCase()
+    const selectedSubCase = categoryData.subCases.find((subCase: any) => 
+      subCase.value === campaignData.subUseCase
     )
 
-    return selectedCampaignType?.requiredKeys?.map(key => key.name) || []
+    if (!selectedSubCase) {
+      return []
+    }
+
+    return selectedSubCase.requiredFields || []
   }
 
   // Get dynamic use cases from API data
@@ -337,7 +342,7 @@ export default function CampaignSetup() {
         if (apiRequiredKeys.length > 0) {
           const transformedData = data.map(row => {
             const transformedRow: any = {}
-            apiRequiredKeys.forEach(requiredKey => {
+            apiRequiredKeys.forEach((requiredKey: string) => {
               const mappedKey = mapping[requiredKey]
               if (mappedKey && row[mappedKey] !== undefined) {
                 transformedRow[requiredKey] = row[mappedKey]
@@ -356,7 +361,7 @@ export default function CampaignSetup() {
             mapping
           })
           
-          apiRequiredKeys.forEach(requiredKey => {
+          apiRequiredKeys.forEach((requiredKey: string) => {
             const hasData = transformedData.some(row => {
               // Check both the required key and the original mapped field
               const value = row[requiredKey]
@@ -1878,9 +1883,9 @@ export default function CampaignSetup() {
                       </h3>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {getRequiredFields().map((field) => (
+                      {getRequiredFields().map((field: string) => (
                         <Badge key={field} variant="outline" className="border-[#3B82F6] text-[#3B82F6] text-[12px] bg-white rounded-full">
-                          {field.replace(/[_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          {field.replace(/[_]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                         </Badge>
                       ))}
                     </div>
@@ -2594,39 +2599,6 @@ export default function CampaignSetup() {
 
               {uploadComplete && !hasError && (
                 <div className="mt-6">
-                  <div className="flex items-center justify-between p-6 bg-[#22C55E]/10 border-2 border-[#22C55E] rounded-lg mb-6">
-                    <div className="flex items-center">
-                      <CheckCircle className="h-6 w-6 text-[#22C55E] mr-4" />
-                      <div>
-                        <p className="font-semibold text-[#1A1A1A] text-[16px]">File uploaded successfully</p>
-                        <p className="text-[#6B7280] text-[14px]">{campaignData.fileName} • {campaignData.totalRecords} rows detected</p>
-                      </div>
-                    </div>
-                    {/* OLD MAPPING SYSTEM TOGGLE - COMMENTED OUT
-                    <div className="flex items-center gap-3">
-                      <Label htmlFor="mapping-system" className="text-sm font-medium text-gray-700">
-                        Use New Mapping System
-                      </Label>
-                      <Checkbox 
-                        id="mapping-system"
-                        checked={useNewMappingSystem}
-                        onCheckedChange={(checked) => {
-                          setUseNewMappingSystem(checked as boolean)
-                          if (checked) {
-                            setShowCSVMappingStep(true)
-                          } else {
-                            setShowCSVMappingStep(false)
-                            // Process with traditional system
-                            if (uploadedData.length > 0) {
-                              processUploadedFile(uploadedData, campaignData.fileName || 'uploaded-data.csv')
-                            }
-                          }
-                        }}
-                      />
-                    </div>
-                    */}
-                  </div>
-
                   {/* CSV Mapping Step */}
                   {showCSVMappingStep && csvParseResult && (
                     <div className="mb-6">
@@ -2669,7 +2641,7 @@ export default function CampaignSetup() {
                             <th className="px-2 py-3 text-left text-[11px] font-semibold text-[#6B7280] uppercase tracking-wider whitespace-nowrap">
                               #
                             </th>
-                            {getDisplayColumns().map((field) => (
+                            {getDisplayColumns().map((field: string) => (
                               <th key={field} className="px-2 py-3 text-left text-[11px] font-semibold text-[#6B7280] uppercase tracking-wider whitespace-nowrap min-w-[120px]">
                                 {field.replace(/([A-Z])/g, ' $1').trim()}
                               </th>
@@ -2682,7 +2654,7 @@ export default function CampaignSetup() {
                               <td className="px-2 py-3 whitespace-nowrap text-[#6B7280] font-medium">
                                 {index + 1}
                               </td>
-                              {getDisplayColumns().map((field) => (
+                              {getDisplayColumns().map((field: string) => (
                                 <td key={field} className="px-2 py-3 text-[#1A1A1A] max-w-[150px]">
                                   <div className="truncate" title={row[field as keyof typeof row]}>
                                     {row[field as keyof typeof row] !== undefined ? row[field as keyof typeof row] : 'N/A'}

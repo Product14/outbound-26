@@ -88,37 +88,7 @@ export default function DataPreviewTable({
         <div className="flex items-center gap-2 text-sm text-gray-600">
           Showing {indexOfFirstItem + 1} to {Math.min(indexOfFirstItem + itemsPerPage, data.length)} of {data.length} entries
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-          >
-            Previous
-          </Button>
-          
-          {pageNumbers.map((number) => (
-            <Button
-              key={number}
-              variant={currentPage === number ? "default" : "outline"}
-              size="sm"
-              onClick={() => onPageChange(number)}
-              className="w-8 h-8 p-0"
-            >
-              {number}
-            </Button>
-          ))}
-          
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-          >
-            Next
-          </Button>
-        </div>
+        
       </div>
     );
   };

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Check, AlertTriangle } from 'lucide-react';
-import { CSVFieldMapping, getImportAsOptions, getSpynePropertiesForImport, requiresSpyneProperty } from '@/lib/types/csv-mapping';
+import { CSVFieldMapping, getImportAsOptions } from '@/lib/types/csv-mapping';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,14 +8,12 @@ import { Card, CardContent } from '@/components/ui/card';
 interface CSVFieldMappingTableProps {
   csvMappings: CSVFieldMapping[];
   onImportAsChange: (index: number, value: string) => void;
-  onSpynePropertyChange: (index: number, value: string) => void;
   apiRequiredFields?: string[];
 }
 
 export default function CSVFieldMappingTable({
   csvMappings,
   onImportAsChange,
-  onSpynePropertyChange,
   apiRequiredFields,
 }: CSVFieldMappingTableProps) {
   const mappedCount = csvMappings.filter(
@@ -65,16 +63,10 @@ export default function CSVFieldMappingTable({
                   <th className="text-left py-4 px-6 font-medium text-gray-900">
                     Import as
                   </th>
-                  <th className="text-left py-4 px-6 font-medium text-gray-900">
-                    Specific property
-                  </th>
                 </tr>
               </thead>
               <tbody>
                 {csvMappings.map((mapping, index) => {
-                  const spynePropertyOptions = getSpynePropertiesForImport(mapping.importAs);
-                  const isSpynePropertyDisabled = !requiresSpyneProperty(mapping.importAs);
-
                   return (
                     <tr
                       key={index}
@@ -126,34 +118,6 @@ export default function CSVFieldMappingTable({
                           </SelectTrigger>
                           <SelectContent>
                             {importAsOptions.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </td>
-
-                      {/* Spyne Property Dropdown */}
-                      <td className="py-4 px-6">
-                        <Select
-                          value={mapping.spyneProperty || ''}
-                          onValueChange={(value) => onSpynePropertyChange(index, value)}
-                          disabled={isSpynePropertyDisabled}
-                        >
-                          <SelectTrigger 
-                            className={`w-full ${
-                              mapping.mappingStatus !== 'mapped'
-                                ? 'border-red-300 bg-red-50'
-                                : 'border-gray-300'
-                            } ${
-                              isSpynePropertyDisabled ? 'opacity-50 cursor-not-allowed' : ''
-                            }`}
-                          >
-                            <SelectValue placeholder="Select property" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {spynePropertyOptions.map((option) => (
                               <SelectItem key={option.value} value={option.value}>
                                 {option.label}
                               </SelectItem>

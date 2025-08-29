@@ -3,7 +3,7 @@
  */
 
 export type CallStatus = 'Connected' | 'Voice Mail' | 'Failed';
-export type CallOutcome = 'Success' | 'Callback Requested' | 'Not Interested' | 'Wrong Number' | 'No Answer';
+export type CallOutcome = 'Success' | 'Callback Requested' | 'Not Interested' | 'Wrong Number' | 'No Answer' | 'Follow-up Requested';
 export type AppointmentStatus = 'Yes' | 'No';
 
 export interface CallStatusResult {
@@ -36,7 +36,7 @@ export function generateCallStatus(callIndex: number, totalCalls: number): CallS
     status = 'Connected';
     
     // For Connected calls, vary the outcomes
-    const outcomeDistribution = callIndex % 4;
+    const outcomeDistribution = callIndex % 5;
     switch (outcomeDistribution) {
       case 0:
       case 1:
@@ -50,6 +50,11 @@ export function generateCallStatus(callIndex: number, totalCalls: number): CallS
         appointment = (callIndex % 10) < 3 ? 'Yes' : 'No';
         break;
       case 3:
+        outcome = 'Follow-up Requested';
+        // 40% of follow-up requests eventually get appointments
+        appointment = (callIndex % 10) < 4 ? 'Yes' : 'No';
+        break;
+      case 4:
         outcome = 'Not Interested';
         appointment = 'No';
         break;
@@ -97,6 +102,11 @@ export function calculateCampaignStats(totalCalls: number): {
   successRate: number;
   failedCalls: number;
   noAnswerCalls: number;
+  followUpRequested: number;
+  followUpSuccessRate: number;
+  salesConversionRate: number;
+  callsMade: number;
+  callsAnswered: number;
 } {
   let connectedCalls = 0;
   let appointmentCount = 0;
@@ -104,6 +114,8 @@ export function calculateCampaignStats(totalCalls: number): {
   let successfulCalls = 0;
   let failedCalls = 0;
   let noAnswerCalls = 0;
+  let followUpRequested = 0;
+  let followUpAppointments = 0;
   
   for (let i = 0; i < totalCalls; i++) {
     const result = generateCallStatus(i, totalCalls);
@@ -129,10 +141,19 @@ export function calculateCampaignStats(totalCalls: number): {
     if (result.outcome === 'No Answer') {
       noAnswerCalls++;
     }
+    
+    if (result.outcome === 'Follow-up Requested') {
+      followUpRequested++;
+      if (result.appointment === 'Yes') {
+        followUpAppointments++;
+      }
+    }
   }
   
   const answerRate = totalCalls > 0 ? Math.round((connectedCalls / totalCalls) * 100) : 0;
   const successRate = totalCalls > 0 ? Math.round((successfulCalls / totalCalls) * 100) : 0;
+  const followUpSuccessRate = followUpRequested > 0 ? Math.round((followUpAppointments / followUpRequested) * 100) : 0;
+  const salesConversionRate = totalCalls > 0 ? Math.round((appointmentCount / totalCalls) * 100) : 0;
   
   // Calculate average duration
   const avgDurationSeconds = totalCalls > 0 ? Math.round(totalDurationSeconds / totalCalls) : 0;
@@ -140,7 +161,19 @@ export function calculateCampaignStats(totalCalls: number): {
   const avgSeconds = avgDurationSeconds % 60;
   const avgCallDuration = `${avgMinutes}:${avgSeconds.toString().padStart(2, '0')}`;
   
-  return { answerRate, appointmentCount, avgCallDuration, successRate, failedCalls, noAnswerCalls };
+  return { 
+    answerRate, 
+    appointmentCount, 
+    avgCallDuration, 
+    successRate, 
+    failedCalls, 
+    noAnswerCalls,
+    followUpRequested,
+    followUpSuccessRate,
+    salesConversionRate,
+    callsMade: totalCalls,
+    callsAnswered: connectedCalls
+  };
 }
 
 /**
@@ -189,4 +222,70 @@ export function generateCallDuration(callIndex: number, status: CallStatus): str
   const seconds = baseDurationSeconds % 60;
   
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Generates mock vehicle performance data for sales campaigns
+ * @param totalAppointments - Total appointments scheduled
+ * @returns Array of vehicles with appointment counts
+ */
+export function generateTopPerformingVehicles(totalAppointments: number): Array<{
+  vehicle: string;
+  appointments: number;
+  percentage: number;
+}> {
+  const vehicles = [
+    'Toyota Camry',
+    'Honda Civic',
+    'Ford F-150',
+    'Chevrolet Silverado',
+    'Honda Accord',
+    'Toyota Corolla',
+    'Nissan Altima',
+    'Ford Escape',
+    'Chevrolet Equinox',
+    'Toyota RAV4'
+  ];
+
+  // Distribute appointments among vehicles with realistic distribution
+  const distribution = [0.22, 0.18, 0.15, 0.12, 0.10, 0.08, 0.06, 0.04, 0.03, 0.02];
+  
+  return vehicles.slice(0, Math.min(6, vehicles.length)).map((vehicle, index) => {
+    const appointments = Math.max(1, Math.round(totalAppointments * distribution[index]));
+    const percentage = totalAppointments > 0 ? Math.round((appointments / totalAppointments) * 100) : 0;
+    
+    return {
+      vehicle,
+      appointments,
+      percentage
+    };
+  }).filter(v => v.appointments > 0).sort((a, b) => b.appointments - a.appointments);
+}
+
+/**
+ * Generates mock time-based performance data for charts
+ * @returns Array of hourly performance data
+ */
+export function generatePerformanceTimeData(): Array<{
+  hour: string;
+  calls: number;
+  appointments: number;
+  successRate: number;
+}> {
+  const hours = ['9 AM', '10 AM', '11 AM', '12 PM', '1 PM', '2 PM', '3 PM', '4 PM', '5 PM'];
+  
+  return hours.map((hour, index) => {
+    // Peak performance around 10-11 AM and 2-3 PM
+    const peakMultiplier = (index === 1 || index === 2 || index === 5 || index === 6) ? 1.5 : 1.0;
+    const baseCalls = Math.round((20 + Math.random() * 15) * peakMultiplier);
+    const appointments = Math.round(baseCalls * (0.15 + Math.random() * 0.1) * peakMultiplier);
+    const successRate = baseCalls > 0 ? Math.round((appointments / baseCalls) * 100) : 0;
+    
+    return {
+      hour,
+      calls: baseCalls,
+      appointments,
+      successRate
+    };
+  });
 }

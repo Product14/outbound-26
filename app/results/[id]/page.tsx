@@ -11,19 +11,57 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Download, Search, Phone, CheckCircle, Clock, AlertCircle, Calendar, BarChart3, TrendingUp, Users, ArrowLeft, RefreshCw, Loader2, Target, Timer, Check, X, Activity, AlertTriangle, PieChart, Zap } from 'lucide-react'
+import { Download, Search, Phone, CheckCircle, Clock, AlertCircle, Calendar, BarChart3, TrendingUp, Users, ArrowLeft, RefreshCw, Loader2, Target, Timer, Check, X, Activity, AlertTriangle, PieChart, Zap, Play, Pause } from 'lucide-react'
 import Link from "next/link"
 import { fetchCampaignDetails, type CampaignDetailResponse, type CallDetail } from '@/lib/campaign-api'
 import { fetchAgentList, type Agent } from '@/lib/agent-api'
 import { calculateAndFormatEstimatedTime, getShortEstimatedTime } from '@/lib/time-utils'
-import { generateCallStatus, generateCallTime, generateCallDuration, calculateCampaignStats } from '@/lib/call-status-utils'
+import { generateCallStatus, generateCallTime, generateCallDuration, calculateCampaignStats, generateTopPerformingVehicles, generatePerformanceTimeData } from '@/lib/call-status-utils'
 import { buildUrlWithParams } from '@/lib/url-utils'
+import { PerformanceTimeChart } from '@/components/charts/PerformanceTimeChart'
+
 
 // Map API campaign type to display format
 const mapCampaignType = (campaignType: string): string => {
   if (campaignType === 'recall') return 'Service'
   return campaignType // 'Sales', 'Service', etc.
 }
+
+// Calculate service campaign specific statistics
+const calculateServiceCampaignStats = (totalCalls: number) => {
+  const stats = calculateCampaignStats(totalCalls);
+  
+  // Service-specific metrics based on the stats
+  const serviceAppointmentCount = stats.appointmentCount;
+  const serviceCallsMade = stats.callsMade;
+  const serviceConversionRate = serviceCallsMade > 0 ? Math.round((serviceAppointmentCount / serviceCallsMade) * 100) : 0;
+  const followUpRequested = stats.followUpRequested;
+  
+  return {
+    ...stats,
+    serviceCallsMade,
+    serviceAppointmentCount,
+    serviceConversionRate,
+    followUpRequested,
+    serviceAnswerRate: stats.answerRate,
+    serviceAvgCallDuration: stats.avgCallDuration,
+    // Additional service-specific metrics
+    followUpSuccessRate: stats.followUpSuccessRate
+  };
+};
+
+// Generate top performing services for service campaigns
+const generateTopPerformingServices = (totalAppointments: number) => {
+  const services = [
+    { service: 'Oil Change', appointments: Math.round(totalAppointments * 0.35), percentage: 35 },
+    { service: 'Brake Repair', appointments: Math.round(totalAppointments * 0.25), percentage: 25 },
+    { service: 'Tire Service', appointments: Math.round(totalAppointments * 0.20), percentage: 20 },
+    { service: 'Engine Diagnostic', appointments: Math.round(totalAppointments * 0.12), percentage: 12 },
+    { service: 'Transmission Service', appointments: Math.round(totalAppointments * 0.08), percentage: 8 }
+  ];
+  
+  return services.filter(service => service.appointments > 0);
+};
 
 // Generate realistic call quality rating (1-10)
 const generateCallQuality = (index: number, status: string): number => {
@@ -195,12 +233,26 @@ export default function CampaignDetail() {
   // Live feed state
   const [callTimer, setCallTimer] = useState(154) // seconds for current call
   const [newCallAnimation, setNewCallAnimation] = useState(false)
+  
+  // Campaign control state
+  const [campaignRunning, setCampaignRunning] = useState(true)
 
+  // Toggle campaign running state
+  const toggleCampaignStatus = () => {
+    setCampaignRunning(!campaignRunning)
+  }
+
+  // Check if this is a sales campaign to show enhanced tabs
+  const isSalesCampaign = campaignData?.campaign.campaignType === 'Sales'
+  
+  // Check if this is a service campaign to show enhanced tabs
+  const isServiceCampaign = campaignData?.campaign.campaignType === 'recall' || mapCampaignType(campaignData?.campaign.campaignType || '') === 'Service'
+  
   // Calculate realistic campaign stats based on call status logic
   const calculatedStats = campaignData ? calculateCampaignStats(campaignData.campaign.totalCustomers) : null
   
-  // Check if this is a sales campaign to show enhanced tabs
-  const isSalesCampaign = campaignData?.campaign.campaignType === 'Sales'
+  // Calculate service campaign specific stats
+  const serviceStats = campaignData && isServiceCampaign ? calculateServiceCampaignStats(campaignData.campaign.totalCustomers) : null
 
   // Load campaign data when component mounts or campaignId changes
   useEffect(() => {
@@ -211,7 +263,7 @@ export default function CampaignDetail() {
         setIsLoading(true)
         setError(null)
         
-        console.log('Fetching campaign details for:', campaignId)
+       
         const response = await fetchCampaignDetails(campaignId)
         
         if (response.success) {
@@ -280,18 +332,18 @@ export default function CampaignDetail() {
 
   // Live call timer effect
   useEffect(() => {
-    if (activeTab === 'live-activity') {
+    if (activeTab === 'live-activity' && campaignRunning) {
       const timer = setInterval(() => {
         setCallTimer(prev => prev + 1)
       }, 1000)
 
       return () => clearInterval(timer)
     }
-  }, [activeTab])
+  }, [activeTab, campaignRunning])
 
   // Simulate new calls appearing
   useEffect(() => {
-    if (activeTab === 'live-activity') {
+    if (activeTab === 'live-activity' && campaignRunning) {
       const newCallInterval = setInterval(() => {
         setNewCallAnimation(true)
         setTimeout(() => setNewCallAnimation(false), 500)
@@ -299,7 +351,7 @@ export default function CampaignDetail() {
 
       return () => clearInterval(newCallInterval)
     }
-  }, [activeTab])
+  }, [activeTab, campaignRunning])
 
   const formatDate = (date: string | Date) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -402,8 +454,8 @@ export default function CampaignDetail() {
               </div>
               <p className="text-[14px] text-[#6B7280] leading-[1.5] ml-9">View comprehensive campaign performance metrics and detailed call results</p>
               
-              {/* Tabs for Sales Campaigns */}
-              {isSalesCampaign && (
+              {/* Tabs for Sales and Service Campaigns */}
+              {(isSalesCampaign || isServiceCampaign) && (
                 <div className="mt-6">
                   <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <TabsList className="h-auto p-0 bg-transparent border-b border-gray-200 rounded-none justify-start w-full">
@@ -437,7 +489,30 @@ export default function CampaignDetail() {
               )}
             </div>
             
-            {/* Campaign Progress */}
+            {/* Campaign Controls for Sales and Service Campaigns or Progress for Others */}
+            {(isSalesCampaign || isServiceCampaign) ? (
+              <div className="flex items-center gap-3">
+                <div className={`w-2 h-2 rounded-full ${campaignRunning ? 'bg-[#10B981]' : 'bg-[#6B7280]'}`}></div>
+                <Button
+                  onClick={toggleCampaignStatus}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2 px-3 py-1.5 border-[#E5E7EB] text-[#374151] hover:bg-[#F9FAFB] hover:border-[#D1D5DB] text-sm"
+                >
+                  {campaignRunning ? (
+                    <>
+                      <Pause className="w-3.5 h-3.5" />
+                      Pause Campaign
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-3.5 h-3.5" />
+                      Resume Campaign
+                    </>
+                  )}
+                </Button>
+              </div>
+            ) : (
             <div className="flex items-center gap-3">
               <div className="flex flex-col items-end">
                 <div className="text-[12px] font-medium text-[#6B7280] mb-1">Campaign Progress</div>
@@ -515,6 +590,7 @@ export default function CampaignDetail() {
                 )}
               </div>
             </div>
+            )}
           </div>
         </div>
 
@@ -522,8 +598,8 @@ export default function CampaignDetail() {
 
 
 
-        {/* Content Area with Tabs for Sales Campaigns */}
-        {isSalesCampaign ? (
+        {/* Content Area with Tabs for Sales and Service Campaigns */}
+        {(isSalesCampaign || isServiceCampaign) ? (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             {/* Call Details Tab */}
             <TabsContent value="call-details" className="mt-0">
@@ -758,7 +834,7 @@ export default function CampaignDetail() {
               {/* Key Metrics Section */}
               <div className="mb-6">
                 <h2 className="text-[18px] font-semibold text-[#1A1A1A] mb-4">Key Metrics</h2>
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                   <Card className="border-0 bg-white rounded-[12px] shadow-sm border border-black/10">
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between">
@@ -774,67 +850,7 @@ export default function CampaignDetail() {
                     </CardContent>
                   </Card>
                   
-                  <Card className="border-0 bg-white rounded-[12px] shadow-sm border border-black/10">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-4">Invalid Numbers</h3>
-                          <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4] mb-1">47</p>
-                          <p className="text-[#6B7280] text-xs">Disconnected/Invalid</p>
-                        </div>
-                        <div className="p-2 bg-[#F0F4FF] rounded-[8px] flex-shrink-0">
-                          <X className="h-4 w-4 text-[#6366F1]" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card className="border-0 bg-white rounded-[12px] shadow-sm border border-black/10">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-4">DNC Blocks</h3>
-                          <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4] mb-1">23</p>
-                          <p className="text-[#6B7280] text-xs">Do Not Call list</p>
-                        </div>
-                        <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0">
-                          <div className="w-4 h-4 rounded-full border-2 border-[#22C55E]"></div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card className="border-0 bg-white rounded-[12px] shadow-sm border border-black/10">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-4">Rate Limits</h3>
-                          <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4] mb-1">12</p>
-                          <p className="text-[#6B7280] text-xs">API throttling</p>
-                        </div>
-                        <div className="p-2 bg-[#FEFCE8] rounded-[8px] flex-shrink-0">
-                          <Zap className="h-4 w-4 text-[#F59E0B]" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card className="border-0 bg-white rounded-[12px] shadow-sm border border-black/10">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-4">Integration</h3>
-                          <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4] mb-1">8</p>
-                          <p className="text-[#6B7280] text-xs">Service issues</p>
-                        </div>
-                        <div className="p-2 bg-[#F8FAFC] rounded-[8px] flex-shrink-0">
-                          <div className="w-4 h-4 flex items-center justify-center">
-                            <div className="w-2 h-2 bg-[#6B7280] rounded-sm"></div>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+
                 </div>
               </div>
 
@@ -866,26 +882,7 @@ export default function CampaignDetail() {
                     
                     {/* Error Category Tabs */}
                     <div>
-                      <div className="flex gap-4 mb-4">
-                        <Button variant="outline" size="sm" className="bg-white border-[#E5E7EB]">
-                          <X className="h-4 w-4 mr-2" />
-                          Invalid Numbers
-                        </Button>
-                        <Button variant="outline" size="sm" className="bg-white border-[#E5E7EB]">
-                          <div className="w-4 h-4 rounded-full border-2 border-current mr-2"></div>
-                          DNC Blocks
-                        </Button>
-                        <Button variant="outline" size="sm" className="bg-white border-[#E5E7EB]">
-                          <Zap className="h-4 w-4 mr-2" />
-                          Rate Limits
-                        </Button>
-                        <Button variant="outline" size="sm" className="bg-white border-[#E5E7EB]">
-                          <div className="w-4 h-4 flex items-center justify-center mr-2">
-                            <div className="w-2 h-2 bg-current rounded-sm"></div>
-                          </div>
-                          Integrations
-                        </Button>
-                      </div>
+
                     </div>
                     
                     {/* Error Details */}
@@ -976,13 +973,26 @@ export default function CampaignDetail() {
                       Live Activity Feed
                     </CardTitle>
                     <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-sm text-green-600 font-medium">LIVE</span>
+                      <div className={`w-2 h-2 rounded-full ${campaignRunning ? 'bg-green-500 animate-pulse' : 'bg-orange-500'}`}></div>
+                      <span className={`text-sm font-medium ${campaignRunning ? 'text-green-600' : 'text-orange-600'}`}>
+                        {campaignRunning ? 'LIVE' : 'PAUSED'}
+                      </span>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="px-6 pb-6 pt-2">
-                  <div className="space-y-4" id="live-feed-container">
+                  {!campaignRunning && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
+                      <div className="flex items-center gap-3">
+                        <Pause className="w-5 h-5 text-orange-600" />
+                        <div>
+                          <p className="text-sm font-medium text-orange-800">Campaign Paused</p>
+                          <p className="text-xs text-orange-600">All calling activity has been suspended. Resume to continue.</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <div className={`space-y-4 ${!campaignRunning ? 'opacity-60' : ''}`} id="live-feed-container">
                     {/* Current Active Call */}
                     <div className="bg-white rounded-lg border border-gray-200 p-6">
                       <div className="flex items-start justify-between mb-4">
@@ -1119,261 +1129,429 @@ export default function CampaignDetail() {
             
                         {/* Analytics Tab */}
             <TabsContent value="analytics" className="mt-0">
-              {/* Key Metrics and Campaign Details - Only in Analytics Tab */}
-        <div className="grid grid-cols-5 gap-6 mb-8 items-stretch">
-          {/* Metrics */}
-          <Card className="border-0 bg-white rounded-[16px] h-full col-span-3">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-[16px] font-semibold text-[#1A1A1A]">
-                Key Metrics
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="flex items-start space-x-2 p-3 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#F0F4FF] rounded-[8px] flex-shrink-0">
-                    <Phone className="h-4 w-4 text-[#4600F2]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-[#1A1A1A]/60 font-semibold text-xs leading-[1.4] mb-1">Calls Placed</h3>
-                    <p className="text-[#1A1A1A] text-[16px] font-bold leading-[1.4]">
-                      {campaignData.campaign.totalCallPlaced}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start space-x-2 p-3 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0">
-                    <CheckCircle className="h-4 w-4 text-[#22C55E]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-[#1A1A1A]/60 font-semibold text-xs leading-[1.4] mb-1">Answer Rate</h3>
-                    <p className="text-[#1A1A1A] text-[16px] font-bold leading-[1.4]">
-                      {calculatedStats?.answerRate ?? campaignData.campaign.answerRate}%
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start space-x-2 p-3 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#FEFCE8] rounded-[8px] flex-shrink-0">
-                    <Calendar className="h-4 w-4 text-[#F59E0B]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-[#1A1A1A]/60 font-semibold text-xs leading-[1.4] mb-1">Appointments</h3>
-                    <p className="text-[#1A1A1A] text-[16px] font-bold leading-[1.4]">
-                      {calculatedStats?.appointmentCount ?? campaignData.campaign.appointmentScheduled}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start space-x-2 p-3 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#EFF6FF] rounded-[8px] flex-shrink-0">
-                    <BarChart3 className="h-4 w-4 text-[#3B82F6]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-[#1A1A1A]/60 font-semibold text-xs leading-[1.4] mb-1">Total Customers</h3>
-                    <p className="text-[#1A1A1A] text-[16px] font-bold leading-[1.4]">
-                      {campaignData.campaign.totalCustomers}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start space-x-2 p-3 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0">
-                    <Target className="h-4 w-4 text-[#22C55E]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-[#1A1A1A]/60 font-semibold text-xs leading-[1.4] mb-1">Success Rate</h3>
-                    <p className="text-[#1A1A1A] text-[16px] font-bold leading-[1.4]">
-                      {calculatedStats ? Math.round((calculatedStats.appointmentCount / campaignData.campaign.totalCallPlaced) * 100) : 0}%
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start space-x-2 p-3 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#FDF2F8] rounded-[8px] flex-shrink-0">
-                    <Timer className="h-4 w-4 text-[#EC4899]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-[#1A1A1A]/60 font-semibold text-xs leading-[1.4] mb-1">Avg Call Duration</h3>
-                    <p className="text-[#1A1A1A] text-[16px] font-bold leading-[1.4]">
-                      {calculatedStats?.avgCallDuration ?? '2:45'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              {isServiceCampaign ? (
+                <div className="space-y-6">
+                  {/* 1. Service Campaign Overview and Service Funnel - Horizontal Layout */}
+                  <div className="grid grid-cols-2 gap-6">
+                    {/* Campaign Overview - 2x2 Grid */}
+                    <Card className="border-0 bg-white rounded-[16px]">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">
+                          Service Campaign Overview
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                            <div className="p-2 bg-[#F0F4FF] rounded-[8px] flex-shrink-0">
+                              <Phone className="h-5 w-5 text-[#4600F2]" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Total Service Calls Made</h3>
+                              <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
+                                {serviceStats?.serviceCallsMade ?? campaignData.campaign.totalCallPlaced}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                            <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0">
+                              <Calendar className="h-5 w-5 text-[#22C55E]" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Total Service Appointments Set</h3>
+                              <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
+                                {serviceStats?.serviceAppointmentCount ?? campaignData.campaign.appointmentScheduled}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                            <div className="p-2 bg-[#FEFCE8] rounded-[8px] flex-shrink-0">
+                              <TrendingUp className="h-5 w-5 text-[#F59E0B]" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Service Conversion Rate</h3>
+                              <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
+                                {serviceStats?.serviceConversionRate ?? 0}%
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                            <div className="p-2 bg-[#EFF6FF] rounded-[8px] flex-shrink-0">
+                              <RefreshCw className="h-5 w-5 text-[#3B82F6]" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Follow-ups Requested</h3>
+                              <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
+                                {serviceStats?.followUpRequested ?? 0}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                            <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0">
+                              <CheckCircle className="h-5 w-5 text-[#22C55E]" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Answer Rate (Service)</h3>
+                              <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
+                                {serviceStats?.serviceAnswerRate ?? campaignData.campaign.answerRate}%
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                            <div className="p-2 bg-[#FDF2F8] rounded-[8px] flex-shrink-0">
+                              <Timer className="h-5 w-5 text-[#EC4899]" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Avg Call Duration (Service)</h3>
+                              <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
+                                {serviceStats?.serviceAvgCallDuration ?? '2:45'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
 
-          {/* Campaign Details */}
-          <Card className="border-0 bg-white rounded-[16px] h-full col-span-2">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-[16px] font-semibold text-[#1A1A1A]">
-                Campaign Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 py-2 border-b border-[#F4F5F8]">
-                  <div>
-                    <span className="text-sm text-[#6B7280] font-semibold block mb-1">Campaign ID</span>
-                    <span className="text-sm font-bold font-mono text-[#1A1A1A]">{campaignData.campaign.campaignId.substring(0, 12)}</span>
-                  </div>
-                  <div>
-                    <span className="text-sm text-[#6B7280] font-semibold block mb-1">Total Records</span>
-                    <span className="text-sm font-bold text-[#1A1A1A]">{campaignData.campaign.totalCustomers}</span>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4 py-2">
-                  <div>
-                    <span className="text-sm text-[#6B7280] font-semibold block mb-1">Created</span>
-                    <span className="text-sm font-bold text-[#1A1A1A]">{formatDate(campaignData.campaign.startDate)}</span>
-                  </div>
-                  <div>
-                    <span className="text-sm text-[#6B7280] font-semibold block mb-1">Started</span>
-                    <span className="text-sm font-bold text-[#1A1A1A]">{formatDate(campaignData.campaign.startDate)}</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="border-0 bg-white rounded-[16px]">
-          <CardHeader className="px-6 pt-6 pb-4">
-            <div className="flex justify-between items-center">
-              <div>
-                      <CardTitle className="text-[16px] font-semibold text-[#1A1A1A]">
-                        Performance Analytics
-                      </CardTitle>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="px-6 pb-6 pt-2">
-                  <div className="space-y-6">
-                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <Card>
-                        <CardContent className="p-4">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="text-sm font-medium text-gray-600 mb-4">Conversion Rate</p>
-                              <p className="text-2xl font-bold text-[#1A1A1ACC]">{calculatedStats?.successRate ?? 67}%</p>
-                            </div>
-                            <TrendingUp className="h-8 w-8 text-green-600" />
-                          </div>
-                        </CardContent>
-                      </Card>
-                      
-                      <Card>
-                        <CardContent className="p-4">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="text-sm font-medium text-gray-600 mb-4">Avg Call Duration</p>
-                              <p className="text-2xl font-bold text-[#1A1A1ACC]">{calculatedStats?.avgCallDuration ?? '2:45'}</p>
-                            </div>
-                            <Timer className="h-8 w-8 text-blue-600" />
-                          </div>
-                        </CardContent>
-                      </Card>
-                      
-                      <Card>
-                        <CardContent className="p-4">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="text-sm font-medium text-gray-600 mb-4">Revenue Generated</p>
-                              <p className="text-2xl font-bold text-[#1A1A1ACC]">$12,450</p>
-                            </div>
-                            <Target className="h-8 w-8 text-purple-600" />
-                          </div>
-                        </CardContent>
-                      </Card>
-                      
-                      <Card>
-                        <CardContent className="p-4">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="text-sm font-medium text-gray-600 mb-4">Cost per Lead</p>
-                              <p className="text-2xl font-bold text-[#1A1A1ACC]">$45.20</p>
-                            </div>
-                            <BarChart3 className="h-8 w-8 text-orange-600" />
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="text-lg font-semibold">Performance Trends</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    {/* Service Funnel */}
+                    <Card className="border-0 bg-white rounded-[16px]">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">
+                          Service Funnel
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <div className="relative">
+                          {/* Service funnel stages with visual widths representing conversion */}
                           <div className="space-y-4">
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm font-medium">Answer Rate Trend</span>
-                              <span className="text-sm text-green-600">↗ +5.2%</span>
-                            </div>
-                            <Progress value={72} className="h-2" />
-                            
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm font-medium">Conversion Trend</span>
-                              <span className="text-sm text-green-600">↗ +3.1%</span>
-                            </div>
-                            <Progress value={67} className="h-2" />
-                            
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm font-medium">Quality Score</span>
-                              <span className="text-sm text-blue-600">→ Stable</span>
-                            </div>
-                            <Progress value={85} className="h-2" />
-                          </div>
-                        </CardContent>
-                      </Card>
-                      
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="text-lg font-semibold">Call Outcomes Breakdown</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                                <span className="text-sm">Appointments Scheduled</span>
+                            {/* Calls Made */}
+                            <div>
+                              <div className="bg-gradient-to-r from-[#E0E7FF] to-[#C7D2FE] text-[#3730A3] p-4 rounded-[12px] shadow-sm border border-[#C7D2FE]">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <Phone className="h-5 w-5" />
+                                    <span className="font-semibold">Calls Made</span>
+                                  </div>
+                                  <div className="text-[20px] font-bold">{serviceStats?.serviceCallsMade ?? campaignData.campaign.totalCallPlaced}</div>
+                                </div>
                               </div>
-                              <span className="text-sm font-medium">{calculatedStats?.appointmentCount ?? 2}</span>
                             </div>
                             
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                                <span className="text-sm">Callback Requested</span>
+                            {/* Calls Answered */}
+                            <div>
+                              <div className="bg-gradient-to-r from-[#D1FAE5] to-[#A7F3D0] text-[#065F46] p-4 rounded-[12px] shadow-sm border border-[#A7F3D0]" style={{width: '85%'}}>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <CheckCircle className="h-5 w-5" />
+                                    <span className="font-semibold">Calls Answered</span>
+                                  </div>
+                                  <div className="text-[20px] font-bold">{serviceStats?.callsAnswered ?? Math.round(campaignData.campaign.totalCallPlaced * 0.6)}</div>
+                                </div>
                               </div>
-                              <span className="text-sm font-medium">1</span>
                             </div>
                             
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
-                                <span className="text-sm">Not Interested</span>
+                            {/* Appointments Set */}
+                            <div>
+                              <div className="bg-gradient-to-r from-[#FEF3C7] to-[#FDE68A] text-[#92400E] p-4 rounded-[12px] shadow-sm border border-[#FDE68A]" style={{width: '55%'}}>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <Calendar className="h-5 w-5" />
+                                    <span className="font-semibold">Appointments Set</span>
+                                  </div>
+                                  <div className="text-[20px] font-bold">{serviceStats?.serviceAppointmentCount ?? campaignData.campaign.appointmentScheduled}</div>
+                                </div>
                               </div>
-                              <span className="text-sm font-medium">1</span>
-                            </div>
-                            
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                                <span className="text-sm">No Answer</span>
-                              </div>
-                              <span className="text-sm font-medium">{calculatedStats?.noAnswerCalls ?? 0}</span>
                             </div>
                           </div>
-                        </CardContent>
-                      </Card>
-                    </div>
+                          
+                          {/* Service funnel summary */}
+                          <div className="mt-6 grid grid-cols-2 gap-4">
+                            <div className="p-3 bg-white border border-black/10 rounded-[12px]">
+                              <h3 className="text-[#6B7280] font-semibold text-sm mb-1">Answer Rate</h3>
+                              <p className="text-[#065F46] text-[18px] font-bold">{serviceStats?.serviceAnswerRate ?? Math.round((Math.round(campaignData.campaign.totalCallPlaced * 0.6) / campaignData.campaign.totalCallPlaced) * 100)}%</p>
+                            </div>
+                            
+                            <div className="p-3 bg-white border border-black/10 rounded-[12px]">
+                              <h3 className="text-[#6B7280] font-semibold text-sm mb-1">Overall Conversion</h3>
+                              <p className="text-[#92400E] text-[18px] font-bold">{serviceStats?.serviceConversionRate ?? 0}%</p>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
-                </CardContent>
-              </Card>
+
+                  {/* 3. Best Performance Time and Top Performing Services */}
+                  <div className="grid grid-cols-2 gap-6">
+                    <PerformanceTimeChart 
+                      data={generatePerformanceTimeData()} 
+                      title="Best Campaign Performance Time"
+                    />
+
+                    <Card className="border-0 bg-white rounded-[16px]">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">
+                          Top Performing Services
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <div className="space-y-3">
+                          {generateTopPerformingServices(serviceStats?.serviceAppointmentCount ?? campaignData.campaign.appointmentScheduled).map((service, index) => (
+                            <div key={service.service} className="flex items-center justify-between p-3 border border-[#E5E7EB] rounded-[8px]">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-[#F0F4FF] rounded-full flex items-center justify-center text-[#4600F2] font-bold text-sm">
+                                  {index + 1}
+                                </div>
+                                <span className="font-medium text-[#1A1A1A]">{service.service}</span>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-[16px] font-bold text-[#1A1A1A]">{service.appointments}</div>
+                                <div className="text-xs text-[#6B7280]">appointments</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* 4. Follow-up Metrics (Service) */}
+                  <Card className="border-0 bg-white rounded-[16px]">
+                    <CardHeader className="pb-4">
+                      <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">
+                        Follow-up Metrics (Service)
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                          <div className="p-2 bg-[#EFF6FF] rounded-[8px] flex-shrink-0">
+                            <RefreshCw className="h-5 w-5 text-[#3B82F6]" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Total Follow-ups Requested (Service)</h3>
+                            <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
+                              {serviceStats?.followUpRequested ?? 0}
+                            </p>
+                            <p className="text-[#6B7280] text-xs mt-1">Number of follow-up requests made for service-related calls</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                          <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0">
+                            <Target className="h-5 w-5 text-[#22C55E]" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Follow-up Success Rate (Service)</h3>
+                            <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
+                              {serviceStats?.followUpSuccessRate ?? 0}%
+                            </p>
+                            <p className="text-[#6B7280] text-xs mt-1">Percentage of follow-up calls that resulted in confirmed service appointments</p>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* 1. Sales Campaign Overview and Sales Funnel - Horizontal Layout */}
+                  <div className="grid grid-cols-2 gap-6">
+                    {/* Campaign Overview - 2x2 Grid */}
+                    <Card className="border-0 bg-white rounded-[16px]">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">
+                          Campaign Overview
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                            <div className="p-2 bg-[#F0F4FF] rounded-[8px] flex-shrink-0">
+                              <Phone className="h-5 w-5 text-[#4600F2]" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Total Sales Calls Made</h3>
+                              <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
+                                {calculatedStats?.callsMade ?? campaignData.campaign.totalCallPlaced}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                            <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0">
+                              <Calendar className="h-5 w-5 text-[#22C55E]" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Total Appointments Set</h3>
+                              <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
+                                {calculatedStats?.appointmentCount ?? campaignData.campaign.appointmentScheduled}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                            <div className="p-2 bg-[#FEFCE8] rounded-[8px] flex-shrink-0">
+                              <TrendingUp className="h-5 w-5 text-[#F59E0B]" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Sales Conversion Rate</h3>
+                              <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
+                                {calculatedStats?.salesConversionRate ?? 0}%
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                            <div className="p-2 bg-[#EFF6FF] rounded-[8px] flex-shrink-0">
+                              <RefreshCw className="h-5 w-5 text-[#3B82F6]" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Follow-ups Requested</h3>
+                              <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
+                                {calculatedStats?.followUpRequested ?? 0}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                            <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0">
+                              <CheckCircle className="h-5 w-5 text-[#22C55E]" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Answer Rate (Sales)</h3>
+                              <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
+                                {calculatedStats?.answerRate ?? campaignData.campaign.answerRate}%
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
+                            <div className="p-2 bg-[#FDF2F8] rounded-[8px] flex-shrink-0">
+                              <Timer className="h-5 w-5 text-[#EC4899]" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Avg Call Duration (Sales)</h3>
+                              <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
+                                {calculatedStats?.avgCallDuration ?? '2:45'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Sales Funnel */}
+                    <Card className="border-0 bg-white rounded-[16px]">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">
+                          Sales Funnel
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <div className="relative">
+                          {/* Funnel stages with visual widths representing conversion */}
+                          <div className="space-y-4">
+                            {/* Calls Made */}
+                            <div>
+                              <div className="bg-gradient-to-r from-[#E0E7FF] to-[#C7D2FE] text-[#3730A3] p-4 rounded-[12px] shadow-sm border border-[#C7D2FE]">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <Phone className="h-5 w-5" />
+                                    <span className="font-semibold">Calls Made</span>
+                                  </div>
+                                  <div className="text-[20px] font-bold">{calculatedStats?.callsMade ?? campaignData.campaign.totalCallPlaced}</div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Calls Answered */}
+                            <div>
+                              <div className="bg-gradient-to-r from-[#D1FAE5] to-[#A7F3D0] text-[#065F46] p-4 rounded-[12px] shadow-sm border border-[#A7F3D0]" style={{width: '85%'}}>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <CheckCircle className="h-5 w-5" />
+                                    <span className="font-semibold">Calls Answered</span>
+                                  </div>
+                                  <div className="text-[20px] font-bold">{calculatedStats?.callsAnswered ?? Math.round(campaignData.campaign.totalCallPlaced * 0.6)}</div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Follow-ups Requested */}
+                            <div>
+                              <div className="bg-gradient-to-r from-[#DBEAFE] to-[#BFDBFE] text-[#1E3A8A] p-4 rounded-[12px] shadow-sm border border-[#BFDBFE]" style={{width: '70%'}}>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <RefreshCw className="h-5 w-5" />
+                                    <span className="font-semibold">Follow-ups Requested</span>
+                                  </div>
+                                  <div className="text-[20px] font-bold">{calculatedStats?.followUpRequested ?? 0}</div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Appointments Set */}
+                            <div>
+                              <div className="bg-gradient-to-r from-[#FEF3C7] to-[#FDE68A] text-[#92400E] p-4 rounded-[12px] shadow-sm border border-[#FDE68A]" style={{width: '55%'}}>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <Calendar className="h-5 w-5" />
+                                    <span className="font-semibold">Appointments Set</span>
+                                  </div>
+                                  <div className="text-[20px] font-bold">{calculatedStats?.appointmentCount ?? campaignData.campaign.appointmentScheduled}</div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          
+
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                {/* 3. Best Campaign Performance Time and Top Performing Vehicles */}
+                <div className="grid grid-cols-2 gap-6">
+                  <PerformanceTimeChart 
+                    data={generatePerformanceTimeData()} 
+                    title="Best Campaign Performance Time"
+                  />
+
+                  <Card className="border-0 bg-white rounded-[16px]">
+                    <CardHeader className="pb-4">
+                      <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">
+                        Top Performing Vehicles
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="space-y-3">
+                        {generateTopPerformingVehicles(calculatedStats?.appointmentCount ?? campaignData.campaign.appointmentScheduled).map((vehicle, index) => (
+                          <div key={vehicle.vehicle} className="flex items-center justify-between p-3 border border-[#E5E7EB] rounded-[8px]">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-[#F0F4FF] rounded-full flex items-center justify-center text-[#4600F2] font-bold text-sm">
+                                {index + 1}
+                              </div>
+                              <span className="font-medium text-[#1A1A1A]">{vehicle.vehicle}</span>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-[16px] font-bold text-[#1A1A1A]">{vehicle.appointments}</div>
+                              <div className="text-xs text-[#6B7280]">{vehicle.percentage}%</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+
+              </div>
+              )}
             </TabsContent>
           </Tabs>
         ) : (

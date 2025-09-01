@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Download, Search, Phone, CheckCircle, Clock, AlertCircle, Calendar, BarChart3, TrendingUp, Users, ArrowLeft, RefreshCw, Loader2, Target, Timer, Check, X, Activity, AlertTriangle, PieChart, Zap, Play, Pause } from 'lucide-react'
 import Link from "next/link"
-import { fetchCampaignDetails, type CampaignDetailResponse, type CallDetail } from '@/lib/campaign-api'
+import { fetchCampaignDetails, fetchCampaignTypes, type CampaignDetailResponse, type CallDetail, type CampaignTypesResponse } from '@/lib/campaign-api'
 import { fetchAgentList, type Agent } from '@/lib/agent-api'
 import { calculateAndFormatEstimatedTime, getShortEstimatedTime } from '@/lib/time-utils'
 import { generateCallStatus, generateCallTime, generateCallDuration, calculateCampaignStats, generateTopPerformingVehicles, generatePerformanceTimeData } from '@/lib/call-status-utils'
@@ -21,8 +21,23 @@ import { buildUrlWithParams } from '@/lib/url-utils'
 import { PerformanceTimeChart } from '@/components/charts/PerformanceTimeChart'
 
 
-// Map API campaign type to display format
-const mapCampaignType = (campaignType: string): string => {
+// Map API campaign type to display format using dynamic data
+const mapCampaignType = (campaignType: string, campaignTypes?: CampaignTypesResponse | null): string => {
+  // If we have campaign types data, use it to determine the proper mapping
+  if (campaignTypes?.data) {
+    for (const group of campaignTypes.data) {
+      if (group.campaignTypes) {
+        for (const type of group.campaignTypes) {
+          if (type.name.toLowerCase() === campaignType.toLowerCase() || 
+              type.name.replace(/[_\s]/g, '-').toLowerCase() === campaignType.toLowerCase()) {
+            return group.campaignFor; // Returns 'Sales' or 'Service' etc.
+          }
+        }
+      }
+    }
+  }
+  
+  // Fallback to hardcoded logic if no API data
   if (campaignType === 'recall') return 'Service'
   return campaignType // 'Sales', 'Service', etc.
 }
@@ -92,19 +107,25 @@ const formatCallDetailsForTable = (callDetails: CallDetail[], campaignStartDate:
     const duration = generateCallDuration(index, statusResult.status);
     const callQuality = generateCallQuality(index, statusResult.status);
 
+    // Helper function to safely convert values to strings
+    const toString = (value: string | number | boolean | undefined): string => {
+      if (value === undefined || value === null) return '';
+      return String(value);
+    };
+
     return {
       id: index + 1,
       customer: call.customerName,
       phone: call.customerNumber,
-      vin: call.vin,
-      make: call.vehicleMake,
-      model: call.vehicleModel,
-      year: call.vehicleYear,
-      vehicle: call.vehicle,
-      recallDescription: call.recallDescription,
-      symptom: call.symptom,
-      riskDetails: call.riskDetails,
-      remedySteps: call.remedySteps,
+      vin: toString(call.vin),
+      make: toString(call.vehicleMake),
+      model: toString(call.vehicleModel),
+      year: toString(call.vehicleYear),
+      vehicle: toString(call.vehicle),
+      recallDescription: toString(call.recallDescription),
+      symptom: toString(call.symptom),
+      riskDetails: toString(call.riskDetails),
+      remedySteps: toString(call.remedySteps),
       partsAvailable: call.partsAvailabilityFlag ? 'Yes' : 'No',
       loanerEligible: call.loanerEligibility ? 'Yes' : 'No',
       // Use calculated status data
@@ -225,6 +246,7 @@ export default function CampaignDetail() {
   const [error, setError] = useState<string | null>(null)
   const [campaignNotFound, setCampaignNotFound] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
+  const [campaignTypes, setCampaignTypes] = useState<CampaignTypesResponse | null>(null)
   const itemsPerPage = 10
   const [campaignAgent, setCampaignAgent] = useState<Agent | null>(null)
   const [isLoadingAgent, setIsLoadingAgent] = useState(false)
@@ -246,7 +268,7 @@ export default function CampaignDetail() {
   const isSalesCampaign = campaignData?.campaign.campaignType === 'Sales'
   
   // Check if this is a service campaign to show enhanced tabs
-  const isServiceCampaign = campaignData?.campaign.campaignType === 'recall' || mapCampaignType(campaignData?.campaign.campaignType || '') === 'Service'
+  const isServiceCampaign = campaignData?.campaign.campaignType === 'recall' || mapCampaignType(campaignData?.campaign.campaignType || '', campaignTypes) === 'Service'
   
   // Calculate realistic campaign stats based on call status logic
   const calculatedStats = campaignData ? calculateCampaignStats(campaignData.campaign.totalCustomers) : null
@@ -272,6 +294,16 @@ export default function CampaignDetail() {
           setCallDetails(formattedCallDetails)
           setCampaignNotFound(false)
           console.log('Loaded campaign details:', response)
+
+          // Fetch campaign types data
+          try {
+            const campaignTypesResponse = await fetchCampaignTypes()
+            setCampaignTypes(campaignTypesResponse)
+          } catch (error) {
+            console.error('Error loading campaign types:', error)
+            // Don't fail the whole page if campaign types fetch fails
+            setCampaignTypes(null)
+          }
 
           // Fetch agent data for the campaign
           try {

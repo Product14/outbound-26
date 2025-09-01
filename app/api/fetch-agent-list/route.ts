@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     // Extract query parameters
     const enterpriseId = searchParams.get('enterpriseId');
     const teamId = searchParams.get('teamId');
-    const agentUseCase = searchParams.get('agentUseCase') || 'recall_notification';
+    const agentUseCase = searchParams.get('agentUseCase'); // Don't default here, let the client decide
     const agentType = searchParams.get('agentType') || 'Service';
     const agentCallType = searchParams.get('agentCallType');
 
@@ -34,7 +34,6 @@ export async function GET(request: NextRequest) {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Cookie': 'sails.sid=s%3A5hTtG7qSrJDh_79d5l6pRJhjK3lrf2-7.T1DBBnkuRHbndCoO2WiP62DNRKUkUj379OU%2BfRdggLE'
       },
     });
 

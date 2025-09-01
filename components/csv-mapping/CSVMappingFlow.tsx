@@ -50,7 +50,7 @@ const StepIndicator = ({ steps, currentStep }: { steps: string[], currentStep: n
 
 interface CSVMappingFlowProps {
   csvData: any[];
-  onComplete: (mappedData: any[]) => void;
+  onComplete: (mappedData: any[], keyMapping: Record<string, string>) => void;
   onCancel: () => void;
   existingKeyMapping?: Record<string, string>;
   apiRequiredFields?: string[];
@@ -89,23 +89,18 @@ export default function CSVMappingFlow({
     // PascalCase to camelCase matching
     if (csvHeader === apiField.charAt(0).toUpperCase() + apiField.slice(1)) return true;
     
-    // Handle specific mappings
-    const mappings: Record<string, string> = {
-      'customerfullname': 'customerFullName',
-      'contactphonenumber': 'contactPhoneNumber',
-      'vin': 'vin',
-      'recalldescription': 'recallDescription',
-      'vehiclemake': 'vehicleMake',
-      'vehiclemodel': 'vehicleModel',
-      'vehicleyear': 'vehicleYear',
-      'partsavailabilityflag': 'partsAvailabilityFlag',
-      'loanereligibility': 'loanerEligibility',
-      'symptom': 'symptom',
-      'riskdetails': 'riskDetails',
-      'remedysteps': 'remedySteps'
-    };
+    // camelCase to PascalCase matching
+    if (csvHeader.charAt(0).toUpperCase() + csvHeader.slice(1) === apiField) return true;
     
-    return mappings[csvNormalized] === apiField;
+    // Handle common variations (spaces, underscores, etc.)
+    const csvWords = csvHeader.toLowerCase().split(/[\s_-]+/);
+    const apiWords = apiField.replace(/([A-Z])/g, ' $1').trim().toLowerCase().split(/\s+/);
+    
+    if (csvWords.length === apiWords.length) {
+      return csvWords.every((word, index) => word === apiWords[index]);
+    }
+    
+    return false;
   };
 
   // Initialize CSV mappings with API integration
@@ -239,61 +234,19 @@ export default function CSVMappingFlow({
     return csvData.map(row => {
       const transformedRow: any = {};
       
-      // FORCE EXACT API FIELD NAMES - Ignore all CSV mappings and use only API fields
-      const apiRequiredFieldsToUse = dynamicRequiredFields.length > 0 ? dynamicRequiredFields : (apiRequiredFields || []);
-      
-      console.log('🎯 FORCING exact API fields:', apiRequiredFieldsToUse);
-      
-      // Create mapping from CSV headers to API field names
-      const csvToApiMapping: Record<string, string> = {
-        'CustomerFullName': 'customerFullName',
-        'ContactPhoneNumber': 'contactPhoneNumber', 
-        'VIN': 'vin',
-        'RecallDescription': 'recallDescription',
-        'VehicleMake': 'vehicleMake',
-        'VehicleModel': 'vehicleModel',
-        'VehicleYear': 'vehicleYear',
-        'PartsAvailabilityFlag': 'partsAvailabilityFlag',
-        'LoanerEligibility': 'loanerEligibility',
-        'Symptom': 'symptom',
-        'RiskDetails': 'riskDetails',
-        'RemedySteps': 'remedySteps'
-      };
-      
-      // Map each API field by finding its CSV data
-      apiRequiredFieldsToUse.forEach(apiFieldName => {
-        // Find CSV column that contains the data for this API field
-        let csvValue = '';
+      // Use the actual user mappings from csvMappings state
+      mappedFields.forEach(mapping => {
+        const csvValue = row[mapping.columnHeader];
+        const apiFieldName = mapping.importAs;
         
-        // Look through all possible CSV column names for this API field
-        for (const [csvColumnName, apiField] of Object.entries(csvToApiMapping)) {
-          if (apiField === apiFieldName && row[csvColumnName]) {
-            csvValue = row[csvColumnName];
-            console.log(`🎯 ${apiFieldName} ← ${csvColumnName} = "${csvValue}"`);
-            break;
-          }
-        }
+        console.log(`🎯 Mapping: ${mapping.columnHeader} → ${apiFieldName} = "${csvValue}"`);
         
-        // If not found in mapping, try direct match
-        if (!csvValue) {
-          csvValue = row[apiFieldName] || '';
-        }
-        
-        // Transform the value based on field type
-        if (apiFieldName.toLowerCase().includes('flag') || 
-            apiFieldName.toLowerCase().includes('eligible') || 
-            apiFieldName.toLowerCase().includes('available')) {
-          // Boolean fields
-          transformedRow[apiFieldName] = csvValue.toLowerCase() === 'true' || 
-                                       csvValue.toLowerCase() === 'available' || 
-                                       csvValue.toLowerCase() === 'eligible' ? 'true' : 'false';
-        } else {
-          // Regular text fields
-          transformedRow[apiFieldName] = csvValue;
-        }
+        // Just preserve the raw CSV value - no transformations
+        // Since all CSVs are different and dynamic, show actual first row values
+        transformedRow[apiFieldName] = csvValue !== undefined ? csvValue : '';
       });
 
-      console.log('✅ Final transformed row with exact API fields:', transformedRow);
+      console.log('✅ Final transformed row with raw CSV values:', transformedRow);
 
       return transformedRow;
     });
@@ -411,44 +364,6 @@ export default function CSVMappingFlow({
         </div>
       )}
 
-      {/* Navigation Buttons */}
-      <div className="flex items-center justify-between pt-6">
-        <Button variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        
-        <div className="flex items-center gap-3">
-          {currentStep > 0 && (
-            <Button variant="outline" onClick={() => setCurrentStep(currentStep - 1)}>
-              Back
-            </Button>
-          )}
-          
-          {currentStep === 0 ? (
-            <Button 
-              onClick={() => {
-                // Generate preview data and move to next step
-                const preview = generatePreviewData();
-                setPreviewData(preview);
-                setCurrentStep(1);
-              }}
-              disabled={isLoadingApiData}
-            >
-              {isLoadingApiData ? 'Loading...' : 'Continue to Review'}
-            </Button>
-          ) : (
-            <Button 
-              onClick={() => {
-                console.log('🚀 FINAL DATA being sent to onComplete:', previewData);
-                console.log('🚀 Sample customer keys:', previewData?.[0] ? Object.keys(previewData[0]) : 'No data');
-                onComplete(previewData);
-              }}
-            >
-              Complete Mapping
-            </Button>
-          )}
-        </div>
-      </div>
 
     </div>
   );

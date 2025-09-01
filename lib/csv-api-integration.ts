@@ -131,44 +131,42 @@ function normalizeForMatching(str: string): string {
 }
 
 /**
- * Check if a use case matches a campaign type name
+ * Check if a use case matches a campaign type name using the same transformation logic
+ * as getDynamicUseCases to ensure consistency with API-driven data
  */
 function isUseCaseMatch(useCase: string, campaignTypeName: string): boolean {
-  // Direct mapping of known use cases to campaign type names
-  const useCaseMappings: Record<string, string[]> = {
-    'recall-notification': ['recallNotification'],
-    'recallnotification': ['recallNotification'],
-    'recall_notification': ['recallNotification'],
-    'recall': ['recallNotification'],
-    'service': ['recallNotification'], // Sometimes service campaigns are recall notifications
-    // Add exact case match
-    'Recallnotification': ['recallNotification'],
-    'RecallNotification': ['recallNotification'],
-    'trade-in-offers': ['tradeInOffers'],
-    'tradeinoffers': ['tradeInOffers'], 
-    'trade_in_offers': ['tradeInOffers'],
-    'promotional-offers': ['promotionalOffers'],
-    'promotionaloffers': ['promotionalOffers'],
-    'promotional_offers': ['promotionalOffers'],
-    'test-drive-appointments': ['testDriveAppointments'],
-    'testdriveappointments': ['testDriveAppointments'],
-    'test_drive_appointments': ['testDriveAppointments']
-  };
-
-  console.log(`🔍 Checking use case mapping for: "${useCase}"`);
-  console.log('Available mappings:', Object.keys(useCaseMappings));
-
-  // Check direct mapping first
-  const normalizedUseCase = normalizeForMatching(useCase);
-  const mappedCampaignTypes = useCaseMappings[normalizedUseCase] || useCaseMappings[useCase.toLowerCase()];
+  console.log(`🔍 Checking use case mapping for: "${useCase}" against campaign type: "${campaignTypeName}"`);
   
-  if (mappedCampaignTypes && mappedCampaignTypes.includes(campaignTypeName)) {
+  // Transform campaign type name to use case value using the same logic as getDynamicUseCases
+  // This ensures consistency between the UI use case values and the matching logic
+  const transformedCampaignTypeValue = campaignTypeName.replace(/[_\s]/g, '-').toLowerCase();
+  
+  // Normalize both values for comparison
+  const normalizedUseCase = normalizeForMatching(useCase);
+  const normalizedCampaignType = normalizeForMatching(transformedCampaignTypeValue);
+  
+  console.log(`Transformed campaign type: "${transformedCampaignTypeValue}"`);
+  console.log(`Normalized use case: "${normalizedUseCase}"`);
+  console.log(`Normalized campaign type: "${normalizedCampaignType}"`);
+  
+  // Check for exact match after normalization
+  if (normalizedCampaignType === normalizedUseCase) {
+    console.log(`✅ Exact match found`);
     return true;
   }
-
-  // Fallback to fuzzy matching
-  const normalizedCampaignType = normalizeForMatching(campaignTypeName);
-  return normalizedCampaignType === normalizedUseCase || 
-         normalizedCampaignType.includes(normalizedUseCase) || 
-         normalizedUseCase.includes(normalizedCampaignType);
+  
+  // Check if original use case matches transformed campaign type directly
+  if (useCase.toLowerCase() === transformedCampaignTypeValue) {
+    console.log(`✅ Direct match found`);
+    return true;
+  }
+  
+  // Check for partial matches (contains relationship)
+  if (normalizedCampaignType.includes(normalizedUseCase) || normalizedUseCase.includes(normalizedCampaignType)) {
+    console.log(`✅ Partial match found`);
+    return true;
+  }
+  
+  console.log(`❌ No match found`);
+  return false;
 }

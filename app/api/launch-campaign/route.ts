@@ -23,26 +23,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate each customer has required fields
-    for (const customer of payload.customers) {
-      if (!customer.name || !customer.mobile) {
-        return NextResponse.json(
-          { error: 'Each customer must have name and mobile' },
-          { status: 400 }
-        );
-      }
-      
-      // For recall notification campaigns, validate additional required fields
-      if (payload.campaignUseCase === 'recall_notification') {
-        if (!customer.vin || !customer.recallDescription || !customer.vehicleMake || 
-            !customer.vehicleModel || !customer.vehicleYear) {
-          return NextResponse.json(
-            { error: 'For recall notifications, each customer must have vin, recallDescription, vehicleMake, vehicleModel, and vehicleYear' },
-            { status: 400 }
-          );
-        }
-      }
-    }
+    // Note: Customer field validation is now handled dynamically by the campaign-types API
+    // The exact required fields come from the campaign-types API response and are validated during CSV mapping
+    // We only send the exact fields specified in the requiredKeys array from the campaign-types API
 
     console.log('Campaign Launch Payload:', JSON.stringify(payload, null, 2));
     

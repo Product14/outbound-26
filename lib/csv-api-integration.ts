@@ -1,0 +1,174 @@
+// API integration service for CSV mapping workflow
+
+import { fetchCampaignTypes, processKeyMapping, CampaignTypesResponse, KeyMappingResponse } from './campaign-api';
+import { generateMappingSuggestions } from './file-parser';
+
+export interface ApiIntegrationResult {
+  success: boolean;
+  requiredFields: string[];
+  keyMapping: Record<string, string>;
+  error?: string;
+}
+
+/**
+ * Integrates with campaign types API and key mapping API to get required fields and mapping
+ * @param campaignUseCase The selected campaign use case 
+ * @param csvHeaders Headers from the uploaded CSV file
+ * @returns Object containing required fields and key mapping
+ */
+export async function integrateCsvWithApis(
+  campaignUseCase: string,
+  csvHeaders: string[]
+): Promise<ApiIntegrationResult> {
+  try {
+    console.log('🚀 Starting API integration for campaign use case:', campaignUseCase);
+    console.log('📄 CSV headers:', csvHeaders);
+    console.log('🎯 Use case type:', typeof campaignUseCase);
+
+    // Step 1: Fetch campaign types to get required fields
+    const campaignTypesResponse: CampaignTypesResponse = await fetchCampaignTypes();
+    
+    if (!campaignTypesResponse.success || !campaignTypesResponse.data) {
+      return {
+        success: false,
+        requiredFields: [],
+        keyMapping: {},
+        error: 'Failed to fetch campaign types from API'
+      };
+    }
+
+    // Step 2: Find the required fields for the specific use case
+    const requiredFields = extractRequiredFieldsForUseCase(campaignTypesResponse.data, campaignUseCase);
+    
+    if (requiredFields.length === 0) {
+      return {
+        success: false,
+        requiredFields: [],
+        keyMapping: {},
+        error: `No required fields found for use case: ${campaignUseCase}`
+      };
+    }
+
+    console.log('Required fields from API:', requiredFields);
+
+    // Step 3: Call key mapping API to get intelligent mapping
+    const keyMappingResponse: KeyMappingResponse = await processKeyMapping(requiredFields, csvHeaders);
+    
+    // Step 4: Generate fallback mapping suggestions for unmapped fields
+    const fallbackMappings = generateMappingSuggestions(csvHeaders, requiredFields);
+    
+    // Combine API mapping with fallback suggestions
+    const combinedMapping = { ...fallbackMappings, ...keyMappingResponse };
+
+    console.log('Final key mapping result:', combinedMapping);
+
+    return {
+      success: true,
+      requiredFields,
+      keyMapping: combinedMapping
+    };
+
+  } catch (error) {
+    console.error('Error in CSV API integration:', error);
+    return {
+      success: false,
+      requiredFields: [],
+      keyMapping: {},
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+  }
+}
+
+/**
+ * Extracts required fields for a specific use case from campaign types response
+ */
+function extractRequiredFieldsForUseCase(campaignTypeGroups: any[], campaignUseCase: string): string[] {
+  const requiredFields: string[] = [];
+
+  console.log('Extracting required fields for use case:', campaignUseCase);
+  console.log('Available campaign type groups:', campaignTypeGroups);
+
+  for (const group of campaignTypeGroups) {
+    if (!group.campaignTypes) continue;
+
+    console.log('Checking campaign types in group:', group.campaignTypes.map((ct: any) => ct.name));
+
+    for (const campaignType of group.campaignTypes) {
+      if (!campaignType.requiredKeys) continue;
+
+      // Convert both use case and campaign type name to consistent format for matching
+      const normalizedUseCaseName = normalizeForMatching(campaignUseCase);
+      const normalizedCampaignTypeName = normalizeForMatching(campaignType.name);
+      
+      console.log(`Comparing: "${normalizedUseCaseName}" with "${normalizedCampaignTypeName}"`);
+      
+      // Check for exact match or if the use case maps to this campaign type
+      if (isUseCaseMatch(campaignUseCase, campaignType.name)) {
+        console.log(`✅ Found match: ${campaignType.name} for use case: ${campaignUseCase}`);
+        
+        // Extract active required keys
+        const activeKeys = campaignType.requiredKeys
+          .filter((key: any) => key.isActive)
+          .map((key: any) => key.name);
+        
+        console.log('Required keys for this campaign type:', activeKeys);
+        requiredFields.push(...activeKeys);
+      }
+    }
+  }
+
+  // Remove duplicates and return
+  const uniqueFields = [...new Set(requiredFields)];
+  console.log('Final required fields:', uniqueFields);
+  return uniqueFields;
+}
+
+/**
+ * Normalize strings for consistent matching
+ */
+function normalizeForMatching(str: string): string {
+  return str.toLowerCase().replace(/[_-]/g, '');
+}
+
+/**
+ * Check if a use case matches a campaign type name
+ */
+function isUseCaseMatch(useCase: string, campaignTypeName: string): boolean {
+  // Direct mapping of known use cases to campaign type names
+  const useCaseMappings: Record<string, string[]> = {
+    'recall-notification': ['recallNotification'],
+    'recallnotification': ['recallNotification'],
+    'recall_notification': ['recallNotification'],
+    'recall': ['recallNotification'],
+    'service': ['recallNotification'], // Sometimes service campaigns are recall notifications
+    // Add exact case match
+    'Recallnotification': ['recallNotification'],
+    'RecallNotification': ['recallNotification'],
+    'trade-in-offers': ['tradeInOffers'],
+    'tradeinoffers': ['tradeInOffers'], 
+    'trade_in_offers': ['tradeInOffers'],
+    'promotional-offers': ['promotionalOffers'],
+    'promotionaloffers': ['promotionalOffers'],
+    'promotional_offers': ['promotionalOffers'],
+    'test-drive-appointments': ['testDriveAppointments'],
+    'testdriveappointments': ['testDriveAppointments'],
+    'test_drive_appointments': ['testDriveAppointments']
+  };
+
+  console.log(`🔍 Checking use case mapping for: "${useCase}"`);
+  console.log('Available mappings:', Object.keys(useCaseMappings));
+
+  // Check direct mapping first
+  const normalizedUseCase = normalizeForMatching(useCase);
+  const mappedCampaignTypes = useCaseMappings[normalizedUseCase] || useCaseMappings[useCase.toLowerCase()];
+  
+  if (mappedCampaignTypes && mappedCampaignTypes.includes(campaignTypeName)) {
+    return true;
+  }
+
+  // Fallback to fuzzy matching
+  const normalizedCampaignType = normalizeForMatching(campaignTypeName);
+  return normalizedCampaignType === normalizedUseCase || 
+         normalizedCampaignType.includes(normalizedUseCase) || 
+         normalizedUseCase.includes(normalizedCampaignType);
+}

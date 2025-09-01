@@ -107,7 +107,7 @@ export const generateCSVFieldMapping = (
   const csvHeaders = Object.keys(firstDataRow);
 
   return csvHeaders.map((header) => {
-    const columnValues = firstDataRow[header]?.toString() || '';
+    const columnValues = firstDataRow[header] ? String(firstDataRow[header]) : '';
     
     // Try to auto-detect mapping based on existing key mapping or column name
     let importAs = '';
@@ -126,10 +126,16 @@ export const generateCSVFieldMapping = (
       if (apiRequiredFields && apiRequiredFields.length > 0) {
         for (const apiField of apiRequiredFields) {
           const apiFieldNormalized = apiField.toLowerCase().replace(/[^a-z0-9]/g, '');
-          if (headerLower.includes(apiFieldNormalized) || 
+          
+          // Improved matching logic for case variations
+          if (headerLower === apiFieldNormalized || 
+              headerLower.includes(apiFieldNormalized) || 
               apiFieldNormalized.includes(headerLower) ||
-              headerLower === apiFieldNormalized) {
-            // Use the API field directly
+              // Handle exact case-insensitive match
+              header.toLowerCase() === apiField.toLowerCase() ||
+              // Handle PascalCase to camelCase matching
+              header === apiField.charAt(0).toUpperCase() + apiField.slice(1)) {
+            // Use the exact API field name
             importAs = apiField;
             mappingStatus = 'mapped';
             break;

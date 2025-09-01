@@ -22,7 +22,7 @@ import { BarChart3 } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { extractUrlParams, buildUrlWithParams, type UrlParams } from '@/lib/url-utils'
 import { transformCampaignData, launchCampaign, createInitialCampaignPayload, fetchCampaignTypes, processKeyMapping, type Customer, type CampaignTypesResponse, type CampaignType } from '@/lib/campaign-api'
-import { parseUploadedFile, REQUIRED_CSV_COLUMNS, type ParsedCustomerData, type ParseResult } from '@/lib/file-parser'
+import { parseUploadedFile, type ParsedCustomerData, type ParseResult } from '@/lib/file-parser'
 import { fetchAgentList, type Agent } from '@/lib/agent-api'
 import { useToast } from "@/hooks/use-toast"
 import { calculateAndFormatEstimatedTime, getShortEstimatedTime, calculateAndFormatTimeRange, getEstimatedTimeInMinutes, calculateEndDate } from '@/lib/time-utils'
@@ -306,7 +306,7 @@ export default function CampaignSetup() {
       return Object.keys(uploadedData[0])
     }
     // Final fallback to hardcoded columns
-    return REQUIRED_CSV_COLUMNS
+    return []
   }
 
   // Process key mapping when file is uploaded
@@ -365,7 +365,7 @@ export default function CampaignSetup() {
             const hasData = transformedData.some(row => {
               // Check both the required key and the original mapped field
               const value = row[requiredKey]
-              return value && value.toString().trim() !== ''
+              return value && String(value).trim() !== ''
             })
             
             console.log(`Checking required key "${requiredKey}":`, {
@@ -380,7 +380,7 @@ export default function CampaignSetup() {
               if (mappedKey) {
                 const hasOriginalData = data.some(row => {
                   const value = row[mappedKey]
-                  return value && value.toString().trim() !== ''
+                  return value && String(value).trim() !== ''
                 })
                 console.log(`Double-checking original data for "${mappedKey}":`, {
                   hasOriginalData,
@@ -888,7 +888,9 @@ export default function CampaignSetup() {
 
   // Handle CSV mapping completion
   const handleCSVMappingComplete = async (mappedData: any[], keyMapping: Record<string, string>) => {
-    console.log('CSV mapping completed:', { mappedData, keyMapping })
+    console.log('📥 Setup page - CSV mapping completed:', { mappedData, keyMapping })
+    console.log('📥 Setup page - Sample customer keys:', mappedData?.[0] ? Object.keys(mappedData[0]) : 'No data');
+    console.log('📥 Setup page - Should have camelCase API fields');
     
     // Update the uploaded data with mapped data
     setUploadedData(mappedData)
@@ -2612,6 +2614,7 @@ export default function CampaignSetup() {
                         onMappingComplete={handleCSVMappingComplete}
                         onSkipMapping={handleSkipCSVMapping}
                         showSkipOption={false}
+                        campaignUseCase={campaignData.subUseCase}
                       />
                     </div>
                   )}

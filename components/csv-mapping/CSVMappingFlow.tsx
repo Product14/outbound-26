@@ -13,6 +13,7 @@ import {
   validateMappingCompleteness,
   getImportCategoryFromValue
 } from '@/lib/types/csv-mapping';
+import { integrateCsvWithApis } from '@/lib/csv-api-integration';
 
 // Step indicator component
 const StepIndicator = ({ steps, currentStep }: { steps: string[], currentStep: number }) => {
@@ -53,6 +54,7 @@ interface CSVMappingFlowProps {
   onCancel: () => void;
   existingKeyMapping?: Record<string, string>;
   apiRequiredFields?: string[];
+  campaignUseCase?: string; // Add campaign use case for API integration
 }
 
 export default function CSVMappingFlow({
@@ -60,7 +62,8 @@ export default function CSVMappingFlow({
   onComplete,
   onCancel,
   existingKeyMapping,
-  apiRequiredFields
+  apiRequiredFields,
+  campaignUseCase
 }: CSVMappingFlowProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [csvMappings, setCsvMappings] = useState<CSVFieldMapping[]>([]);
@@ -68,17 +71,127 @@ export default function CSVMappingFlow({
   const [editingRow, setEditingRow] = useState<number | null>(null);
   const [editedData, setEditedData] = useState<any>({});
   const [currentPage, setCurrentPage] = useState(1);
+  const [isLoadingApiData, setIsLoadingApiData] = useState(false);
+  const [dynamicRequiredFields, setDynamicRequiredFields] = useState<string[]>([]);
+  const [dynamicKeyMapping, setDynamicKeyMapping] = useState<Record<string, string>>({});
   const itemsPerPage = 8;
 
   const steps = ['Map Fields', 'Review Data'];
 
-  // Initialize CSV mappings on mount
+  // Helper function to determine if a CSV header should map to a specific API field
+  const shouldMapToApiField = (csvHeader: string, apiField: string): boolean => {
+    const csvNormalized = csvHeader.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const apiNormalized = apiField.toLowerCase().replace(/[^a-z0-9]/g, '');
+    
+    // Exact match (case-insensitive)
+    if (csvNormalized === apiNormalized) return true;
+    
+    // PascalCase to camelCase matching
+    if (csvHeader === apiField.charAt(0).toUpperCase() + apiField.slice(1)) return true;
+    
+    // Handle specific mappings
+    const mappings: Record<string, string> = {
+      'customerfullname': 'customerFullName',
+      'contactphonenumber': 'contactPhoneNumber',
+      'vin': 'vin',
+      'recalldescription': 'recallDescription',
+      'vehiclemake': 'vehicleMake',
+      'vehiclemodel': 'vehicleModel',
+      'vehicleyear': 'vehicleYear',
+      'partsavailabilityflag': 'partsAvailabilityFlag',
+      'loanereligibility': 'loanerEligibility',
+      'symptom': 'symptom',
+      'riskdetails': 'riskDetails',
+      'remedysteps': 'remedySteps'
+    };
+    
+    return mappings[csvNormalized] === apiField;
+  };
+
+  // Initialize CSV mappings with API integration
   useEffect(() => {
-    if (csvData && csvData.length > 0) {
-      const mappings = generateCSVFieldMapping(csvData, existingKeyMapping, apiRequiredFields);
-      setCsvMappings(mappings);
-    }
-  }, [csvData, existingKeyMapping, apiRequiredFields]);
+    const initializeMapping = async () => {
+      if (!csvData || csvData.length === 0) return;
+
+      setIsLoadingApiData(true);
+      
+      try {
+        // Get CSV headers
+        const csvHeaders = Object.keys(csvData[0]);
+        console.log('CSV Headers:', csvHeaders);
+
+        // If campaign use case is provided, integrate with APIs
+        if (campaignUseCase) {
+          console.log('Integrating with APIs for use case:', campaignUseCase);
+          
+          const apiResult = await integrateCsvWithApis(campaignUseCase, csvHeaders);
+          
+          if (apiResult.success) {
+            console.log('API integration successful:', apiResult);
+            setDynamicRequiredFields(apiResult.requiredFields);
+            setDynamicKeyMapping(apiResult.keyMapping);
+            
+            // Generate mappings using API data (prioritize API mappings over existing ones)
+            const mappings = generateCSVFieldMapping(
+              csvData, 
+              { ...existingKeyMapping, ...apiResult.keyMapping },
+              apiResult.requiredFields
+            );
+            
+            // Force correct API field names for any mappings that might be incorrect
+            const correctedMappings = mappings.map(mapping => {
+              // If this mapping should be using an API field name, ensure it's correct
+              const csvHeader = mapping.columnHeader;
+              const currentMapping = mapping.importAs;
+              
+              // Check if we have a better API field mapping for this CSV header
+              for (const apiField of apiResult.requiredFields) {
+                if (shouldMapToApiField(csvHeader, apiField)) {
+                  console.log(`🔧 Correcting mapping: ${csvHeader} → ${apiField} (was: ${currentMapping})`);
+                  return {
+                    ...mapping,
+                    importAs: apiField,
+                    mappingStatus: 'mapped' as const
+                  };
+                }
+              }
+              
+              return mapping;
+            });
+            
+            console.log('🗂️ Generated CSV mappings:', mappings);
+            console.log('🔧 Corrected CSV mappings:', correctedMappings);
+            console.log('📋 API required fields:', apiResult.requiredFields);
+            console.log('🔗 Combined key mapping:', { ...existingKeyMapping, ...apiResult.keyMapping });
+            setCsvMappings(correctedMappings);
+          } else {
+            console.error('API integration failed:', apiResult.error);
+            toast.error(`Failed to fetch mapping data: ${apiResult.error}`);
+            
+            // Fallback to existing behavior
+            const mappings = generateCSVFieldMapping(csvData, existingKeyMapping, apiRequiredFields);
+            setCsvMappings(mappings);
+          }
+        } else {
+          // Fallback to existing behavior when no use case is provided
+          console.log('No campaign use case provided, using fallback mapping');
+          const mappings = generateCSVFieldMapping(csvData, existingKeyMapping, apiRequiredFields);
+          setCsvMappings(mappings);
+        }
+      } catch (error) {
+        console.error('Error during mapping initialization:', error);
+        toast.error('Failed to initialize field mapping');
+        
+        // Fallback to existing behavior on error
+        const mappings = generateCSVFieldMapping(csvData, existingKeyMapping, apiRequiredFields);
+        setCsvMappings(mappings);
+      } finally {
+        setIsLoadingApiData(false);
+      }
+    };
+
+    initializeMapping();
+  }, [csvData, existingKeyMapping, apiRequiredFields, campaignUseCase]);
 
   // Handle import as change
   const handleImportAsChange = (index: number, value: string) => {
@@ -118,55 +231,69 @@ export default function CSVMappingFlow({
       mapping => mapping.mappingStatus === 'mapped' && mapping.importAs !== 'do_not_import'
     );
 
+    console.log('🔄 Generating preview data with mapped fields:', mappedFields.map(m => ({ 
+      csvHeader: m.columnHeader, 
+      apiField: m.importAs 
+    })));
+
     return csvData.map(row => {
       const transformedRow: any = {};
       
-      mappedFields.forEach(mapping => {
-        const csvValue = row[mapping.columnHeader] || '';
+      // FORCE EXACT API FIELD NAMES - Ignore all CSV mappings and use only API fields
+      const apiRequiredFieldsToUse = dynamicRequiredFields.length > 0 ? dynamicRequiredFields : (apiRequiredFields || []);
+      
+      console.log('🎯 FORCING exact API fields:', apiRequiredFieldsToUse);
+      
+      // Create mapping from CSV headers to API field names
+      const csvToApiMapping: Record<string, string> = {
+        'CustomerFullName': 'customerFullName',
+        'ContactPhoneNumber': 'contactPhoneNumber', 
+        'VIN': 'vin',
+        'RecallDescription': 'recallDescription',
+        'VehicleMake': 'vehicleMake',
+        'VehicleModel': 'vehicleModel',
+        'VehicleYear': 'vehicleYear',
+        'PartsAvailabilityFlag': 'partsAvailabilityFlag',
+        'LoanerEligibility': 'loanerEligibility',
+        'Symptom': 'symptom',
+        'RiskDetails': 'riskDetails',
+        'RemedySteps': 'remedySteps'
+      };
+      
+      // Map each API field by finding its CSV data
+      apiRequiredFieldsToUse.forEach(apiFieldName => {
+        // Find CSV column that contains the data for this API field
+        let csvValue = '';
         
-        // Map to the appropriate field based on importAs and spyneProperty
-        if (mapping.importAs === 'customer_name') {
-          transformedRow.CustomerFullName = csvValue;
-        } else if (mapping.importAs === 'phone_number') {
-          transformedRow.ContactPhoneNumber = csvValue;
-        } else if (mapping.importAs === 'vehicle_info') {
-          if (mapping.spyneProperty === 'vin') {
-            transformedRow.VIN = csvValue;
+        // Look through all possible CSV column names for this API field
+        for (const [csvColumnName, apiField] of Object.entries(csvToApiMapping)) {
+          if (apiField === apiFieldName && row[csvColumnName]) {
+            csvValue = row[csvColumnName];
+            console.log(`🎯 ${apiFieldName} ← ${csvColumnName} = "${csvValue}"`);
+            break;
           }
-          // Could handle registration_number and stock_number here if needed
-        } else if (mapping.importAs === 'recall_description') {
-          transformedRow.RecallDescription = csvValue;
-        } else if (mapping.importAs === 'vehicle_make') {
-          transformedRow.VehicleMake = csvValue;
-        } else if (mapping.importAs === 'vehicle_model') {
-          transformedRow.VehicleModel = csvValue;
-        } else if (mapping.importAs === 'vehicle_year') {
-          transformedRow.VehicleYear = csvValue;
-        } else if (mapping.importAs === 'parts_availability') {
-          transformedRow.PartsAvailabilityFlag = csvValue.toLowerCase() === 'true' || csvValue.toLowerCase() === 'available' ? 'true' : 'false';
-        } else if (mapping.importAs === 'loaner_eligibility') {
-          transformedRow.LoanerEligibility = csvValue.toLowerCase() === 'true' || csvValue.toLowerCase() === 'eligible' ? 'true' : 'false';
-        } else if (mapping.importAs === 'symptom') {
-          transformedRow.Symptom = csvValue;
-        } else if (mapping.importAs === 'risk_details') {
-          transformedRow.RiskDetails = csvValue;
-        } else if (mapping.importAs === 'remedy_steps') {
-          transformedRow.RemedySteps = csvValue;
+        }
+        
+        // If not found in mapping, try direct match
+        if (!csvValue) {
+          csvValue = row[apiFieldName] || '';
+        }
+        
+        // Transform the value based on field type
+        if (apiFieldName.toLowerCase().includes('flag') || 
+            apiFieldName.toLowerCase().includes('eligible') || 
+            apiFieldName.toLowerCase().includes('available')) {
+          // Boolean fields
+          transformedRow[apiFieldName] = csvValue.toLowerCase() === 'true' || 
+                                       csvValue.toLowerCase() === 'available' || 
+                                       csvValue.toLowerCase() === 'eligible' ? 'true' : 'false';
+        } else {
+          // Regular text fields
+          transformedRow[apiFieldName] = csvValue;
         }
       });
 
-      // Set defaults for unmapped required fields
-      const requiredFields = [
-        'CustomerFullName', 'ContactPhoneNumber', 'VIN', 'RecallDescription',
-        'VehicleMake', 'VehicleModel', 'VehicleYear', 'PartsAvailabilityFlag',
-        'LoanerEligibility', 'Symptom', 'RiskDetails', 'RemedySteps'
-      ];
-      
-      requiredFields.forEach(field => {
-        if (!transformedRow[field]) {
-          transformedRow[field] = '';
-        }
-      });
+      console.log('✅ Final transformed row with exact API fields:', transformedRow);
 
       return transformedRow;
     });
@@ -250,7 +377,8 @@ export default function CSVMappingFlow({
         <CSVFieldMappingTable
           csvMappings={csvMappings}
           onImportAsChange={handleImportAsChange}
-          apiRequiredFields={apiRequiredFields}
+          apiRequiredFields={dynamicRequiredFields.length > 0 ? dynamicRequiredFields : apiRequiredFields}
+          isLoadingApiData={isLoadingApiData}
         />
       )}
 
@@ -283,6 +411,44 @@ export default function CSVMappingFlow({
         </div>
       )}
 
+      {/* Navigation Buttons */}
+      <div className="flex items-center justify-between pt-6">
+        <Button variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        
+        <div className="flex items-center gap-3">
+          {currentStep > 0 && (
+            <Button variant="outline" onClick={() => setCurrentStep(currentStep - 1)}>
+              Back
+            </Button>
+          )}
+          
+          {currentStep === 0 ? (
+            <Button 
+              onClick={() => {
+                // Generate preview data and move to next step
+                const preview = generatePreviewData();
+                setPreviewData(preview);
+                setCurrentStep(1);
+              }}
+              disabled={isLoadingApiData}
+            >
+              {isLoadingApiData ? 'Loading...' : 'Continue to Review'}
+            </Button>
+          ) : (
+            <Button 
+              onClick={() => {
+                console.log('🚀 FINAL DATA being sent to onComplete:', previewData);
+                console.log('🚀 Sample customer keys:', previewData?.[0] ? Object.keys(previewData[0]) : 'No data');
+                onComplete(previewData);
+              }}
+            >
+              Complete Mapping
+            </Button>
+          )}
+        </div>
+      </div>
 
     </div>
   );

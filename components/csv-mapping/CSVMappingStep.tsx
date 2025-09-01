@@ -16,6 +16,7 @@ interface CSVMappingStepProps {
   onMappingComplete: (mappedData: any[], keyMapping: Record<string, string>) => void;
   onSkipMapping: () => void;
   showSkipOption?: boolean;
+  campaignUseCase?: string; // Add campaign use case for API integration
 }
 
 export default function CSVMappingStep({
@@ -25,7 +26,8 @@ export default function CSVMappingStep({
   apiRequiredFields,
   onMappingComplete,
   onSkipMapping,
-  showSkipOption = false
+  showSkipOption = false,
+  campaignUseCase
 }: CSVMappingStepProps) {
   const [showMappingFlow, setShowMappingFlow] = useState(false);
   const [autoMappingComplete, setAutoMappingComplete] = useState(false);
@@ -65,6 +67,9 @@ export default function CSVMappingStep({
   };
 
   const handleMappingFlowComplete = (mappedData: any[]) => {
+    console.log('🎯 CSVMappingStep - Received mappedData:', mappedData);
+    console.log('🎯 CSVMappingStep - Sample keys:', mappedData?.[0] ? Object.keys(mappedData[0]) : 'No data');
+    
     // Generate the key mapping for the traditional system
     const keyMapping: Record<string, string> = {};
     
@@ -89,6 +94,7 @@ export default function CSVMappingStep({
         onCancel={handleCancelMapping}
         existingKeyMapping={existingKeyMapping}
         apiRequiredFields={apiRequiredFields}
+        campaignUseCase={campaignUseCase}
       />
     );
   }

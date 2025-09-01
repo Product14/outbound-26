@@ -6,18 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
 interface TransformedDataItem {
-  CustomerFullName: string;
-  ContactPhoneNumber: string;
-  VIN: string;
-  RecallDescription: string;
-  VehicleMake: string;
-  VehicleModel: string;
-  VehicleYear: string;
-  PartsAvailabilityFlag: string;
-  LoanerEligibility: string;
-  Symptom: string;
-  RiskDetails: string;
-  RemedySteps: string;
+  [key: string]: string | number | boolean;
 }
 
 interface DataPreviewTableProps {
@@ -53,21 +42,58 @@ export default function DataPreviewTable({
 }: DataPreviewTableProps) {
   const itemsPerPage = currentItems.length;
 
-  // Column definitions
-  const columns = [
-    { key: 'CustomerFullName', label: 'Customer Name', width: 'w-48' },
-    { key: 'ContactPhoneNumber', label: 'Phone', width: 'w-40' },
-    { key: 'VIN', label: 'VIN', width: 'w-44' },
-    { key: 'RecallDescription', label: 'Recall Description', width: 'w-60' },
-    { key: 'VehicleMake', label: 'Make', width: 'w-32' },
-    { key: 'VehicleModel', label: 'Model', width: 'w-32' },
-    { key: 'VehicleYear', label: 'Year', width: 'w-24' },
-    { key: 'PartsAvailabilityFlag', label: 'Parts Available', width: 'w-32' },
-    { key: 'LoanerEligibility', label: 'Loaner Eligible', width: 'w-32' },
-    { key: 'Symptom', label: 'Symptom', width: 'w-48' },
-    { key: 'RiskDetails', label: 'Risk Details', width: 'w-48' },
-    { key: 'RemedySteps', label: 'Remedy Steps', width: 'w-48' },
-  ];
+  // Generate column definitions dynamically from data
+  const columns = React.useMemo(() => {
+    if (!data || data.length === 0) return [];
+    
+    const sampleItem = data[0];
+    const columnKeys = Object.keys(sampleItem);
+    
+    return columnKeys.map(key => ({
+      key,
+      label: key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim(),
+      width: getColumnWidth(key)
+    }));
+  }, [data]);
+
+  // Helper function to determine column width based on content type
+  const getColumnWidth = (key: string): string => {
+    const keyLower = key.toLowerCase();
+    
+    if (keyLower.includes('name') || keyLower.includes('description')) return 'w-48';
+    if (keyLower.includes('phone') || keyLower.includes('mobile')) return 'w-40';
+    if (keyLower.includes('vin')) return 'w-44';
+    if (keyLower.includes('year')) return 'w-24';
+    if (keyLower.includes('flag') || keyLower.includes('eligible') || keyLower.includes('available')) return 'w-32';
+    if (keyLower.includes('make') || keyLower.includes('model')) return 'w-32';
+    
+    // Default width for other fields
+    return 'w-40';
+  };
+
+  // Helper function to render cell values with appropriate formatting
+  const renderCellValue = (value: string | number | boolean, columnKey: string) => {
+    if (value === undefined || value === null || value === '') {
+      return '-';
+    }
+
+    const keyLower = columnKey.toLowerCase();
+    
+    // Check if this is a boolean field that should be displayed as Yes/No
+    if (typeof value === 'boolean' || 
+        (typeof value === 'string' && (value.toLowerCase() === 'true' || value.toLowerCase() === 'false')) ||
+        keyLower.includes('flag') || keyLower.includes('eligible') || keyLower.includes('available')) {
+      
+      const boolValue = typeof value === 'boolean' ? value : String(value).toLowerCase() === 'true';
+      return (
+        <Badge variant={boolValue ? 'default' : 'secondary'}>
+          {boolValue ? 'Yes' : 'No'}
+        </Badge>
+      );
+    }
+    
+    return String(value);
+  };
 
   const renderPagination = () => {
     const pageNumbers = [];
@@ -124,19 +150,13 @@ export default function DataPreviewTable({
                       <td key={column.key} className={`py-3 px-4 ${column.width}`}>
                         {isEditing ? (
                           <Input
-                            value={editedData[column.key as keyof TransformedDataItem] || item[column.key as keyof TransformedDataItem] || ''}
+                            value={String(editedData[column.key] || item[column.key] || '')}
                             onChange={(e) => onInputChange(column.key, e.target.value)}
                             className="w-full text-sm"
                           />
                         ) : (
                           <div className="text-sm text-gray-900 truncate">
-                            {column.key === 'PartsAvailabilityFlag' || column.key === 'LoanerEligibility' ? (
-                              <Badge variant={item[column.key as keyof TransformedDataItem] === 'true' ? 'default' : 'secondary'}>
-                                {item[column.key as keyof TransformedDataItem] === 'true' ? 'Yes' : 'No'}
-                              </Badge>
-                            ) : (
-                              item[column.key as keyof TransformedDataItem] || '-'
-                            )}
+                            {renderCellValue(item[column.key], column.key)}
                           </div>
                         )}
                       </td>

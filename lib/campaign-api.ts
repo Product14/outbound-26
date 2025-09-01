@@ -42,47 +42,14 @@ export interface KeyMappingResponse {
 export interface Customer {
   name: string;
   mobile: string;
-  customerDetails?: {
-    customerFullName?: string;
-    contactPhoneNumber?: string;
-    vin?: string;
-    recallDescription?: string;
-    vehicleMake?: string;
-    vehicleModel?: string;
-    vehicleYear?: string;
-    partsAvailabilityFlag?: string;
-    loanerEligibility?: string;
-    symptom?: string;
-    riskDetails?: string;
-    remedySteps?: string;
-  };
-  // Additional fields for new sales use cases
-  leadSource?: string;
-  interestLevel?: string;
-  vehicleInterest?: string;
-  previousPrice?: string;
-  newPrice?: string;
-  newVehicleDetails?: string;
-  formType?: string;
-  abandonmentTime?: string;
+  customerDetails?: Record<string, string | number | boolean>;
+  // Allow any additional dynamic fields
+  [key: string]: string | number | boolean | Record<string, string | number | boolean> | undefined;
 }
 
-// External API Customer interface - flatter structure expected by Spyne API
+// External API Customer interface - only dynamic fields from campaign-types API
 export interface ApiCustomer {
-  name: string;
-  mobile: string;
-  // Service use case fields
-  vin?: string;
-  recallDescription?: string;
-  vehicleMake?: string;
-  vehicleModel?: string;
-  vehicleYear?: string;
-  partsAvailabilityFlag?: boolean;
-  loanerEligibility?: boolean;
-  symptom?: string;
-  riskDetails?: string;
-  remedySteps?: string;
-  // Allow additional dynamic metadata fields with camel case keys
+  // Only dynamic metadata fields as specified by campaign-types API requiredKeys
   [key: string]: string | number | boolean | undefined;
 }
 
@@ -175,17 +142,8 @@ export interface CallDetail {
   _id: string;
   customerName: string;
   customerNumber: string;
-  vin: string;
-  recallDescription: string;
-  vehicleMake: string;
-  vehicleModel: string;
-  vehicleYear: string;
-  partsAvailabilityFlag: boolean;
-  loanerEligibility: boolean;
-  symptom: string;
-  riskDetails: string;
-  remedySteps: string;
-  vehicle: string;
+  // Allow any additional dynamic fields from the campaign data
+  [key: string]: string | number | boolean | undefined;
 }
 
 export interface CampaignDetail {
@@ -258,50 +216,7 @@ export interface CampaignData {
     pricingNegotiation?: boolean;
     technicalQuestions?: boolean;
   };
-  uploadedData?: Array<{
-    CustomerFullName?: string;
-    'Customer Name'?: string;
-    name?: string;
-    ContactPhoneNumber?: string;
-    Phone?: string;
-    mobile?: string;
-    VIN?: string;
-    vin?: string;
-    RecallDescription?: string;
-    recallDescription?: string;
-    VehicleMake?: string;
-    vehicleMake?: string;
-    VehicleModel?: string;
-    vehicleModel?: string;
-    VehicleYear?: string;
-    vehicleYear?: string;
-    PartsAvailabilityFlag?: string | boolean;
-    partsAvailabilityFlag?: string | boolean;
-    LoanerEligibility?: string | boolean;
-    loanerEligibility?: string | boolean;
-    Symptom?: string;
-    symptom?: string;
-    RiskDetails?: string;
-    riskDetails?: string;
-    RemedySteps?: string;
-    remedySteps?: string;
-    LeadSource?: string;
-    leadSource?: string;
-    InterestLevel?: string;
-    interestLevel?: string;
-    VehicleInterest?: string;
-    vehicleInterest?: string;
-    PreviousPrice?: string;
-    previousPrice?: string;
-    NewPrice?: string;
-    newPrice?: string;
-    NewVehicleDetails?: string;
-    newVehicleDetails?: string;
-    FormType?: string;
-    formType?: string;
-    AbandonmentTime?: string;
-    abandonmentTime?: string;
-  }>;
+  uploadedData?: Array<Record<string, string | number | boolean>>;
 }
 
 // Create initial campaign (after agent selection, before customer upload)
@@ -353,107 +268,103 @@ export function transformCampaignData(
   }
   
   // Transform uploaded data to API customers format (flatter structure)
-  console.log('transformCampaignData - uploadedData:', {
+  console.log('🔍 transformCampaignData - uploadedData:', {
     uploadedData: campaignData.uploadedData,
     uploadedDataLength: campaignData.uploadedData?.length,
     sampleRow: campaignData.uploadedData?.[0]
   })
   
+  if (campaignData.uploadedData?.[0]) {
+    console.log('🔍 RECEIVED DATA KEYS:', Object.keys(campaignData.uploadedData[0]));
+    console.log('🔍 Should be camelCase API fields, but are they?');
+  }
+  
   const customers: ApiCustomer[] = campaignData.uploadedData?.map((row: Record<string, any>, index) => {
     console.log(`Processing customer row ${index}:`, row)
     console.log('Available keys in row:', Object.keys(row))
     
-    // Helper function to find value by checking multiple possible column names
-    // Now works with camel case keys from parsed data
-    const findValue = (possibleKeys: string[]): string => {
-      for (const key of possibleKeys) {
-        // Convert the possible key to camel case to match the parsed data
-        const camelKey = key.replace(/[^a-zA-Z0-9]+(.)/g, (_, chr) => chr.toUpperCase())
-                           .replace(/^[A-Z]/, (chr) => chr.toLowerCase());
-        
-        const value = (row as any)[camelKey] || (row as any)[key];
-        if (value && value.toString().trim() !== '') {
-          return value.toString().trim()
-        }
+    // Helper function to format phone number with + sign
+    const formatPhoneNumber = (phone: string): string => {
+      if (!phone || typeof phone !== 'string') return '';
+      const cleanPhone = phone.trim();
+      if (cleanPhone.startsWith('+')) {
+        return cleanPhone; // Already has + sign
       }
-      return ''
-    }
+      return `+${cleanPhone}`;
+    };
     
-    const customer: ApiCustomer = {
-      name: findValue([
-        'CustomerFullName', 'Customer Name', 'name', 'CUSTOMER_NAME', 
-        'customer_name', 'full_name', 'fullName', 'Name'
-      ]),
-      mobile: findValue([
-        'ContactPhoneNumber', 'Phone', 'mobile', 'PHONE_NUMBER', 
-        'phone_number', 'contact_phone', 'contactPhone', 'Mobile'
-      ]),
-      // Always include all fields with empty string defaults
-      vin: findValue([
-        'VIN', 'vin', 'vehicle_vin', 'vehicleVin', 'VEHICLE_VIN'
-      ]),
-      recallDescription: findValue([
-        'RecallDescription', 'recallDescription', 'recall_description', 
-        'RECALL_DESCRIPTION', 'Recall Description'
-      ]),
-      vehicleMake: findValue([
-        'VehicleMake', 'vehicleMake', 'vehicle_make', 'VEHICLE_MAKE', 
-        'Vehicle Make', 'make', 'Make'
-      ]),
-      vehicleModel: findValue([
-        'VehicleModel', 'vehicleModel', 'vehicle_model', 'VEHICLE_MODEL', 
-        'Vehicle Model', 'model', 'Model'
-      ]),
-      vehicleYear: findValue([
-        'VehicleYear', 'vehicleYear', 'vehicle_year', 'VEHICLE_YEAR', 
-        'Vehicle Year', 'year', 'Year'
-      ]),
-      partsAvailabilityFlag: findValue([
-        'PartsAvailabilityFlag', 'partsAvailabilityFlag', 'parts_availability_flag', 
-        'PARTS_AVAILABILITY_FLAG', 'Parts Available'
-      ]).toLowerCase() === 'true',
-      loanerEligibility: findValue([
-        'LoanerEligibility', 'loanerEligibility', 'loaner_eligibility', 
-        'LOANER_ELIGIBILITY', 'Loaner Eligible'
-      ]).toLowerCase() === 'true',
-      symptom: findValue([
-        'Symptom', 'symptom', 'SYMPTOM', 'symptoms'
-      ]),
-      riskDetails: findValue([
-        'RiskDetails', 'riskDetails', 'risk_details', 'RISK_DETAILS', 
-        'Risk Details'
-      ]),
-      remedySteps: findValue([
-        'RemedySteps', 'remedySteps', 'remedy_steps', 'REMEDY_STEPS', 
-        'Remedy Steps'
-      ])
+    // FORCE EXACT API FIELD NAMES - Convert ALL PascalCase to exact camelCase API fields
+    const customer: ApiCustomer = {};
+
+    // Final field name mapping to ensure exact API compliance
+    const finalFieldMapping: Record<string, string> = {
+      'CustomerFullName': 'customerFullName',
+      'ContactPhoneNumber': 'contactPhoneNumber',
+      'VIN': 'vin',
+      'RecallDescription': 'recallDescription', 
+      'VehicleMake': 'vehicleMake',
+      'VehicleModel': 'vehicleModel',
+      'VehicleYear': 'vehicleYear',
+      'PartsAvailabilityFlag': 'partsAvailabilityFlag',
+      'LoanerEligibility': 'loanerEligibility',
+      'Symptom': 'symptom',
+      'RiskDetails': 'riskDetails',
+      'RemedySteps': 'remedySteps'
     };
 
-    // Add all additional metadata fields from the parsed data
-    // This ensures all fields from the CSV/Excel are included with camel case keys
-    Object.keys(row).forEach(key => {
-      if (!customer.hasOwnProperty(key)) {
+    // Process each field with forced API field name conversion
+    Object.keys(row).forEach(originalKey => {
+      const value = row[originalKey];
+      
+      // Convert field name to exact API format
+      const apiFieldName = finalFieldMapping[originalKey] || originalKey;
+      
+      console.log(`🔧 FINAL TRANSFORM: ${originalKey} → ${apiFieldName} = "${value}"`);
+      
+      if (value !== undefined && value !== null && value !== '') {
         // Convert the value appropriately based on its content
-        const value = row[key];
         if (typeof value === 'string') {
-          const trimmedValue = value.toString().trim();
+          const trimmedValue = value.trim();
           if (trimmedValue !== '') {
+            // Special handling for phone numbers - add + prefix
+            if (apiFieldName.toLowerCase().includes('phone') || apiFieldName.toLowerCase().includes('mobile')) {
+              const formattedPhone = formatPhoneNumber(trimmedValue);
+              (customer as any)[apiFieldName] = formattedPhone;
+            }
             // Check if it's a boolean field
-            if (trimmedValue.toLowerCase() === 'true' || trimmedValue.toLowerCase() === 'false') {
-              (customer as any)[key] = trimmedValue.toLowerCase() === 'true';
+            else if (trimmedValue.toLowerCase() === 'true' || trimmedValue.toLowerCase() === 'false') {
+              (customer as any)[apiFieldName] = trimmedValue.toLowerCase() === 'true';
             } else {
-              (customer as any)[key] = trimmedValue;
+              (customer as any)[apiFieldName] = trimmedValue;
             }
           }
-        } else if (value !== undefined && value !== null) {
-          (customer as any)[key] = value;
+        } else if (typeof value === 'boolean') {
+          (customer as any)[apiFieldName] = value;
+        } else if (typeof value === 'number') {
+          (customer as any)[apiFieldName] = value.toString();
+        } else {
+          // Convert any other type to string safely
+          (customer as any)[apiFieldName] = String(value);
         }
       }
     });
 
-    console.log(`Transformed customer ${index}:`, customer)
+    console.log(`✅ FINAL CUSTOMER ${index}:`, customer)
     return customer;
   }) || [];
+
+  // Check for duplicate phone numbers to debug API error
+  const phoneNumbers = customers.map(c => c.contactPhoneNumber).filter(Boolean);
+  const uniquePhoneNumbers = [...new Set(phoneNumbers)];
+  
+  console.log('📞 All phone numbers:', phoneNumbers);
+  console.log('📞 Unique phone numbers:', uniquePhoneNumbers);
+  console.log('📞 Duplicate check:', phoneNumbers.length !== uniquePhoneNumbers.length ? 'DUPLICATES FOUND!' : 'No duplicates');
+  
+  if (phoneNumbers.length !== uniquePhoneNumbers.length) {
+    const duplicates = phoneNumbers.filter((phone, index) => phoneNumbers.indexOf(phone) !== index);
+    console.error('🚨 DUPLICATE PHONE NUMBERS:', duplicates);
+  }
 
   // Build compliance settings based on UI selections
   const complianceSettings: string[] = [];

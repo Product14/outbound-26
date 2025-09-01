@@ -9,12 +9,14 @@ interface CSVFieldMappingTableProps {
   csvMappings: CSVFieldMapping[];
   onImportAsChange: (index: number, value: string) => void;
   apiRequiredFields?: string[];
+  isLoadingApiData?: boolean;
 }
 
 export default function CSVFieldMappingTable({
   csvMappings,
   onImportAsChange,
   apiRequiredFields,
+  isLoadingApiData = false,
 }: CSVFieldMappingTableProps) {
   const mappedCount = csvMappings.filter(
     (item) => item.mappingStatus === 'mapped'
@@ -32,8 +34,10 @@ export default function CSVFieldMappingTable({
             Map your CSV fields
           </h2>
           <p className="text-sm text-gray-600 mt-1">
-            Our system has automatically detected your CSV fields. Please verify
-            or adjust the mappings.
+            {isLoadingApiData 
+              ? 'Loading campaign requirements from API and mapping your CSV fields...'
+              : 'Fields have been mapped based on your campaign requirements. Please verify or adjust as needed.'
+            }
           </p>
         </div>
         <Badge variant="secondary" className="flex items-center gap-2">

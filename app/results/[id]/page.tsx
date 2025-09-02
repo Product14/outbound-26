@@ -96,6 +96,137 @@ const generateCallQuality = (index: number, status: string): number => {
   }
 };
 
+// Helper function to render table cell content based on column type
+const renderTableCell = (call: any, column: {key: string, label: string, type: 'text' | 'vehicle' | 'boolean'}, formatDate: (date: string | Date) => string) => {
+  switch (column.type) {
+    case 'vehicle':
+      return (
+        <div className="space-y-1">
+          <div className="text-[#1A1A1A] font-medium">
+            {[call.vehicleYear, call.vehicleMake, call.vehicleModel].filter(Boolean).join(' ') || 'N/A'}
+          </div>
+          <div className="font-mono text-xs text-[#6B7280]">{call.vin || 'N/A'}</div>
+        </div>
+      );
+    case 'boolean':
+      if (column.key === 'appointment') {
+        return call.appointment === 'Yes' ? (
+          <div className="flex items-center gap-1 text-[#22C55E] font-bold text-sm">
+            <Check className="h-4 w-4" />
+            <span>Yes</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 text-[#6B7280] text-sm">
+            <X className="h-4 w-4" />
+            <span>No</span>
+          </div>
+        );
+      } else {
+        // Other boolean fields
+        const value = call[column.key];
+        return value === 'Yes' ? (
+          <div className="flex items-center gap-1 text-[#22C55E] text-sm">
+            <Check className="h-4 w-4" />
+            <span>Yes</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 text-[#6B7280] text-sm">
+            <X className="h-4 w-4" />
+            <span>No</span>
+          </div>
+        );
+      }
+    default:
+      if (column.key === 'customer') {
+        return (
+          <div className="space-y-1">
+            <div className="font-bold text-[#1A1A1A]">{call.customer}</div>
+            <div className="text-[#6B7280]">{call.phone}</div>
+            {call.email && <div className="text-[#6B7280]">{call.email}</div>}
+          </div>
+        );
+      } else if (column.key === 'status') {
+        return (
+          <div className={`${statusColors[call.status]} border font-medium rounded-full text-xs px-2 py-1 inline-block`}>
+            {call.status}
+          </div>
+        );
+      } else if (column.key === 'outcome') {
+        return (
+          <span className="text-[#1A1A1A] text-sm font-bold">
+            {call.outcome}
+          </span>
+        );
+      } else if (column.key === 'callTime') {
+        return (
+          <div className="space-y-1">
+            <div className="text-[#1A1A1A]">{formatDate(call.callTime)}</div>
+            <div className="flex items-center gap-1 text-[#6B7280]">
+              <Clock className="h-3 w-3" />
+              <span className="font-mono text-xs">{call.duration}</span>
+            </div>
+          </div>
+        );
+      } else if (column.key === 'callQuality') {
+        return <CallQualityChart rating={call.callQuality} />;
+      } else {
+        // Generic text field
+        return (
+          <span className="text-[#1A1A1A] text-sm">
+            {call[column.key] || 'N/A'}
+          </span>
+        );
+      }
+  }
+};
+
+// Helper function to get display columns based on available data
+const getDisplayColumnsForCallData = (callDetails: any[]): Array<{key: string, label: string, type: 'text' | 'vehicle' | 'boolean'}> => {
+  if (!callDetails || callDetails.length === 0) {
+    return [
+      { key: 'customer', label: 'Customer Info', type: 'text' },
+      { key: 'status', label: 'Status', type: 'text' },
+      { key: 'outcome', label: 'Outcome', type: 'text' },
+      { key: 'appointment', label: 'Appointment', type: 'boolean' },
+      { key: 'callTime', label: 'Call Time & Duration', type: 'text' },
+      { key: 'callQuality', label: 'Call Quality', type: 'text' }
+    ];
+  }
+
+  const sampleCall = callDetails[0];
+  const columns: Array<{key: string, label: string, type: 'text' | 'vehicle' | 'boolean'}> = [
+    { key: 'customer', label: 'Customer Info', type: 'text' }
+  ];
+
+  // Check for vehicle-related fields
+  const hasVehicleFields = sampleCall.vin || sampleCall.vehicleMake || sampleCall.vehicleModel || sampleCall.vehicleYear;
+  if (hasVehicleFields) {
+    columns.push({ key: 'vehicle', label: 'Vehicle & VIN', type: 'vehicle' });
+  }
+
+  // Add other dynamic fields (skip standard fields we handle separately)
+  const skipFields = ['id', 'customer', 'phone', 'status', 'outcome', 'appointment', 'callTime', 'duration', 'callQuality', 'email', 'vin', 'vehicleMake', 'vehicleModel', 'vehicleYear'];
+  Object.keys(sampleCall).forEach(key => {
+    if (!skipFields.includes(key)) {
+      // Format the field name for display
+      const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+      const type = key.toLowerCase().includes('flag') || key.toLowerCase().includes('eligib') ? 'boolean' : 'text';
+      columns.push({ key, label, type });
+    }
+  });
+
+  // Add standard columns at the end
+  columns.push(
+    { key: 'status', label: 'Status', type: 'text' },
+    { key: 'outcome', label: 'Outcome', type: 'text' },
+    { key: 'appointment', label: 'Appointment', type: 'boolean' },
+    { key: 'callTime', label: 'Call Time & Duration', type: 'text' },
+    { key: 'callQuality', label: 'Call Quality', type: 'text' }
+  );
+
+  return columns;
+};
+
 // Map call details to display format for table with realistic call statuses
 const formatCallDetailsForTable = (callDetails: CallDetail[], campaignStartDate: string) => {
   return callDetails.map((call, index) => {
@@ -113,21 +244,24 @@ const formatCallDetailsForTable = (callDetails: CallDetail[], campaignStartDate:
       return String(value);
     };
 
-    return {
+    // Helper function to format boolean values for display
+    const formatBoolean = (value: string | number | boolean | undefined): string => {
+      if (value === undefined || value === null) return 'No';
+      if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+      if (typeof value === 'string') {
+        const lowerValue = value.toLowerCase();
+        if (lowerValue === 'true' || lowerValue === 'yes' || lowerValue === '1') return 'Yes';
+        if (lowerValue === 'false' || lowerValue === 'no' || lowerValue === '0') return 'No';
+        return toString(value);
+      }
+      return toString(value);
+    };
+
+    // Build the base call object with standard fields
+    const baseCall = {
       id: index + 1,
       customer: call.customerName,
       phone: call.customerNumber,
-      vin: toString(call.vin),
-      make: toString(call.vehicleMake),
-      model: toString(call.vehicleModel),
-      year: toString(call.vehicleYear),
-      vehicle: toString(call.vehicle),
-      recallDescription: toString(call.recallDescription),
-      symptom: toString(call.symptom),
-      riskDetails: toString(call.riskDetails),
-      remedySteps: toString(call.remedySteps),
-      partsAvailable: call.partsAvailabilityFlag ? 'Yes' : 'No',
-      loanerEligible: call.loanerEligibility ? 'Yes' : 'No',
       // Use calculated status data
       status: statusResult.status,
       outcome: statusResult.outcome,
@@ -135,7 +269,31 @@ const formatCallDetailsForTable = (callDetails: CallDetail[], campaignStartDate:
       callTime: callTime,
       duration: duration,
       callQuality: callQuality
-    }
+    };
+
+    // Add all dynamic fields from the call data
+    const dynamicFields: Record<string, any> = {};
+    Object.keys(call).forEach(key => {
+      // Skip the base fields we've already handled
+      if (!['_id', 'customerName', 'customerNumber'].includes(key)) {
+        const value = call[key];
+        
+        // Handle different field types appropriately
+        if (key.toLowerCase().includes('flag') || key.toLowerCase().includes('eligib')) {
+          // Boolean-like fields
+          dynamicFields[key] = formatBoolean(value);
+        } else {
+          // Regular fields
+          dynamicFields[key] = toString(value);
+        }
+      }
+    });
+
+    // Combine base call data with dynamic fields
+    return {
+      ...baseCall,
+      ...dynamicFields
+    };
   })
 }
 
@@ -229,10 +387,6 @@ export default function CampaignDetail() {
     id: number;
     customer: string;
     phone: string;
-    vin: string;
-    make: string;
-    model: string;
-    year: string;
     status: string;
     outcome: string;
     appointment: string;
@@ -240,6 +394,8 @@ export default function CampaignDetail() {
     duration: string;
     callQuality: number;
     email?: string;
+    // Allow any additional dynamic fields
+    [key: string]: any;
   }>>([])
   const [lastRefresh, setLastRefresh] = useState(new Date())
   const [isLoading, setIsLoading] = useState(true)
@@ -247,6 +403,7 @@ export default function CampaignDetail() {
   const [campaignNotFound, setCampaignNotFound] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [campaignTypes, setCampaignTypes] = useState<CampaignTypesResponse | null>(null)
+  const [displayColumns, setDisplayColumns] = useState<Array<{key: string, label: string, type: 'text' | 'vehicle' | 'boolean'}>>([])
   const itemsPerPage = 10
   const [campaignAgent, setCampaignAgent] = useState<Agent | null>(null)
   const [isLoadingAgent, setIsLoadingAgent] = useState(false)
@@ -292,8 +449,14 @@ export default function CampaignDetail() {
           setCampaignData(response)
           const formattedCallDetails = formatCallDetailsForTable(response.callDetails, response.campaign.startDate)
           setCallDetails(formattedCallDetails)
+          
+          // Set display columns based on the formatted data
+          const columns = getDisplayColumnsForCallData(formattedCallDetails)
+          setDisplayColumns(columns)
+          
           setCampaignNotFound(false)
           console.log('Loaded campaign details:', response)
+          console.log('Generated display columns:', columns)
 
           // Fetch campaign types data
           try {
@@ -413,6 +576,11 @@ export default function CampaignDetail() {
         setCampaignData(response)
         const formattedCallDetails = formatCallDetailsForTable(response.callDetails, response.campaign.startDate)
         setCallDetails(formattedCallDetails)
+        
+        // Update display columns based on refreshed data
+        const columns = getDisplayColumnsForCallData(formattedCallDetails)
+        setDisplayColumns(columns)
+        
         setLastRefresh(new Date())
       }
     } catch (error) {

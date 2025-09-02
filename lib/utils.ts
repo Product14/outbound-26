@@ -11,6 +11,12 @@ export function cn(...inputs: ClassValue[]) {
  * @returns The camel case string
  */
 export function toCamelCase(str: string): string {
+  // Handle all-caps single words (convert to lowercase)
+  if (str === str.toUpperCase() && !str.includes('_') && !str.includes('-') && !str.includes(' ')) {
+    return str.toLowerCase();
+  }
+  
+  // Standard camelCase conversion
   return str
     .replace(/[^a-zA-Z0-9]+(.)/g, (_, chr) => chr.toUpperCase())
     .replace(/^[A-Z]/, (chr) => chr.toLowerCase());

@@ -69,7 +69,7 @@ export function useCampaignValidation({
       errors
     )
 
-    setErrors(result.errors)
+    setErrors(() => result.errors)
     return result.isValid
   }, [
     campaignData,
@@ -92,10 +92,50 @@ export function useCampaignValidation({
     setErrors
   ])
 
-  const isContinueDisabled = useCallback(() => {
-    // Add any step-specific continue disabled logic here
-    return false
-  }, [])
+  const isContinueDisabled = useCallback((currentStep: number) => {
+    // Validate the current step to determine if Continue should be disabled
+    const result = validateStep(
+      currentStep,
+      campaignData,
+      selectedCategory,
+      selectedAgent,
+      selectedUploadOption,
+      crmSelection,
+      enableRecurringLeads,
+      leadAgeDays,
+      vinSolutionsStartDate,
+      vinSolutionsEndDate,
+      vinSolutionsStartTime,
+      vinSolutionsEndTime,
+      googleDriveLink,
+      googleDriveComplete,
+      uploadComplete,
+      csvMappingComplete,
+      missingColumns,
+      errors
+    )
+    
+    // Return true if validation fails (disable Continue button)
+    return !result.isValid
+  }, [
+    campaignData,
+    selectedCategory,
+    selectedAgent,
+    selectedUploadOption,
+    crmSelection,
+    enableRecurringLeads,
+    leadAgeDays,
+    vinSolutionsStartDate,
+    vinSolutionsEndDate,
+    vinSolutionsStartTime,
+    vinSolutionsEndTime,
+    googleDriveLink,
+    googleDriveComplete,
+    uploadComplete,
+    csvMappingComplete,
+    missingColumns,
+    errors
+  ])
 
   return {
     validateCurrentStep,

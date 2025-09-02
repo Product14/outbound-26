@@ -1,4 +1,5 @@
 // Types for CSV field mapping system inspired by BulkUpload pattern
+import { toCamelCase } from '@/lib/utils';
 
 export interface CSVFieldMapping {
   columnHeader: string;
@@ -24,14 +25,20 @@ export interface MappingConfig {
 
 // No hardcoded configurations - everything comes from API
 
-// Generate import options from API fields only
+// ⚠️ CRITICAL: Generate import options ONLY from API fields - NO hardcoded data
 export const getImportAsOptions = (apiRequiredFields?: string[]): MappingOption[] => {
+  console.log('🔍 getImportAsOptions called with API fields:', apiRequiredFields);
+  
   // If API required fields are provided, use them as the only source
   if (apiRequiredFields && apiRequiredFields.length > 0) {
-    const dynamicOptions = apiRequiredFields.map(field => ({
-      label: field.replace(/[_-]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
-      value: field
-    }));
+    const dynamicOptions = apiRequiredFields.map(field => {
+      // Ensure field is in camelCase format for API compatibility
+      const camelCaseField = toCamelCase(field);
+      return {
+        label: field.replace(/[_-]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+        value: camelCaseField
+      };
+    });
     
     // Always include the "Do Not Import" option
     const doNotImportOption = {
@@ -39,10 +46,13 @@ export const getImportAsOptions = (apiRequiredFields?: string[]): MappingOption[
       value: 'do_not_import'
     };
     
+    console.log('✅ Returning API-driven options:', [...dynamicOptions, doNotImportOption]);
     return [...dynamicOptions, doNotImportOption];
   }
   
-  // If no API fields are provided, return only the "Do Not Import" option
+  // ⚠️ CRITICAL: If no API fields are provided, return ONLY the "Do Not Import" option
+  // This prevents showing any hardcoded mapping options
+  console.log('❌ No API fields provided - returning only "Do Not Import" option');
   return [{
     label: 'Do Not Import',
     value: 'do_not_import'

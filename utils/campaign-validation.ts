@@ -114,6 +114,13 @@ export const validateStep = (
           }
         }
         
+        // Check CSV mapping completion for CRM uploads
+        if (uploadComplete && !csvMappingComplete) {
+          newErrors.crmSelection = true
+          missingFields.push('CSV Field Mapping - Please complete the field mapping process')
+          isValid = false
+        }
+        
         // Also check if there are missing required fields after key mapping
         if (uploadComplete && missingColumns.length > 0) {
           newErrors.crmSelection = true
@@ -129,6 +136,11 @@ export const validateStep = (
           newErrors.googleDriveLink = true
           missingFields.push('Google Drive Data Import (please fetch and validate the data)')
           isValid = false
+        } else if (!csvMappingComplete) {
+          // Check CSV mapping completion for Google Drive imports
+          newErrors.googleDriveLink = true
+          missingFields.push('CSV Field Mapping - Please complete the field mapping process')
+          isValid = false
         }
         
         // Also check if there are missing required fields after key mapping
@@ -137,21 +149,41 @@ export const validateStep = (
           missingFields.push(`Missing required data: ${missingColumns.join(', ')}`)
           isValid = false
         }
-      } else if (selectedUploadOption === 'upload' && !uploadComplete) {
-        newErrors.fileUpload = true
-        missingFields.push('CSV File Upload')
-        isValid = false
-      } else if (selectedUploadOption === 'upload' && uploadComplete && !csvMappingComplete) {
-        newErrors.fileUpload = true
-        missingFields.push('CSV Field Mapping - Please complete the field mapping process')
-        isValid = false
+      } else if (selectedUploadOption === 'upload') {
+        // For CSV upload option, comprehensive validation like service campaigns
+        if (!uploadComplete) {
+          newErrors.fileUpload = true
+          missingFields.push('CSV File Upload')
+          isValid = false
+        } else if (!csvMappingComplete) {
+          newErrors.fileUpload = true
+          missingFields.push('CSV Field Mapping - Please complete the field mapping process')
+          isValid = false
+        } else if (missingColumns.length > 0) {
+          // Check for missing required fields after key mapping
+          newErrors.fileUpload = true
+          missingFields.push(`Missing required data: ${missingColumns.join(', ')}`)
+          isValid = false
+        }
       }
       
-      // Also check if there are missing required fields after key mapping
-      if (uploadComplete && missingColumns.length > 0) {
-        newErrors.fileUpload = true
-        missingFields.push(`Missing required data: ${missingColumns.join(', ')}`)
-        isValid = false
+      // Final validation for all sales upload options: check for missing required data
+      // This ensures comprehensive validation across all upload methods (CRM, Google Drive, CSV)
+      if (uploadComplete && selectedUploadOption && missingColumns.length > 0) {
+        // Set the appropriate error based on upload method
+        if (selectedUploadOption === 'crm') {
+          newErrors.crmSelection = true
+        } else if (selectedUploadOption === 'drive') {
+          newErrors.googleDriveLink = true
+        } else if (selectedUploadOption === 'upload') {
+          newErrors.fileUpload = true
+        }
+        
+        // Only add missing fields error if not already added above
+        if (!missingFields.some(field => field.includes('Missing required data'))) {
+          missingFields.push(`Missing required data: ${missingColumns.join(', ')}`)
+          isValid = false
+        }
       }
     } else {
       // For service, use original validation

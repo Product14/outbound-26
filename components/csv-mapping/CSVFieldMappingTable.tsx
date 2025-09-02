@@ -23,7 +23,10 @@ export default function CSVFieldMappingTable({
   ).length;
   const totalCount = csvMappings.length;
 
-  const importAsOptions = getImportAsOptions(apiRequiredFields);
+  // ⚠️ CRITICAL: Only show import options when API data is available
+  const importAsOptions = isLoadingApiData 
+    ? [] // Show empty options while loading to prevent hardcoded data
+    : getImportAsOptions(apiRequiredFields);
 
   return (
     <div className="space-y-6">
@@ -35,7 +38,7 @@ export default function CSVFieldMappingTable({
           </h2>
           <p className="text-sm text-gray-600 mt-1">
             {isLoadingApiData 
-              ? 'Loading campaign requirements from API and mapping your CSV fields...'
+              ? 'Loading campaign requirements and mapping your CSV fields...'
               : 'Fields have been mapped based on your campaign requirements. Please verify or adjust as needed.'
             }
           </p>
@@ -70,6 +73,13 @@ export default function CSVFieldMappingTable({
                 </tr>
               </thead>
               <tbody>
+                {csvMappings.length === 0 && !isLoadingApiData && (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-gray-500">
+                      No CSV data found. Please upload a valid CSV file.
+                    </td>
+                  </tr>
+                )}
                 {csvMappings.map((mapping, index) => {
                   return (
                     <tr
@@ -110,15 +120,18 @@ export default function CSVFieldMappingTable({
                         <Select
                           value={mapping.importAs}
                           onValueChange={(value) => onImportAsChange(index, value)}
+                          disabled={isLoadingApiData} // Disable while loading API data
                         >
                           <SelectTrigger 
                             className={`w-full ${
                               mapping.mappingStatus !== 'mapped'
                                 ? 'border-red-300 bg-red-50'
                                 : 'border-gray-300'
-                            }`}
+                            } ${isLoadingApiData ? 'opacity-50 cursor-not-allowed' : ''}`}
                           >
-                            <SelectValue placeholder="Select import type" />
+                            <SelectValue 
+                              placeholder={isLoadingApiData ? "Loading API data..." : "Select import type"} 
+                            />
                           </SelectTrigger>
                           <SelectContent>
                             {importAsOptions.map((option) => (

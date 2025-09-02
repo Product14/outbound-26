@@ -14,6 +14,7 @@ import {
   getImportCategoryFromValue
 } from '@/lib/types/csv-mapping';
 import { integrateCsvWithApis } from '@/lib/csv-api-integration';
+import { toCamelCase } from '@/lib/utils';
 
 // Step indicator component
 const StepIndicator = ({ steps, currentStep }: { steps: string[], currentStep: number }) => {
@@ -74,9 +75,29 @@ export default function CSVMappingFlow({
   const [isLoadingApiData, setIsLoadingApiData] = useState(false);
   const [dynamicRequiredFields, setDynamicRequiredFields] = useState<string[]>([]);
   const [dynamicKeyMapping, setDynamicKeyMapping] = useState<Record<string, string>>({});
+  const [validationResult, setValidationResult] = useState<{
+    isValid: boolean;
+    missingRequired: string[];
+    unmappedCount: number;
+  }>({ isValid: false, missingRequired: [], unmappedCount: 0 });
   const itemsPerPage = 8;
 
   const steps = ['Map Fields', 'Review Data'];
+
+  // ⚠️ CRITICAL: Validate that ALL required fields from API are mapped
+  const validateAllRequiredFieldsMapped = () => {
+    const effectiveRequiredFields = dynamicRequiredFields.length > 0 ? dynamicRequiredFields : apiRequiredFields;
+    const validation = validateMappingCompleteness(csvMappings, effectiveRequiredFields);
+    
+    console.log('🔍 Validating required fields mapping:', {
+      requiredFields: effectiveRequiredFields,
+      validation: validation,
+      csvMappings: csvMappings.map(m => ({ header: m.columnHeader, importAs: m.importAs, status: m.mappingStatus }))
+    });
+    
+    setValidationResult(validation);
+    return validation;
+  };
 
   // Helper function to determine if a CSV header should map to a specific API field
   const shouldMapToApiField = (csvHeader: string, apiField: string): boolean => {
@@ -109,6 +130,8 @@ export default function CSVMappingFlow({
       if (!csvData || csvData.length === 0) return;
 
       setIsLoadingApiData(true);
+      // ⚠️ CRITICAL: Reset validation during loading to ensure buttons are disabled
+      setValidationResult({ isValid: false, missingRequired: [], unmappedCount: 0 });
       
       try {
         // Get CSV headers
@@ -142,10 +165,12 @@ export default function CSVMappingFlow({
               // Check if we have a better API field mapping for this CSV header
               for (const apiField of apiResult.requiredFields) {
                 if (shouldMapToApiField(csvHeader, apiField)) {
-                  console.log(`🔧 Correcting mapping: ${csvHeader} → ${apiField} (was: ${currentMapping})`);
+                  // Ensure the API field name is in camelCase format
+                  const camelCaseApiField = toCamelCase(apiField);
+                  console.log(`🔧 Correcting mapping: ${csvHeader} → ${camelCaseApiField} (was: ${currentMapping})`);
                   return {
                     ...mapping,
-                    importAs: apiField,
+                    importAs: camelCaseApiField,
                     mappingStatus: 'mapped' as const
                   };
                 }
@@ -159,27 +184,85 @@ export default function CSVMappingFlow({
             console.log('📋 API required fields:', apiResult.requiredFields);
             console.log('🔗 Combined key mapping:', { ...existingKeyMapping, ...apiResult.keyMapping });
             setCsvMappings(correctedMappings);
+            
+            // ⚠️ CRITICAL: Validate initial mappings
+            setTimeout(() => {
+              const validation = validateMappingCompleteness(correctedMappings, apiResult.requiredFields);
+              setValidationResult(validation);
+            }, 100);
           } else {
             console.error('API integration failed:', apiResult.error);
             toast.error(`Failed to fetch mapping data: ${apiResult.error}`);
             
-            // Fallback to existing behavior
-            const mappings = generateCSVFieldMapping(csvData, existingKeyMapping, apiRequiredFields);
-            setCsvMappings(mappings);
+            // ⚠️ CRITICAL: Do NOT use hardcoded fallback data
+            // Only use API required fields if they exist, otherwise show empty mappings
+            if (apiRequiredFields && apiRequiredFields.length > 0) {
+              console.log('🔄 Using provided API required fields as fallback:', apiRequiredFields);
+              const mappings = generateCSVFieldMapping(csvData, existingKeyMapping, apiRequiredFields);
+              setCsvMappings(mappings);
+              
+              // Validate fallback mappings
+              setTimeout(() => {
+                const validation = validateMappingCompleteness(mappings, apiRequiredFields);
+                setValidationResult(validation);
+              }, 100);
+            } else {
+              console.log('❌ No API data available - showing unmapped fields only');
+              // Generate mappings without required fields to avoid hardcoded data
+              const mappings = generateCSVFieldMapping(csvData, existingKeyMapping, []);
+              setCsvMappings(mappings);
+              
+              // No required fields means always valid
+              setValidationResult({ isValid: true, missingRequired: [], unmappedCount: 0 });
+            }
           }
         } else {
-          // Fallback to existing behavior when no use case is provided
-          console.log('No campaign use case provided, using fallback mapping');
-          const mappings = generateCSVFieldMapping(csvData, existingKeyMapping, apiRequiredFields);
-          setCsvMappings(mappings);
+          // ⚠️ CRITICAL: Only use API required fields, never hardcoded fallbacks
+          console.log('No campaign use case provided - checking for API required fields');
+          if (apiRequiredFields && apiRequiredFields.length > 0) {
+            console.log('🔄 Using provided API required fields:', apiRequiredFields);
+            const mappings = generateCSVFieldMapping(csvData, existingKeyMapping, apiRequiredFields);
+            setCsvMappings(mappings);
+            
+            // Validate no use case mappings
+            setTimeout(() => {
+              const validation = validateMappingCompleteness(mappings, apiRequiredFields);
+              setValidationResult(validation);
+            }, 100);
+          } else {
+            console.log('❌ No API required fields available - showing unmapped fields only');
+            // Generate mappings without required fields to avoid hardcoded data
+            const mappings = generateCSVFieldMapping(csvData, existingKeyMapping, []);
+            setCsvMappings(mappings);
+            
+            // No required fields means always valid
+            setValidationResult({ isValid: true, missingRequired: [], unmappedCount: 0 });
+          }
         }
       } catch (error) {
         console.error('Error during mapping initialization:', error);
         toast.error('Failed to initialize field mapping');
         
-        // Fallback to existing behavior on error
-        const mappings = generateCSVFieldMapping(csvData, existingKeyMapping, apiRequiredFields);
-        setCsvMappings(mappings);
+        // ⚠️ CRITICAL: Only use API required fields on error, never hardcoded fallbacks
+        if (apiRequiredFields && apiRequiredFields.length > 0) {
+          console.log('🔄 Error fallback - using provided API required fields:', apiRequiredFields);
+          const mappings = generateCSVFieldMapping(csvData, existingKeyMapping, apiRequiredFields);
+          setCsvMappings(mappings);
+          
+          // Validate error fallback mappings
+          setTimeout(() => {
+            const validation = validateMappingCompleteness(mappings, apiRequiredFields);
+            setValidationResult(validation);
+          }, 100);
+        } else {
+          console.log('❌ Error fallback - no API data available, showing unmapped fields only');
+          // Generate mappings without required fields to avoid hardcoded data
+          const mappings = generateCSVFieldMapping(csvData, existingKeyMapping, []);
+          setCsvMappings(mappings);
+          
+          // No required fields means always valid
+          setValidationResult({ isValid: true, missingRequired: [], unmappedCount: 0 });
+        }
       } finally {
         setIsLoadingApiData(false);
       }
@@ -187,6 +270,47 @@ export default function CSVMappingFlow({
 
     initializeMapping();
   }, [csvData, existingKeyMapping, apiRequiredFields, campaignUseCase]);
+
+  // ⚠️ CRITICAL: Re-validate whenever mappings change and auto-complete when ready
+  useEffect(() => {
+    if (csvMappings.length > 0 && !isLoadingApiData) {
+      console.log('🔄 CSV mappings changed - running validation...');
+      const validation = validateAllRequiredFieldsMapped();
+      
+      // ⚠️ CRITICAL: Auto-complete mapping when all required fields are mapped
+      if (validation.isValid && validation.missingRequired.length === 0) {
+        console.log('✅ All required fields mapped - auto-completing CSV mapping');
+        
+        // Generate final data and key mapping
+        const finalData = generatePreviewData();
+        const keyMapping = csvMappings.reduce((acc, mapping) => {
+          if (mapping.mappingStatus === 'mapped' && mapping.importAs !== 'do_not_import') {
+            let apiFieldName = mapping.importAs;
+            
+            // Ensure API field name is in camelCase for API compatibility
+            const camelCaseFieldName = toCamelCase(apiFieldName);
+            
+            // Always use the camelCase version for API compatibility
+            if (camelCaseFieldName !== apiFieldName) {
+              console.log(`🔄 Key mapping - Converting field name to camelCase: ${apiFieldName} → ${camelCaseFieldName}`);
+              apiFieldName = camelCaseFieldName;
+            }
+            
+            acc[mapping.columnHeader] = apiFieldName;
+          }
+          return acc;
+        }, {} as Record<string, string>);
+        
+        // Auto-complete the mapping process
+        console.log('📋 CSV Mapping Complete - Final Data Sample:', finalData[0]);
+        console.log('🔗 CSV Mapping Complete - Key Mapping:', keyMapping);
+        
+        setTimeout(() => {
+          onComplete(finalData, keyMapping);
+        }, 500); // Small delay to show validation success
+      }
+    }
+  }, [csvMappings, isLoadingApiData]);
 
   // Handle import as change
   const handleImportAsChange = (index: number, value: string) => {
@@ -216,6 +340,8 @@ export default function CSVMappingFlow({
     mapping.mappingStatus = value === 'do_not_import' ? 'mapped' : 'mapped';
     
     setCsvMappings(updatedMappings);
+    
+    // Validation is now handled by useEffect automatically
   };
 
 
@@ -237,7 +363,16 @@ export default function CSVMappingFlow({
       // Use the actual user mappings from csvMappings state
       mappedFields.forEach(mapping => {
         const csvValue = row[mapping.columnHeader];
-        const apiFieldName = mapping.importAs;
+        let apiFieldName = mapping.importAs;
+        
+        // Ensure API field name is in camelCase for API compatibility
+        const camelCaseFieldName = toCamelCase(apiFieldName);
+        
+        // Always use the camelCase version for API compatibility
+        if (camelCaseFieldName !== apiFieldName) {
+          console.log(`🔄 Converting field name to camelCase: ${apiFieldName} → ${camelCaseFieldName}`);
+          apiFieldName = camelCaseFieldName;
+        }
         
         console.log(`🎯 Mapping: ${mapping.columnHeader} → ${apiFieldName} = "${csvValue}"`);
         
@@ -313,7 +448,7 @@ export default function CSVMappingFlow({
       <StepIndicator steps={steps} currentStep={currentStep} />
 
       {/* Progress Bar for Mapping Step */}
-      {currentStep === 0 && (
+      {currentStep === 0 && !isLoadingApiData && (
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-2">
@@ -321,12 +456,36 @@ export default function CSVMappingFlow({
               <span className="text-sm text-gray-600">{mappedCount}/{csvMappings.length} mapped</span>
             </div>
             <Progress value={progress} className="h-2" />
+            {validationResult.isValid ? (
+              <div className="mt-2 text-sm text-green-600 font-medium">
+                ✅ All required fields mapped! Auto-completing...
+              </div>
+            ) : validationResult.missingRequired.length > 0 ? (
+              <div className="mt-2 text-sm text-orange-600">
+                Missing required fields: {validationResult.missingRequired.join(', ')}
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Loading State */}
+      {isLoadingApiData && (
+        <Card>
+          <CardContent className="p-12">
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <div className="text-center">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading Campaign Requirements</h3>
+                <p className="text-sm text-gray-600">Fetching required fields and analyzing your CSV...</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
 
       {/* Step Content */}
-      {currentStep === 0 && (
+      {!isLoadingApiData && currentStep === 0 && (
         <CSVFieldMappingTable
           csvMappings={csvMappings}
           onImportAsChange={handleImportAsChange}
@@ -363,8 +522,7 @@ export default function CSVMappingFlow({
           />
         </div>
       )}
-
-
+    
     </div>
   );
 }

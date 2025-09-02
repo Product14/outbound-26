@@ -1,4 +1,5 @@
 import { configs } from '@/configs';
+import { toCamelCase } from '@/lib/utils';
 
 // Campaign Types API interfaces
 export interface CampaignType {
@@ -247,7 +248,8 @@ export function transformCampaignData(
   enterpriseId: string, 
   teamId: string,
   teamAgentMappingId: string = "agent234", // Default value from your API example
-  existingCampaignId?: string // For final launch with existing campaign ID
+  existingCampaignId?: string, // For final launch with existing campaign ID
+  keyMapping?: Record<string, string> // Dynamic field mapping from CSV mapping process
 ): LaunchCampaignPayload {
   // Transform the use case to campaign type
   const campaignType = campaignData.useCase === 'sales' ? 'Sales' : 'Service';
@@ -274,6 +276,21 @@ export function transformCampaignData(
     sampleRow: campaignData.uploadedData?.[0]
   })
   
+  // Log key mapping information
+  console.log('🗝️ transformCampaignData - keyMapping:', {
+    keyMappingProvided: !!keyMapping,
+    keyMappingKeys: keyMapping ? Object.keys(keyMapping) : [],
+    keyMapping: keyMapping
+  })
+  
+  if (!keyMapping && campaignData.uploadedData?.[0]) {
+    console.log('🔄 No keyMapping provided - will auto-convert PascalCase to camelCase for API compatibility');
+    const sampleKeys = Object.keys(campaignData.uploadedData[0]);
+    console.log('📝 Sample original keys:', sampleKeys);
+    const convertedKeys = sampleKeys.map(key => `${key} → ${toCamelCase(key)}`);
+    console.log('📝 Sample converted keys:', convertedKeys);
+  }
+  
   if (campaignData.uploadedData?.[0]) {
     console.log('🔍 RECEIVED DATA KEYS:', Object.keys(campaignData.uploadedData[0]));
     console.log('🔍 Should be camelCase API fields, but are they?');
@@ -293,33 +310,64 @@ export function transformCampaignData(
       return `+${cleanPhone}`;
     };
     
-    // FORCE EXACT API FIELD NAMES - Convert ALL PascalCase to exact camelCase API fields
+    // Transform customer data using dynamic field mapping from CSV mapping process
     const customer: ApiCustomer = {};
 
-    // Final field name mapping to ensure exact API compliance
-    const finalFieldMapping: Record<string, string> = {
-      'CustomerFullName': 'customerFullName',
-      'ContactPhoneNumber': 'contactPhoneNumber',
-      'VIN': 'vin',
-      'RecallDescription': 'recallDescription', 
-      'VehicleMake': 'vehicleMake',
-      'VehicleModel': 'vehicleModel',
-      'VehicleYear': 'vehicleYear',
-      'PartsAvailabilityFlag': 'partsAvailabilityFlag',
-      'LoanerEligibility': 'loanerEligibility',
-      'Symptom': 'symptom',
-      'RiskDetails': 'riskDetails',
-      'RemedySteps': 'remedySteps'
-    };
+    // Use dynamic field mapping from CSV mapping process, or create smart fallback mapping
+    const fieldMapping: Record<string, string> = keyMapping || {};
+    
+    // If no key mapping provided, create smart case conversion mapping
+    if (!keyMapping && Object.keys(row).length > 0) {
+      console.log('⚠️ No keyMapping provided, creating dynamic PascalCase to camelCase mapping');
+      Object.keys(row).forEach(key => {
+        // Convert PascalCase to camelCase using utility function
+        let camelCaseKey = toCamelCase(key);
+        
+        // Handle special cases for acronyms like VIN
+        if (key === 'VIN' || (key === key.toUpperCase() && !key.includes('_') && !key.includes('-') && !key.includes(' '))) {
+          // If key is all uppercase and a single word, convert to all lowercase
+          camelCaseKey = key.toLowerCase();
+          console.log(`🔄 Converting all-caps single word: ${key} → ${camelCaseKey}`);
+        }
+        
+        fieldMapping[key] = camelCaseKey;
+        console.log(`🔄 Auto-converting: ${key} → ${camelCaseKey}`);
+      });
+    } else if (keyMapping) {
+      console.log('✅ Using dynamic field mapping from CSV mapping process');
+      
+      // Ensure all mapped fields are in camelCase format
+      Object.keys(keyMapping).forEach(originalKey => {
+        const mappedKey = keyMapping[originalKey];
+        if (mappedKey) {
+          // Convert to camelCase using utility function
+          let camelCaseKey = toCamelCase(mappedKey);
+          
+          // Handle special cases for acronyms and all-caps single words
+          if (mappedKey === mappedKey.toUpperCase() && !mappedKey.includes('_') && !mappedKey.includes('-') && !mappedKey.includes(' ')) {
+            // If key is all uppercase and a single word, convert to all lowercase
+            camelCaseKey = mappedKey.toLowerCase();
+            console.log(`🔄 Converting all-caps single word: ${mappedKey} → ${camelCaseKey}`);
+          }
+          
+          // Always use camelCase version regardless if it changed or not
+          fieldMapping[originalKey] = camelCaseKey;
+          if (mappedKey !== camelCaseKey) {
+            console.log(`🔄 Ensuring camelCase: ${mappedKey} → ${camelCaseKey}`);
+          }
+        }
+      });
+    }
 
     // Process each field with forced API field name conversion
     Object.keys(row).forEach(originalKey => {
       const value = row[originalKey];
       
-      // Convert field name to exact API format
-      const apiFieldName = finalFieldMapping[originalKey] || originalKey;
+      // Convert field name using dynamic mapping from CSV mapping process
+      // Always ensure the field name is in camelCase format for API compatibility
+      const apiFieldName = fieldMapping[originalKey] ? fieldMapping[originalKey] : toCamelCase(originalKey);
       
-      console.log(`🔧 FINAL TRANSFORM: ${originalKey} → ${apiFieldName} = "${value}"`);
+      console.log(`🔧 FIELD TRANSFORM: ${originalKey} → ${apiFieldName} = "${value}"`);
       
       if (value !== undefined && value !== null && value !== '') {
         // Convert the value appropriately based on its content

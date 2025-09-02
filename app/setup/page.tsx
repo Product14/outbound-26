@@ -401,7 +401,17 @@ export default function CampaignSetupRefactored() {
 
   // Handle CSV mapping completion
   const handleCSVMappingComplete = async (mappedData: any[], keyMappingResult: Record<string, string>) => {
-    console.log('📥 Setup page - CSV mapping completed:', { mappedData, keyMapping: keyMappingResult })
+    console.log('📥 Setup page - CSV mapping completed:', { 
+      mappedDataSample: mappedData[0], 
+      mappedDataLength: mappedData.length,
+      keyMapping: keyMappingResult 
+    })
+    
+    // Log the field names in the mapped data to verify case conversion
+    if (mappedData.length > 0) {
+      console.log('📝 Mapped data field names:', Object.keys(mappedData[0]));
+      console.log('🔗 Key mapping values:', Object.values(keyMappingResult));
+    }
     
     // Update the uploaded data with mapped data
     setUploadedData(mappedData)
@@ -482,7 +492,8 @@ export default function CampaignSetupRefactored() {
         urlParams.enterprise_id,
         urlParams.team_id,
         agentId,
-        storedCampaignId || undefined
+        storedCampaignId || undefined,
+        keyMapping || undefined
       )
 
       console.log('Launching campaign with payload:', payload)
@@ -609,22 +620,15 @@ export default function CampaignSetupRefactored() {
 
   // Check if continue is disabled
   const isContinueDisabledCheck = () => {
-    // For step 2 (Upload Customer Data), check CSV validation
-    if (currentStep === 2) {
-      if (selectedCategory === 'sales') {
-        // For sales, check if upload method is selected and if file upload is complete
-        if (selectedUploadOption === 'upload') {
-          return !uploadComplete || !csvMappingComplete
-        }
-        // For other upload options (CRM, Google Drive), use existing validation
-        return false
-      } else {
-        // For service, file upload and CSV mapping must be complete
-        return !uploadComplete || !csvMappingComplete
-      }
+    // Use the validation hook for all steps to ensure all compulsory fields are selected
+    const validationDisabled = isContinueDisabled(currentStep)
+    
+    // Also check for launching state
+    if (isLaunching) {
+      return true
     }
     
-    return isLaunching
+    return validationDisabled
   }
 
   // Render step content

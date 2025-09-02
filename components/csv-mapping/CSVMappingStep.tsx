@@ -66,18 +66,10 @@ export default function CSVMappingStep({
     setShowMappingFlow(true);
   };
 
-  const handleMappingFlowComplete = (mappedData: any[]) => {
+  const handleMappingFlowComplete = (mappedData: any[], keyMapping: Record<string, string>) => {
     console.log('🎯 CSVMappingStep - Received mappedData:', mappedData);
+    console.log('🎯 CSVMappingStep - Received keyMapping:', keyMapping);
     console.log('🎯 CSVMappingStep - Sample keys:', mappedData?.[0] ? Object.keys(mappedData[0]) : 'No data');
-    
-    // Generate the key mapping for the traditional system
-    const keyMapping: Record<string, string> = {};
-    
-    // This would be derived from the mapping flow results
-    // For now, we'll use the suggested mappings as a fallback
-    if (parseResult?.suggestedMappings) {
-      Object.assign(keyMapping, parseResult.suggestedMappings);
-    }
     
     onMappingComplete(mappedData, keyMapping);
   };
@@ -171,7 +163,10 @@ export default function CSVMappingStep({
             <div className="flex items-center gap-3 pt-4">
               {autoMappingComplete ? (
                 <Button 
-                  onClick={() => handleMappingFlowComplete(csvData)}
+                  onClick={() => {
+                    const suggestedMappings = parseResult?.suggestedMappings || {};
+                    handleMappingFlowComplete(csvData, suggestedMappings);
+                  }}
                   className="flex-1"
                 >
                   Use Auto-Mapping & Continue

@@ -774,13 +774,13 @@ export default function CampaignSetupRefactored() {
     <div className="min-h-screen" style={{ backgroundColor: 'hsl(var(--background))' }}>
       <div className="min-h-screen bg-[#F4F5F8] relative">
         {/* Vertical Stepper Sidebar - Fixed on Left */}
-        <StepperSidebar 
+        {/* <StepperSidebar 
           steps={getSteps(selectedCategory || 'sales')} 
           currentStep={currentStep} 
-        />
+        /> */}
 
         {/* Main Content Area - Scrollable on Right */}
-        <div className="ml-64 min-h-screen bg-[#F4F5F8]">
+        <div className="min-h-screen bg-[#F4F5F8]">
           {/* Content - Scrollable */}
           <div className="px-12 py-8 pb-20 min-h-full overflow-hidden">
             {renderStepContent()}

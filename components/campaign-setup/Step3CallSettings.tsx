@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { TimePicker } from "@/components/ui/time-picker"
 import { DatePicker } from "@/components/ui/date-picker"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+
 import { AlertCircle, Zap, Clock, Plus, Trash2 } from 'lucide-react'
 import { CampaignData, ValidationErrors } from '@/types/campaign-setup'
 import { Agent } from '@/lib/agent-api'
@@ -162,269 +162,190 @@ export default function Step3CallSettings({
                   <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Set timing and call limits</p>
                 </div>
                 <div className="p-6">
-                  <Tabs defaultValue="schedule" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="schedule" className="text-[14px]">Schedule Campaign</TabsTrigger>
-                      <TabsTrigger value="hours" className="text-[14px]">Quiet Hours</TabsTrigger>
-                    </TabsList>
+                  <div className="space-y-6">
+                    <div>
+                      <h4 className="text-[16px] font-semibold text-[#1A1A1A] mb-4">Schedule Campaign</h4>
+                      <p className="text-[14px] text-[#6B7280] mb-4">Set the date and time for your campaign to start</p>
+                    </div>
                     
-                    <TabsContent value="schedule" className="mt-6">
-                      <div className="space-y-6">
-                        <div>
-                          <h4 className="text-[16px] font-semibold text-[#1A1A1A] mb-4">Schedule Campaign</h4>
-                          <p className="text-[14px] text-[#6B7280] mb-4">Set the date and time for your campaign to start</p>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="startDate" className={`text-[14px] font-medium mb-2 block ${
-                              errors.scheduledDate ? 'text-red-600' : 'text-[#1A1A1A]/60'
-                            }`}>
-                              Start Date {errors.scheduledDate && <span className="text-red-500">*</span>}
-                            </Label>
-                            <DatePicker
-                              value={campaignData.scheduledDate}
-                              onChange={(value) => {
-                                setCampaignData(prev => ({ ...prev, scheduledDate: value }))
-                                if (errors.scheduledDate && value) {
-                                  setErrors(prev => ({ ...prev, scheduledDate: false }))
-                                }
-                              }}
-                              placeholder="Select start date"
-                              minDate={new Date().toISOString().split('T')[0]}
-                            />
-                            {errors.scheduledDate && (
-                              <p className="text-[12px] text-red-600 flex items-center mt-1">
-                                <AlertCircle className="h-3 w-3 mr-1" />
-                                Start date is required
-                              </p>
-                            )}
-                          </div>
-                          <div>
-                            <Label htmlFor="endDate" className={`text-[14px] font-medium mb-2 block ${
-                              errors.scheduledEndDate ? 'text-red-600' : 'text-[#1A1A1A]/60'
-                            }`}>
-                              End Date {errors.scheduledEndDate && <span className="text-red-500">*</span>}
-                            </Label>
-                            <DatePicker
-                              value={campaignData.scheduledEndDate}
-                              onChange={(value) => {
-                                setCampaignData(prev => ({ ...prev, scheduledEndDate: value }))
-                                if (errors.scheduledEndDate && value) {
-                                  setErrors(prev => ({ ...prev, scheduledEndDate: false }))
-                                }
-                              }}
-                              placeholder="Select end date"
-                              minDate={campaignData.scheduledDate || new Date().toISOString().split('T')[0]}
-                            />
-                            {errors.scheduledEndDate && (
-                              <p className="text-[12px] text-red-600 flex items-center mt-1">
-                                <AlertCircle className="h-3 w-3 mr-1" />
-                                End date is required
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <div className="flex items-center justify-between mb-4">
-                            <div>
-                              <h5 className="text-[14px] font-medium text-[#1A1A1A]">Daily Time Slots</h5>
-                              <p className="text-[13px] text-[#6B7280]">Add multiple time slots for each day</p>
-                            </div>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                const newSlot = {
-                                  id: Date.now().toString(),
-                                  startTime: '09:00',
-                                  endTime: '17:00'
-                                };
-                                setCampaignData(prev => ({
-                                  ...prev,
-                                  dailyTimeSlots: [...prev.dailyTimeSlots, newSlot]
-                                }));
-                              }}
-                              className="text-[14px] h-8"
-                            >
-                              <Plus className="h-4 w-4 mr-1" />
-                              Add Slot
-                            </Button>
-                          </div>
-                          
-                          {/* Time Slots List */}
-                          <div className="space-y-3">
-                            {campaignData.dailyTimeSlots.map((slot, index) => (
-                              <div key={slot.id} className="flex items-center gap-3 p-3 border border-[#E5E7EB] rounded-lg bg-gray-50">
-                                <span className="text-[13px] font-medium text-[#6B7280] min-w-[60px]">
-                                  Slot {index + 1}
-                                </span>
-                                
-                                <div className="flex-1">
-                                  <Label className="text-[12px] font-medium text-[#1A1A1A]/60 mb-1 block">
-                                    Start Time
-                                  </Label>
-                                  <TimePicker
-                                    value={slot.startTime}
-                                    onChange={(value) => {
-                                      setCampaignData(prev => {
-                                        const updatedSlots = prev.dailyTimeSlots.map(s =>
-                                          s.id === slot.id ? { ...s, startTime: value } : s
-                                        );
-                                        // Update legacy fields with first slot for backward compatibility
-                                        const firstSlot = updatedSlots[0];
-                                        return {
-                                          ...prev,
-                                          dailyTimeSlots: updatedSlots,
-                                          dailyStartTime: firstSlot?.startTime || prev.dailyStartTime,
-                                          dailyEndTime: firstSlot?.endTime || prev.dailyEndTime
-                                        };
-                                      });
-                                    }}
-                                    placeholder="Start time"
-                                    className="h-8 text-[13px]"
-                                  />
-                                </div>
-                                
-                                <div className="flex-1">
-                                  <Label className="text-[12px] font-medium text-[#1A1A1A]/60 mb-1 block">
-                                    End Time
-                                  </Label>
-                                  <TimePicker
-                                    value={slot.endTime}
-                                    onChange={(value) => {
-                                      setCampaignData(prev => {
-                                        const updatedSlots = prev.dailyTimeSlots.map(s =>
-                                          s.id === slot.id ? { ...s, endTime: value } : s
-                                        );
-                                        // Update legacy fields with first slot for backward compatibility
-                                        const firstSlot = updatedSlots[0];
-                                        return {
-                                          ...prev,
-                                          dailyTimeSlots: updatedSlots,
-                                          dailyStartTime: firstSlot?.startTime || prev.dailyStartTime,
-                                          dailyEndTime: firstSlot?.endTime || prev.dailyEndTime
-                                        };
-                                      });
-                                    }}
-                                    placeholder="End time"
-                                    className="h-8 text-[13px]"
-                                  />
-                                </div>
-                                
-                                {campaignData.dailyTimeSlots.length > 1 && (
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      setCampaignData(prev => {
-                                        const updatedSlots = prev.dailyTimeSlots.filter(s => s.id !== slot.id);
-                                        // Update legacy fields with first slot for backward compatibility
-                                        const firstSlot = updatedSlots[0];
-                                        return {
-                                          ...prev,
-                                          dailyTimeSlots: updatedSlots,
-                                          dailyStartTime: firstSlot?.startTime || '09:00',
-                                          dailyEndTime: firstSlot?.endTime || '17:00'
-                                        };
-                                      });
-                                    }}
-                                    className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                          
-                          {/* Summary */}
-                          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                            <p className="text-[13px] text-[#1A1A1A] font-medium mb-1">Campaign Schedule Summary:</p>
-                            <p className="text-[12px] text-[#6B7280]">
-                              {campaignData.dailyTimeSlots.length === 1 
-                                ? `Campaign will run from ${campaignData.dailyTimeSlots[0]?.startTime || "09:00"} to ${campaignData.dailyTimeSlots[0]?.endTime || "17:00"} each day`
-                                : `Campaign will run in ${campaignData.dailyTimeSlots.length} time slots: ${campaignData.dailyTimeSlots.map(slot => `${slot.startTime}-${slot.endTime}`).join(', ')} each day`
-                              }
-                            </p>
-                          </div>
-                        </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="startDate" className={`text-[14px] font-medium mb-2 block ${
+                          errors.scheduledDate ? 'text-red-600' : 'text-[#1A1A1A]/60'
+                        }`}>
+                          Start Date {errors.scheduledDate && <span className="text-red-500">*</span>}
+                        </Label>
+                        <DatePicker
+                          value={campaignData.scheduledDate}
+                          onChange={(value) => {
+                            setCampaignData(prev => ({ ...prev, scheduledDate: value }))
+                            if (errors.scheduledDate && value) {
+                              setErrors(prev => ({ ...prev, scheduledDate: false }))
+                            }
+                          }}
+                          placeholder="Select start date"
+                          minDate={new Date().toISOString().split('T')[0]}
+                        />
+                        {errors.scheduledDate && (
+                          <p className="text-[12px] text-red-600 flex items-center mt-1">
+                            <AlertCircle className="h-3 w-3 mr-1" />
+                            Start date is required
+                          </p>
+                        )}
                       </div>
-                    </TabsContent>
+                      <div>
+                        <Label htmlFor="endDate" className={`text-[14px] font-medium mb-2 block ${
+                          errors.scheduledEndDate ? 'text-red-600' : 'text-[#1A1A1A]/60'
+                        }`}>
+                          End Date {errors.scheduledEndDate && <span className="text-red-500">*</span>}
+                        </Label>
+                        <DatePicker
+                          value={campaignData.scheduledEndDate}
+                          onChange={(value) => {
+                            setCampaignData(prev => ({ ...prev, scheduledEndDate: value }))
+                            if (errors.scheduledEndDate && value) {
+                              setErrors(prev => ({ ...prev, scheduledEndDate: false }))
+                            }
+                          }}
+                          placeholder="Select end date"
+                          minDate={campaignData.scheduledDate || new Date().toISOString().split('T')[0]}
+                        />
+                        {errors.scheduledEndDate && (
+                          <p className="text-[12px] text-red-600 flex items-center mt-1">
+                            <AlertCircle className="h-3 w-3 mr-1" />
+                            End date is required
+                          </p>
+                        )}
+                      </div>
+                    </div>
                     
-                    <TabsContent value="hours" className="mt-6">
-                      <div className="space-y-6">
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
                         <div>
-                          <h4 className={`text-[16px] font-semibold ${
-                            errors.callWindowStart || errors.callWindowEnd ? 'text-red-600' : 'text-[#1A1A1A]'
-                          } mb-2`}>
-                            Quiet Hours {(errors.callWindowStart || errors.callWindowEnd) && <span className="text-red-500">*</span>}
-                          </h4>
-                          <p className="text-[14px] text-[#6B7280] mb-4">Define acceptable calling hours (lead's local time)</p>
-                          {(errors.callWindowStart || errors.callWindowEnd) && (
-                            <p className="text-[12px] text-red-600 flex items-center mb-4">
-                              <AlertCircle className="h-3 w-3 mr-1" />
-                              {errors.callWindowStart && !errors.callWindowEnd && 'Start time is required'}
-                              {!errors.callWindowStart && errors.callWindowEnd && 'End time is required'}
-                              {errors.callWindowStart && errors.callWindowEnd && 'Start and end times are required'}
-                            </p>
-                          )}
+                          <h5 className="text-[14px] font-medium text-[#1A1A1A]">Daily Time Slots</h5>
+                          <p className="text-[13px] text-[#6B7280]">Add multiple time slots for each day</p>
                         </div>
-                        
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label className={`text-[14px] font-medium mb-2 block ${
-                              errors.callWindowStart ? 'text-red-600' : 'text-[#1A1A1A]/60'
-                            }`}>
-                              Start Time {errors.callWindowStart && <span className="text-red-500">*</span>}
-                            </Label>
-                            <TimePicker
-                              value={campaignData.callWindowStart || "09:00"}
-                              onChange={(value) => {
-                                setCampaignData(prev => ({ ...prev, callWindowStart: value }))
-                                if (errors.callWindowStart && value) {
-                                  setErrors(prev => ({ ...prev, callWindowStart: false }))
-                                }
-                              }}
-                              placeholder="Select start time"
-                              className={errors.callWindowStart ? 'border-red-500' : ''}
-                            />
-                            {errors.callWindowStart && (
-                              <p className="text-[12px] text-red-600 mt-1">Start time is required</p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const newSlot = {
+                              id: Date.now().toString(),
+                              startTime: '09:00',
+                              endTime: '17:00'
+                            };
+                            setCampaignData(prev => ({
+                              ...prev,
+                              dailyTimeSlots: [...prev.dailyTimeSlots, newSlot]
+                            }));
+                          }}
+                          className="text-[14px] h-8"
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Add Slot
+                        </Button>
+                      </div>
+                      
+                      {/* Time Slots List */}
+                      <div className="space-y-3">
+                        {campaignData.dailyTimeSlots.map((slot, index) => (
+                          <div key={slot.id} className="flex items-center gap-3 p-3 border border-[#E5E7EB] rounded-lg bg-gray-50">
+                            <span className="text-[13px] font-medium text-[#6B7280] min-w-[60px]">
+                              Slot {index + 1}
+                            </span>
+                            
+                            <div className="flex-1">
+                              <Label className="text-[12px] font-medium text-[#1A1A1A]/60 mb-1 block">
+                                Start Time
+                              </Label>
+                              <TimePicker
+                                value={slot.startTime}
+                                onChange={(value) => {
+                                  setCampaignData(prev => {
+                                    const updatedSlots = prev.dailyTimeSlots.map(s =>
+                                      s.id === slot.id ? { ...s, startTime: value } : s
+                                    );
+                                    // Update legacy fields with first slot for backward compatibility
+                                    const firstSlot = updatedSlots[0];
+                                    return {
+                                      ...prev,
+                                      dailyTimeSlots: updatedSlots,
+                                      dailyStartTime: firstSlot?.startTime || prev.dailyStartTime,
+                                      dailyEndTime: firstSlot?.endTime || prev.dailyEndTime
+                                    };
+                                  });
+                                }}
+                                placeholder="Start time"
+                                className="h-8 text-[13px]"
+                              />
+                            </div>
+                            
+                            <div className="flex-1">
+                              <Label className="text-[12px] font-medium text-[#1A1A1A]/60 mb-1 block">
+                                End Time
+                              </Label>
+                              <TimePicker
+                                value={slot.endTime}
+                                onChange={(value) => {
+                                  setCampaignData(prev => {
+                                    const updatedSlots = prev.dailyTimeSlots.map(s =>
+                                      s.id === slot.id ? { ...s, endTime: value } : s
+                                    );
+                                    // Update legacy fields with first slot for backward compatibility
+                                    const firstSlot = updatedSlots[0];
+                                    return {
+                                      ...prev,
+                                      dailyTimeSlots: updatedSlots,
+                                      dailyStartTime: firstSlot?.startTime || prev.dailyStartTime,
+                                      dailyEndTime: firstSlot?.endTime || prev.dailyEndTime
+                                    };
+                                  });
+                                }}
+                                placeholder="End time"
+                                className="h-8 text-[13px]"
+                              />
+                            </div>
+                            
+                            {campaignData.dailyTimeSlots.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setCampaignData(prev => {
+                                    const updatedSlots = prev.dailyTimeSlots.filter(s => s.id !== slot.id);
+                                    // Update legacy fields with first slot for backward compatibility
+                                    const firstSlot = updatedSlots[0];
+                                    return {
+                                      ...prev,
+                                      dailyTimeSlots: updatedSlots,
+                                      dailyStartTime: firstSlot?.startTime || '09:00',
+                                      dailyEndTime: firstSlot?.endTime || '17:00'
+                                    };
+                                  });
+                                }}
+                                className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             )}
                           </div>
-                          <div>
-                            <Label className={`text-[14px] font-medium mb-2 block ${
-                              errors.callWindowEnd ? 'text-red-600' : 'text-[#1A1A1A]/60'
-                            }`}>
-                              End Time {errors.callWindowEnd && <span className="text-red-500">*</span>}
-                            </Label>
-                            <TimePicker
-                              value={campaignData.callWindowEnd || "17:00"}
-                              onChange={(value) => {
-                                setCampaignData(prev => ({ ...prev, callWindowEnd: value }))
-                                if (errors.callWindowEnd && value) {
-                                  setErrors(prev => ({ ...prev, callWindowEnd: false }))
-                                }
-                              }}
-                              placeholder="Select end time"
-                              className={errors.callWindowEnd ? 'border-red-500' : ''}
-                            />
-                            {errors.callWindowEnd && (
-                              <p className="text-[12px] text-red-600 mt-1">End time is required</p>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <p className="text-[13px] text-[#6B7280]">
-                          Calls will only be made between {campaignData.callWindowStart || "09:00"} and {campaignData.callWindowEnd || "17:00"} in each lead's local timezone
+                        ))}
+                      </div>
+                      
+                      {/* Summary */}
+                      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-[13px] text-[#1A1A1A] font-medium mb-1">Campaign Schedule Summary:</p>
+                        <p className="text-[12px] text-[#6B7280]">
+                          {campaignData.dailyTimeSlots.length === 1 
+                            ? `Campaign will run from ${campaignData.dailyTimeSlots[0]?.startTime || "09:00"} to ${campaignData.dailyTimeSlots[0]?.endTime || "17:00"} each day`
+                            : `Campaign will run in ${campaignData.dailyTimeSlots.length} time slots: ${campaignData.dailyTimeSlots.map(slot => `${slot.startTime}-${slot.endTime}`).join(', ')} each day`
+                          }
                         </p>
                       </div>
-                    </TabsContent>
-                  </Tabs>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

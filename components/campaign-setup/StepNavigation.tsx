@@ -35,7 +35,7 @@ export default function StepNavigation({
   if (currentStep >= maxStep) return null
 
   return (
-    <div className="fixed bottom-0 left-64 right-0 bg-white border-t border-[#E5E7EB] z-50 shadow-lg px-6 py-4">
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E7EB] z-50 shadow-lg px-6 py-4">
       <div className="flex justify-between items-center">
         {/* Cancel Button - Left Side */}
         <Button

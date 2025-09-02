@@ -72,7 +72,7 @@ export const validateStep = (
       isValid = false
     }
     // Check agent selection - required for all campaign types
-    if (campaignData.subUseCase && !selectedAgent) {
+    if (!selectedAgent) {
       newErrors.agentSelection = true
       missingFields.push('Agent Selection')
       isValid = false

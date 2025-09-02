@@ -239,7 +239,7 @@ export default function CampaignSetupRefactored() {
         setSelectedAgent(agents[0])
       } else if (agentUseCase && agents.length === 0) {
         // Show specific message when no agents exist for the selected use case
-        setAgentError(`No agents are configured for the "${agentUseCase}" use case. Please select a different use case or contact your administrator to configure agents for this use case.`)
+        setAgentError(`No agents are configured for this use case.`)
       }
     } catch (error) {
       console.error('Error loading agents:', error)

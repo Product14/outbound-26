@@ -341,7 +341,7 @@
 }
 
 @layer utilities {
-  /* Live Feed Animations */
+  /* Simple Live Feed Animations */
   @keyframes slideInFromTop {
     0% {
       transform: translateY(-20px);
@@ -357,7 +357,7 @@
     animation: slideInFromTop 0.5s ease-out;
   }
 
-  /* Pulsing gradient for progress bar */
+  /* Basic shimmer for progress bars */
   @keyframes shimmer {
     0% {
       transform: translateX(-100%);
@@ -369,21 +369,5 @@
 
   .animate-shimmer {
     animation: shimmer 2s infinite linear;
-  }
-
-  /* Breathing effect for live indicators */
-  @keyframes breathe {
-    0%, 100% {
-      transform: scale(1);
-      opacity: 1;
-    }
-    50% {
-      transform: scale(1.1);
-      opacity: 0.8;
-    }
-  }
-
-  .animate-breathe {
-    animation: breathe 2s ease-in-out infinite;
   }
 }

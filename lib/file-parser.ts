@@ -2,116 +2,103 @@ import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 
 export interface ParsedCustomerData {
-  CustomerFullName: string;
-  ContactPhoneNumber: string;
-  VIN: string;
-  RecallDescription: string;
-  VehicleMake: string;
-  VehicleModel: string;
-  VehicleYear: string;
-  PartsAvailabilityFlag: string;
-  LoanerEligibility: string;
-  Symptom: string;
-  RiskDetails: string;
-  RemedySteps: string;
+  [key: string]: string | number | boolean;
 }
 
-export const REQUIRED_CSV_COLUMNS = [
-  'CustomerFullName',
-  'ContactPhoneNumber', 
-  'VIN',
-  'RecallDescription',
-  'VehicleMake',
-  'VehicleModel',
-  'VehicleYear',
-  'PartsAvailabilityFlag',
-  'LoanerEligibility',
-  'Symptom',
-  'RiskDetails',
-  'RemedySteps'
-];
+// No longer using hardcoded required columns - these come from API
+// export const REQUIRED_CSV_COLUMNS = [];
 
 export interface ParseResult {
   success: boolean;
-  data: ParsedCustomerData[];
+  data: any[]; // Changed to any[] to support dynamic column structures
   errors: string[];
   totalRecords: number;
   missingColumns: string[];
+  suggestedMappings?: Record<string, string>; // AI-suggested field mappings
 }
 
-export function validateColumns(headers: string[]): string[] {
+export function validateColumns(headers: string[], requiredColumns: string[] = []): string[] {
   const normalizedHeaders = headers.map(h => h.trim());
-  const missingColumns = REQUIRED_CSV_COLUMNS.filter(
+  const missingColumns = requiredColumns.filter(
     required => !normalizedHeaders.includes(required)
   );
   return missingColumns;
 }
 
-export function parseCSVFile(file: File): Promise<ParseResult> {
+// Generate smart mapping suggestions based on column names
+export function generateMappingSuggestions(headers: string[], apiRequiredFields?: string[]): Record<string, string> {
+  const suggestions: Record<string, string> = {};
+  
+  // If no API required fields provided, return empty suggestions
+  if (!apiRequiredFields || apiRequiredFields.length === 0) {
+    return suggestions;
+  }
+
+  headers.forEach(header => {
+    const normalizedHeader = header.toLowerCase().replace(/[^a-z0-9]/g, '');
+    
+    // Try to match against API required fields
+    for (const apiField of apiRequiredFields) {
+      const normalizedApiField = apiField.toLowerCase().replace(/[^a-z0-9]/g, '');
+      
+      // Simple similarity matching - can be enhanced with better algorithms
+      if (normalizedHeader.includes(normalizedApiField) || 
+          normalizedApiField.includes(normalizedHeader) ||
+          normalizedHeader === normalizedApiField) {
+        
+        // Only assign if not already used
+        if (!Object.values(suggestions).includes(apiField)) {
+          suggestions[header] = apiField;
+          break;
+        }
+      }
+    }
+  });
+
+  return suggestions;
+}
+
+export function parseCSVFile(file: File, requiredColumns: string[] = []): Promise<ParseResult> {
   return new Promise((resolve) => {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
         const headers = results.meta.fields || [];
-        const missingColumns = validateColumns(headers);
         
+        // Don't fail immediately on missing columns - let key mapping handle it
+        // Just log what's missing for debugging
+        const missingColumns = validateColumns(headers, requiredColumns);
         if (missingColumns.length > 0) {
-          resolve({
-            success: false,
-            data: [],
-            errors: [`Missing required columns: ${missingColumns.join(', ')}`],
-            totalRecords: 0,
-            missingColumns
-          });
-          return;
+          console.log('Note: Some columns are missing from CSV, but key mapping will handle this:', missingColumns);
         }
 
         // Validate and clean data
         const validData: ParsedCustomerData[] = [];
-        const errors: string[] = [];
 
         results.data.forEach((row: any, index: number) => {
-          const rowErrors: string[] = [];
-          
-          // Check for required fields
-          REQUIRED_CSV_COLUMNS.forEach(column => {
-            if (!row[column] || row[column].toString().trim() === '') {
-              rowErrors.push(`Row ${index + 1}: Missing ${column}`);
-            }
+          // Don't validate required fields at row level - let key mapping handle this
+          // Just collect all available data from the row
+          const rowData: any = {};
+          Object.keys(row).forEach(key => {
+            const value = row[key];
+            rowData[key] = value ? String(value).trim() : '';
           });
-
-          // Validate phone number format (basic validation)
-          if (row.ContactPhoneNumber && !row.ContactPhoneNumber.match(/^\+?[\d\s\-\(\)]{10,}$/)) {
-            rowErrors.push(`Row ${index + 1}: Invalid phone number format`);
-          }
-
-          if (rowErrors.length === 0) {
-            validData.push({
-              CustomerFullName: row.CustomerFullName?.toString().trim() || '',
-              ContactPhoneNumber: row.ContactPhoneNumber?.toString().trim() || '',
-              VIN: row.VIN?.toString().trim() || '',
-              RecallDescription: row.RecallDescription?.toString().trim() || '',
-              VehicleMake: row.VehicleMake?.toString().trim() || '',
-              VehicleModel: row.VehicleModel?.toString().trim() || '',
-              VehicleYear: row.VehicleYear?.toString().trim() || '',
-              PartsAvailabilityFlag: row.PartsAvailabilityFlag?.toString().trim() || '',
-              LoanerEligibility: row.LoanerEligibility?.toString().trim() || '',
-              Symptom: row.Symptom?.toString().trim() || '',
-              RiskDetails: row.RiskDetails?.toString().trim() || '',
-              RemedySteps: row.RemedySteps?.toString().trim() || ''
-            });
-          } else {
-            errors.push(...rowErrors);
-          }
+          
+          // Preserve original CSV column names to match API field names exactly
+          validData.push(rowData);
         });
 
+        // Generate mapping suggestions (will be enhanced with API fields later)
+        const suggestedMappings = generateMappingSuggestions(headers);
+
         resolve({
-          success: errors.length === 0 && validData.length > 0,
+          success: validData.length > 0, // Success if we have data
           data: validData,
-          errors,
+          errors: [], // No row-level errors since we're not validating required fields
           totalRecords: validData.length,
-          missingColumns: []
+          missingColumns: missingColumns, // Pass through missing columns for reference
+          suggestedMappings: suggestedMappings
         });
       },
       error: (error) => {
@@ -127,7 +114,7 @@ export function parseCSVFile(file: File): Promise<ParseResult> {
   });
 }
 
-export function parseExcelFile(file: File): Promise<ParseResult> {
+export function parseExcelFile(file: File, requiredColumns: string[] = []): Promise<ParseResult> {
   return new Promise((resolve) => {
     const reader = new FileReader();
     
@@ -155,23 +142,16 @@ export function parseExcelFile(file: File): Promise<ParseResult> {
         }
 
         // Get headers (first row)
-        const headers = (jsonData[0] as string[]).map(h => h?.toString().trim());
-        const missingColumns = validateColumns(headers);
+        const headers = (jsonData[0] as string[]).map(h => h ? String(h).trim() : '');
+        const missingColumns = validateColumns(headers, requiredColumns);
         
+        // Don't fail immediately on missing columns - let key mapping handle it
         if (missingColumns.length > 0) {
-          resolve({
-            success: false,
-            data: [],
-            errors: [`Missing required columns: ${missingColumns.join(', ')}`],
-            totalRecords: 0,
-            missingColumns
-          });
-          return;
+          console.log('Note: Some columns are missing from Excel, but key mapping will handle this:', missingColumns);
         }
 
         // Process data rows
         const validData: ParsedCustomerData[] = [];
-        const errors: string[] = [];
 
         for (let i = 1; i < jsonData.length; i++) {
           const row = jsonData[i] as any[];
@@ -179,49 +159,31 @@ export function parseExcelFile(file: File): Promise<ParseResult> {
           
           // Map row data to headers
           headers.forEach((header, index) => {
-            rowObj[header] = row[index]?.toString().trim() || '';
+            const value = row[index];
+            rowObj[header] = value ? String(value).trim() : '';
           });
 
-          const rowErrors: string[] = [];
+          // Don't validate required fields at row level - let key mapping handle this
+          // Just collect all available data from the row
+          const dynamicRowData: any = {};
+          Object.keys(rowObj).forEach(key => {
+            dynamicRowData[key] = rowObj[key] || '';
+          });
           
-          // Check for required fields
-          REQUIRED_CSV_COLUMNS.forEach(column => {
-            if (!rowObj[column] || rowObj[column] === '') {
-              rowErrors.push(`Row ${i + 1}: Missing ${column}`);
-            }
-          });
-
-          // Validate phone number format
-          if (rowObj.ContactPhoneNumber && !rowObj.ContactPhoneNumber.match(/^\+?[\d\s\-\(\)]{10,}$/)) {
-            rowErrors.push(`Row ${i + 1}: Invalid phone number format`);
-          }
-
-          if (rowErrors.length === 0) {
-            validData.push({
-              CustomerFullName: rowObj.CustomerFullName || '',
-              ContactPhoneNumber: rowObj.ContactPhoneNumber || '',
-              VIN: rowObj.VIN || '',
-              RecallDescription: rowObj.RecallDescription || '',
-              VehicleMake: rowObj.VehicleMake || '',
-              VehicleModel: rowObj.VehicleModel || '',
-              VehicleYear: rowObj.VehicleYear || '',
-              PartsAvailabilityFlag: rowObj.PartsAvailabilityFlag || '',
-              LoanerEligibility: rowObj.LoanerEligibility || '',
-              Symptom: rowObj.Symptom || '',
-              RiskDetails: rowObj.RiskDetails || '',
-              RemedySteps: rowObj.RemedySteps || ''
-            });
-          } else {
-            errors.push(...rowErrors);
-          }
+          // Preserve original Excel column names to match API field names exactly
+          validData.push(dynamicRowData);
         }
 
+        // Generate mapping suggestions for Excel (will be enhanced with API fields later)
+        const suggestedMappings = generateMappingSuggestions(headers);
+
         resolve({
-          success: errors.length === 0 && validData.length > 0,
+          success: validData.length > 0, // Success if we have data
           data: validData,
-          errors,
+          errors: [], // No row-level errors since we're not validating required fields
           totalRecords: validData.length,
-          missingColumns: []
+          missingColumns: missingColumns, // Pass through missing columns for reference
+          suggestedMappings: suggestedMappings
         });
 
       } catch (error) {
@@ -249,15 +211,15 @@ export function parseExcelFile(file: File): Promise<ParseResult> {
   });
 }
 
-export async function parseUploadedFile(file: File): Promise<ParseResult> {
+export async function parseUploadedFile(file: File, requiredColumns?: string[]): Promise<ParseResult> {
   const fileExtension = file.name.split('.').pop()?.toLowerCase();
   
   switch (fileExtension) {
     case 'csv':
-      return parseCSVFile(file);
+      return parseCSVFile(file, requiredColumns);
     case 'xlsx':
     case 'xls':
-      return parseExcelFile(file);
+      return parseExcelFile(file, requiredColumns);
     default:
       return {
         success: false,

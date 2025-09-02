@@ -8,9 +8,9 @@ export async function GET(request: NextRequest) {
     // Extract query parameters
     const enterpriseId = searchParams.get('enterpriseId');
     const teamId = searchParams.get('teamId');
-    const agentUseCase = searchParams.get('agentUseCase') || 'recall_notification';
+    const agentUseCase = searchParams.get('agentUseCase'); // Don't default here, let the client decide
     const agentType = searchParams.get('agentType') || 'Service';
-    const agentCallType = searchParams.get('agentCallType') || 'outbound';
+    const agentCallType = searchParams.get('agentCallType');
 
     // Validate required parameters
     if (!enterpriseId || !teamId) {
@@ -20,11 +20,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Build the external API URL - using the correct external endpoint path
-    const externalUrl = `${configs.base_url}conversation/agents/fetch-agent-list?enterpriseId=${enterpriseId}&teamId=${teamId}&agentUseCase=${agentUseCase}&agentType=${agentType}&agentCallType=${agentCallType}`;
+    // Build the external API URL with only defined parameters
+    let externalUrl = `${configs.base_url}conversation/agents/fetch-agent-list?enterpriseId=${enterpriseId}&teamId=${teamId}`;
     
-    console.log('Proxying request to:', externalUrl);
-    
+    if (agentUseCase) externalUrl += `&agentUseCase=${agentUseCase}`;
+    if (agentType) externalUrl += `&agentType=${agentType}`;
+    if (agentCallType) externalUrl += `&agentCallType=${agentCallType}`;
+        
     // Call the external API
     const externalResponse = await fetch(externalUrl, {
       method: 'GET',
@@ -47,7 +49,6 @@ export async function GET(request: NextRequest) {
     }
 
     const agents = await externalResponse.json();
-    console.log('Successfully fetched agents:', agents?.length || 'unknown count');
 
     return NextResponse.json(agents);
     

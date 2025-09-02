@@ -1,2 +1,0 @@
-CustomerFullName,ContactPhoneNumber,VIN,RecallDescription,VehicleMake,VehicleModel,VehicleYear,PartsAvailabilityFlag,LoanerEligibility,Symptom,RiskDetails,RemedySteps
-John Doe,+15551234567,1HGBH41JXMN109111,Test recall,Honda,Civic,2020,Available,Eligible,Test symptom,Test risk,Test remedy

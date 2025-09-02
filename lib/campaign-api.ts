@@ -67,12 +67,7 @@ export interface LaunchCampaignPayload {
   communicationChannel?: string;
   startDate?: string;
   endDate?: string;
-  quietHours?: {
-    start: string;
-    startInterval: string;
-    end: string;
-    endInterval: string;
-  };
+
   callLimits?: {
     dailyContactLimit: number;
     hourlyThrottle: number;
@@ -412,7 +407,7 @@ export function transformCampaignData(
   }
 
   // Transform quiet hours from UI format to API format
-  let quietHours: LaunchCampaignPayload['quietHours'] | undefined;
+  
   if (campaignData.callWindowStart && campaignData.callWindowEnd) {
     // Convert UI time format (e.g., "09:00", "17:00") to API quiet hours format
     // The API expects quiet hours (when NOT to call), so we need to invert the logic
@@ -420,12 +415,7 @@ export function transformCampaignData(
     const endHour = parseInt(campaignData.callWindowEnd.split(':')[0]);
     
     // If call window is 9 AM to 5 PM, quiet hours are 5 PM to 9 AM next day
-    quietHours = {
-      start: campaignData.callWindowEnd, // End of call window becomes start of quiet hours
-      startInterval: "evening",
-      end: campaignData.callWindowStart, // Start of call window becomes end of quiet hours
-      endInterval: "morning"
-    };
+    
   }
 
   // Transform escalation triggers from UI boolean format to API string array format
@@ -483,12 +473,7 @@ export function transformCampaignData(
     communicationChannel: "voice",
     // Always include all optional fields with proper defaults
     complianceSettings: complianceSettings.length > 0 ? complianceSettings : ["DNC_CHECK", "TCPA_COMPLIANT", "GDPR_COMPLIANT"],
-    quietHours: quietHours || {
-      start: "20:00",
-      startInterval: "evening",
-      end: "08:00",
-      endInterval: "morning"
-    },
+    
     callLimits: callLimits || {
       dailyContactLimit: 100,
       hourlyThrottle: 10,
@@ -545,9 +530,11 @@ export function transformCampaignData(
   return basePayload;
 }
 
-export async function launchCampaign(payload: LaunchCampaignPayload): Promise<CampaignApiResponse> {
+export async function launchCampaign(payload: LaunchCampaignPayload, authKey?: string): Promise<CampaignApiResponse> {
   try {
-    const response = await fetch('/api/launch-campaign', {
+    const url = authKey ? `/api/launch-campaign?auth_key=${encodeURIComponent(authKey)}` : '/api/launch-campaign';
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -566,9 +553,16 @@ export async function launchCampaign(payload: LaunchCampaignPayload): Promise<Ca
   }
 }
 
-export async function fetchCampaignList(enterpriseId: string, teamId: string): Promise<CampaignListResponse> {
+export async function fetchCampaignList(enterpriseId: string, teamId: string, authKey?: string): Promise<CampaignListResponse> {
   try {
-    const response = await fetch(`/api/fetch-campaign-list?enterpriseId=${enterpriseId}&teamId=${teamId}`);
+    const params = new URLSearchParams();
+    params.append('enterpriseId', enterpriseId);
+    params.append('teamId', teamId);
+    if (authKey) {
+      params.append('auth_key', authKey);
+    }
+    
+    const response = await fetch(`/api/fetch-campaign-list?${params.toString()}`);
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -581,9 +575,15 @@ export async function fetchCampaignList(enterpriseId: string, teamId: string): P
   }
 }
 
-export async function fetchCampaignDetails(campaignId: string): Promise<CampaignDetailResponse> {
+export async function fetchCampaignDetails(campaignId: string, authKey?: string): Promise<CampaignDetailResponse> {
   try {
-    const response = await fetch(`/api/fetch-campaign-details?campaignId=${campaignId}`);
+    const params = new URLSearchParams();
+    params.append('campaignId', campaignId);
+    if (authKey) {
+      params.append('auth_key', authKey);
+    }
+    
+    const response = await fetch(`/api/fetch-campaign-details?${params.toString()}`);
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -596,9 +596,10 @@ export async function fetchCampaignDetails(campaignId: string): Promise<Campaign
   }
 }
 
-export async function fetchCampaignTypes(): Promise<CampaignTypesResponse> {
+export async function fetchCampaignTypes(authKey?: string): Promise<CampaignTypesResponse> {
   try {
-    const response = await fetch('/api/fetch-campaign-types');
+    const url = authKey ? `/api/fetch-campaign-types?auth_key=${encodeURIComponent(authKey)}` : '/api/fetch-campaign-types';
+    const response = await fetch(url);
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -611,14 +612,16 @@ export async function fetchCampaignTypes(): Promise<CampaignTypesResponse> {
   }
 }
 
-export async function processKeyMapping(requiredKeys: string[], availableKeys: string[]): Promise<KeyMappingResponse> {
+export async function processKeyMapping(requiredKeys: string[], availableKeys: string[], authKey?: string): Promise<KeyMappingResponse> {
   try {
     const payload: KeyMappingRequest = {
       requiredKeys,
       availableKeys
     };
 
-    const response = await fetch('/api/keys-mapping', {
+    const url = authKey ? `/api/keys-mapping?auth_key=${encodeURIComponent(authKey)}` : '/api/keys-mapping';
+
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -35,10 +35,10 @@ export interface AgentListResponse {
  * Convert use case to snake_case format required by the agent API using dynamic campaign types data
  * This reverses the UI transformation and applies proper snake_case conversion
  */
-async function convertUseCaseToSnakeCase(useCase: string): Promise<string> {
+async function convertUseCaseToSnakeCase(useCase: string, authKey?: string): Promise<string> {
   try {
     // Fetch campaign types to get the original names
-    const campaignTypesResponse = await fetchCampaignTypes();
+    const campaignTypesResponse = await fetchCampaignTypes(authKey);
     
     if (campaignTypesResponse.success && campaignTypesResponse.data) {
       // Look for the original campaign type name that matches this use case
@@ -66,10 +66,23 @@ async function convertUseCaseToSnakeCase(useCase: string): Promise<string> {
   }
   
   // Fallback: Handle standard camelCase and kebab-case conversions
-  const fallbackValue = useCase
+  let fallbackValue = useCase
     .replace(/-/g, '_')  // Convert kebab-case to snake_case
     .replace(/([a-z])([A-Z])/g, '$1_$2')  // Convert camelCase to snake_case
     .toLowerCase();
+  
+  // Handle specific cases where words are concatenated without camelCase
+  const specificMappings: Record<string, string> = {
+    'leadqualification': 'lead_qualification',
+    'recallnotification': 'recall_notification',
+    'tradeinoffers': 'trade_in_offers',
+    'promotionaloffers': 'promotional_offers',
+    'testdriveappointments': 'test_drive_appointments'
+  };
+  
+  if (specificMappings[fallbackValue]) {
+    fallbackValue = specificMappings[fallbackValue];
+  }
   
   console.log(`🔄 Fallback conversion: "${useCase}" -> "${fallbackValue}"`);
   return fallbackValue;
@@ -80,7 +93,8 @@ export async function fetchAgentList(
   teamId: string, 
   agentUseCase?: string,
   agentType?: string,
-  agentCallType?: string
+  agentCallType?: string,
+  authKey?: string
 ): Promise<Agent[]> {
   try {
     // Build query parameters, only including defined values
@@ -88,9 +102,14 @@ export async function fetchAgentList(
     params.append('enterpriseId', enterpriseId);
     params.append('teamId', teamId);
     
+    // Add auth_key if provided
+    if (authKey) {
+      params.append('auth_key', authKey);
+    }
+    
     // Convert agentUseCase to snake_case format specifically for this API
     if (agentUseCase) {
-      const convertedUseCase = await convertUseCaseToSnakeCase(agentUseCase);
+      const convertedUseCase = await convertUseCaseToSnakeCase(agentUseCase, authKey);
       params.append('agentUseCase', convertedUseCase);
     }
     if (agentType) params.append('agentType', agentType);

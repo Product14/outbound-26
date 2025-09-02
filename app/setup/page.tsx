@@ -160,7 +160,7 @@ export default function CampaignSetupRefactored() {
     const loadCampaignTypes = async () => {
       try {
         setIsLoadingCampaignTypes(true)
-        const response = await fetchCampaignTypes()
+        const response = await fetchCampaignTypes(urlParams.auth_key || undefined)
         setCampaignTypes(response)
       } catch (error) {
         console.error('Error loading campaign types:', error)
@@ -171,7 +171,7 @@ export default function CampaignSetupRefactored() {
     }
 
     loadCampaignTypes()
-  }, [setCampaignTypes, setIsLoadingCampaignTypes, toast])
+  }, [setCampaignTypes, setIsLoadingCampaignTypes, toast, urlParams.auth_key])
 
   // Load agents when any use case is selected and URL params are available
   const loadAgents = useCallback(async () => {
@@ -200,7 +200,8 @@ export default function CampaignSetupRefactored() {
         urlParams.team_id,
         agentUseCase,
         agentType,
-        'outbound'
+        'outbound',
+        urlParams.auth_key || undefined
       )
       
       // If no outbound agents found, try to get any agents for the use case (but still respect use case filter)
@@ -210,7 +211,8 @@ export default function CampaignSetupRefactored() {
           urlParams.team_id,
           agentUseCase,
           agentType,
-          undefined // Don't filter by call type, but keep use case filter
+          undefined, // Don't filter by call type, but keep use case filter
+          urlParams.auth_key || undefined
         )
       }
       
@@ -222,7 +224,8 @@ export default function CampaignSetupRefactored() {
           urlParams.team_id,
           undefined, // Don't filter by use case
           agentType,
-          undefined // Don't filter by call type
+          undefined, // Don't filter by call type
+          urlParams.auth_key || undefined
         )
       }
       
@@ -488,7 +491,7 @@ export default function CampaignSetupRefactored() {
       console.log('Launching campaign with payload:', payload)
       
       // Call the launch campaign API
-      const response = await launchCampaign(payload)
+      const response = await launchCampaign(payload, urlParams.auth_key || undefined)
       
       if (response.success) {
         // Create the new campaign object for local storage
@@ -697,6 +700,9 @@ export default function CampaignSetupRefactored() {
             
             // Campaign types
             campaignTypes={campaignTypes}
+            
+            // Authentication
+            authKey={urlParams.auth_key || undefined}
             
             // Handlers
             handleFileUpload={handleFileUpload}

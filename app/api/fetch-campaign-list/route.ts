@@ -6,11 +6,19 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const enterpriseId = searchParams.get('enterpriseId');
     const teamId = searchParams.get('teamId');
+    const authKey = searchParams.get('auth_key');
 
     if (!enterpriseId || !teamId) {
       return NextResponse.json(
         { error: 'Missing required parameters: enterpriseId and teamId' },
         { status: 400 }
+      );
+    }
+
+    if (!authKey) {
+      return NextResponse.json(
+        { error: 'Missing required parameter: auth_key is required for authentication' },
+        { status: 401 }
       );
     }
 
@@ -20,6 +28,7 @@ export async function GET(request: NextRequest) {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authKey}`
         },
       }
     );

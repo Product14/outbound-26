@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
     // Extract query parameters
     const enterpriseId = searchParams.get('enterpriseId');
     const teamId = searchParams.get('teamId');
+    const authKey = searchParams.get('auth_key');
     const agentUseCase = searchParams.get('agentUseCase'); // Don't default here, let the client decide
     const agentType = searchParams.get('agentType') || 'Service';
     const agentCallType = searchParams.get('agentCallType');
@@ -17,6 +18,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: 'Missing required parameters: enterpriseId and teamId are required' },
         { status: 400 }
+      );
+    }
+
+    if (!authKey) {
+      return NextResponse.json(
+        { error: 'Missing required parameter: auth_key is required for authentication' },
+        { status: 401 }
       );
     }
 
@@ -32,7 +40,7 @@ export async function GET(request: NextRequest) {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Cookie': 'sails.sid=s%3A1qIYgfILXja4FsVoQ11K-gFZLGt7k3Qt.wkgWzjwWlv41sosK9FmWKUJ%2F1ZYwtml%2FaTuWNGWli%2BQ'
+        'Authorization': `Bearer ${authKey}`
       },
     });
 

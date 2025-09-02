@@ -5,11 +5,19 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const campaignId = searchParams.get('campaignId');
+    const authKey = searchParams.get('auth_key');
 
     if (!campaignId) {
       return NextResponse.json(
         { error: 'Missing required parameter: campaignId' },
         { status: 400 }
+      );
+    }
+
+    if (!authKey) {
+      return NextResponse.json(
+        { error: 'Missing required parameter: auth_key is required for authentication' },
+        { status: 401 }
       );
     }
 
@@ -19,7 +27,7 @@ export async function GET(request: NextRequest) {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Cookie': 'sails.sid=s%3A1qIYgfILXja4FsVoQ11K-gFZLGt7k3Qt.wkgWzjwWlv41sosK9FmWKUJ%2F1ZYwtml%2FaTuWNGWli%2BQ'
+          'Authorization': `Bearer ${authKey}`
         },
       }
     );

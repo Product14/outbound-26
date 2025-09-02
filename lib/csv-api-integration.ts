@@ -14,15 +14,17 @@ export interface ApiIntegrationResult {
  * Integrates with campaign types API and key mapping API to get required fields and mapping
  * @param campaignUseCase The selected campaign use case 
  * @param csvHeaders Headers from the uploaded CSV file
+ * @param authKey Optional authentication key for API calls
  * @returns Object containing required fields and key mapping
  */
 export async function integrateCsvWithApis(
   campaignUseCase: string,
-  csvHeaders: string[]
+  csvHeaders: string[],
+  authKey?: string
 ): Promise<ApiIntegrationResult> {
   try {
     // Step 1: Fetch campaign types to get required fields
-    const campaignTypesResponse: CampaignTypesResponse = await fetchCampaignTypes();
+    const campaignTypesResponse: CampaignTypesResponse = await fetchCampaignTypes(authKey);
     
     if (!campaignTypesResponse.success || !campaignTypesResponse.data) {
       return {
@@ -47,7 +49,7 @@ export async function integrateCsvWithApis(
 
 
     // Step 3: Call key mapping API to get intelligent mapping
-    const keyMappingResponse: KeyMappingResponse = await processKeyMapping(requiredFields, csvHeaders);
+    const keyMappingResponse: KeyMappingResponse = await processKeyMapping(requiredFields, csvHeaders, authKey);
     
     // Step 4: Generate fallback mapping suggestions for unmapped fields
     const fallbackMappings = generateMappingSuggestions(csvHeaders, requiredFields);

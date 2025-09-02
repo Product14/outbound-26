@@ -71,6 +71,9 @@ interface Step2FileUploadProps {
   // Campaign types for dynamic fields
   campaignTypes: CampaignTypesResponse | null
   
+  // Authentication
+  authKey?: string
+  
   // Handlers
   handleFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void
   fetchGoogleDriveData: (shareUrl: string) => void
@@ -133,6 +136,9 @@ export default function Step2FileUpload({
   
   // Campaign types
   campaignTypes,
+  
+  // Authentication
+  authKey,
   
   // Handlers
   handleFileUpload,
@@ -904,6 +910,7 @@ export default function Step2FileUpload({
                   onSkipMapping={handleSkipCSVMapping}
                   showSkipOption={false}
                   campaignUseCase={campaignData.subUseCase}
+                  authKey={authKey}
                 />
               </div>
             )}

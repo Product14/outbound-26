@@ -17,7 +17,7 @@ import { fetchCampaignDetails, fetchCampaignTypes, type CampaignDetailResponse, 
 import { fetchAgentList, type Agent } from '@/lib/agent-api'
 import { calculateAndFormatEstimatedTime, getShortEstimatedTime } from '@/lib/time-utils'
 import { generateCallStatus, generateCallTime, generateCallDuration, calculateCampaignStats, generateTopPerformingVehicles, generatePerformanceTimeData } from '@/lib/call-status-utils'
-import { buildUrlWithParams } from '@/lib/url-utils'
+import { buildUrlWithParams, extractUrlParams } from '@/lib/url-utils'
 import { PerformanceTimeChart } from '@/components/charts/PerformanceTimeChart'
 
 
@@ -378,7 +378,9 @@ export default function CampaignDetail() {
   const params = useParams()
   const router = useRouter()
   const campaignId = params?.id as string
-  
+  const urlParams = extractUrlParams()
+
+
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [outcomeFilter, setOutcomeFilter] = useState('all')
@@ -638,7 +640,7 @@ export default function CampaignDetail() {
     if (!campaignId || !isLiveUpdateEnabled) return
     
     try {
-      const response = await fetchCampaignDetails(campaignId)
+      const response = await fetchCampaignDetails(campaignId, urlParams.auth_key || undefined)
       if (response) {
         setCampaignData(response)
         setLastUpdateTime(new Date())
@@ -708,7 +710,7 @@ export default function CampaignDetail() {
         setError(null)
         
        
-        const response = await fetchCampaignDetails(campaignId)
+        const response = await fetchCampaignDetails(campaignId, urlParams.auth_key || undefined)
         
         if (response.success) {
           setCampaignData(response)
@@ -877,7 +879,7 @@ export default function CampaignDetail() {
     
     try {
       setError(null)
-      const response = await fetchCampaignDetails(campaignId)
+      const response = await fetchCampaignDetails(campaignId, urlParams.auth_key || undefined)
       
       if (response.success) {
         setCampaignData(response)

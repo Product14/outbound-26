@@ -17,6 +17,7 @@ interface CSVMappingStepProps {
   onSkipMapping: () => void;
   showSkipOption?: boolean;
   campaignUseCase?: string; // Add campaign use case for API integration
+  authKey?: string; // Add auth key for API authentication
 }
 
 export default function CSVMappingStep({
@@ -27,7 +28,8 @@ export default function CSVMappingStep({
   onMappingComplete,
   onSkipMapping,
   showSkipOption = false,
-  campaignUseCase
+  campaignUseCase,
+  authKey
 }: CSVMappingStepProps) {
   const [showMappingFlow, setShowMappingFlow] = useState(false);
   const [autoMappingComplete, setAutoMappingComplete] = useState(false);
@@ -87,6 +89,7 @@ export default function CSVMappingStep({
         existingKeyMapping={existingKeyMapping}
         apiRequiredFields={apiRequiredFields}
         campaignUseCase={campaignUseCase}
+        authKey={authKey}
       />
     );
   }

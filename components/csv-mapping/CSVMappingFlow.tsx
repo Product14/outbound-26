@@ -56,6 +56,7 @@ interface CSVMappingFlowProps {
   existingKeyMapping?: Record<string, string>;
   apiRequiredFields?: string[];
   campaignUseCase?: string; // Add campaign use case for API integration
+  authKey?: string; // Add auth key for API authentication
 }
 
 export default function CSVMappingFlow({
@@ -64,7 +65,8 @@ export default function CSVMappingFlow({
   onCancel,
   existingKeyMapping,
   apiRequiredFields,
-  campaignUseCase
+  campaignUseCase,
+  authKey
 }: CSVMappingFlowProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [csvMappings, setCsvMappings] = useState<CSVFieldMapping[]>([]);
@@ -140,7 +142,7 @@ export default function CSVMappingFlow({
         // If campaign use case is provided, integrate with APIs
         if (campaignUseCase) {
           
-          const apiResult = await integrateCsvWithApis(campaignUseCase, csvHeaders);
+          const apiResult = await integrateCsvWithApis(campaignUseCase, csvHeaders, authKey);
           
           if (apiResult.success) {
             setDynamicRequiredFields(apiResult.requiredFields);

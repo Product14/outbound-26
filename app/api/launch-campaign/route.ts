@@ -6,12 +6,23 @@ export async function POST(request: NextRequest) {
   try {
     const payload: LaunchCampaignPayload = await request.json();
     
+    // Extract auth_key from URL parameters
+    const { searchParams } = new URL(request.url);
+    const authKey = searchParams.get('auth_key');
+    
     // Validate the payload
     if (!payload.name || !payload.campaignType || !payload.campaignUseCase || 
         !payload.enterpriseId || !payload.teamId || !payload.customers) {
       return NextResponse.json(
         { error: 'Missing required fields in payload' },
         { status: 400 }
+      );
+    }
+
+    if (!authKey) {
+      return NextResponse.json(
+        { error: 'Missing required parameter: auth_key is required for authentication' },
+        { status: 401 }
       );
     }
 
@@ -32,6 +43,7 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authKey}`
       },
       body: JSON.stringify(payload)
     });

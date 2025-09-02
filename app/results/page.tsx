@@ -137,7 +137,7 @@ export default function CampaignResults() {
         setLoading(true)
         setError(null)
         
-        const response = await fetchCampaignList(enterpriseId || '', teamId || '')
+        const response = await fetchCampaignList(enterpriseId || '', teamId || '', urlParams.auth_key || undefined)
         
         if (response.success) {
           setCampaigns(response.campaigns)
@@ -156,7 +156,7 @@ export default function CampaignResults() {
     const loadAgents = async () => {
       if (!enterpriseId || !teamId) return;
       try {
-        const agentList = await fetchAgentList(enterpriseId, teamId)
+        const agentList = await fetchAgentList(enterpriseId, teamId, undefined, undefined, undefined, urlParams.auth_key || undefined)
         setAgents(agentList)
       } catch (error) {
         console.error('Error loading agents:', error)
@@ -167,7 +167,7 @@ export default function CampaignResults() {
 
     const loadCampaignTypes = async () => {
       try {
-        const campaignTypesResponse = await fetchCampaignTypes()
+        const campaignTypesResponse = await fetchCampaignTypes(urlParams.auth_key || undefined)
         setCampaignTypesData(campaignTypesResponse)
       } catch (error) {
         console.error('Error loading campaign types:', error)

@@ -164,11 +164,7 @@ export default function CampaignSetupRefactored() {
         setCampaignTypes(response)
       } catch (error) {
         console.error('Error loading campaign types:', error)
-        toast({
-          title: "Error",
-          description: "Failed to load campaign types. Using default options.",
-          variant: "destructive",
-        })
+       
       } finally {
         setIsLoadingCampaignTypes(false)
       }

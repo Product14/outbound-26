@@ -136,16 +136,13 @@ export default function CSVMappingFlow({
       try {
         // Get CSV headers
         const csvHeaders = Object.keys(csvData[0]);
-        console.log('CSV Headers:', csvHeaders);
 
         // If campaign use case is provided, integrate with APIs
         if (campaignUseCase) {
-          console.log('Integrating with APIs for use case:', campaignUseCase);
           
           const apiResult = await integrateCsvWithApis(campaignUseCase, csvHeaders);
           
           if (apiResult.success) {
-            console.log('API integration successful:', apiResult);
             setDynamicRequiredFields(apiResult.requiredFields);
             setDynamicKeyMapping(apiResult.keyMapping);
             
@@ -167,7 +164,6 @@ export default function CSVMappingFlow({
                 if (shouldMapToApiField(csvHeader, apiField)) {
                   // Ensure the API field name is in camelCase format
                   const camelCaseApiField = toCamelCase(apiField);
-                  console.log(`🔧 Correcting mapping: ${csvHeader} → ${camelCaseApiField} (was: ${currentMapping})`);
                   return {
                     ...mapping,
                     importAs: camelCaseApiField,
@@ -178,11 +174,7 @@ export default function CSVMappingFlow({
               
               return mapping;
             });
-            
-            console.log('🗂️ Generated CSV mappings:', mappings);
-            console.log('🔧 Corrected CSV mappings:', correctedMappings);
-            console.log('📋 API required fields:', apiResult.requiredFields);
-            console.log('🔗 Combined key mapping:', { ...existingKeyMapping, ...apiResult.keyMapping });
+           
             setCsvMappings(correctedMappings);
             
             // ⚠️ CRITICAL: Validate initial mappings
@@ -197,7 +189,6 @@ export default function CSVMappingFlow({
             // ⚠️ CRITICAL: Do NOT use hardcoded fallback data
             // Only use API required fields if they exist, otherwise show empty mappings
             if (apiRequiredFields && apiRequiredFields.length > 0) {
-              console.log('🔄 Using provided API required fields as fallback:', apiRequiredFields);
               const mappings = generateCSVFieldMapping(csvData, existingKeyMapping, apiRequiredFields);
               setCsvMappings(mappings);
               
@@ -207,7 +198,6 @@ export default function CSVMappingFlow({
                 setValidationResult(validation);
               }, 100);
             } else {
-              console.log('❌ No API data available - showing unmapped fields only');
               // Generate mappings without required fields to avoid hardcoded data
               const mappings = generateCSVFieldMapping(csvData, existingKeyMapping, []);
               setCsvMappings(mappings);
@@ -218,9 +208,7 @@ export default function CSVMappingFlow({
           }
         } else {
           // ⚠️ CRITICAL: Only use API required fields, never hardcoded fallbacks
-          console.log('No campaign use case provided - checking for API required fields');
           if (apiRequiredFields && apiRequiredFields.length > 0) {
-            console.log('🔄 Using provided API required fields:', apiRequiredFields);
             const mappings = generateCSVFieldMapping(csvData, existingKeyMapping, apiRequiredFields);
             setCsvMappings(mappings);
             
@@ -230,7 +218,6 @@ export default function CSVMappingFlow({
               setValidationResult(validation);
             }, 100);
           } else {
-            console.log('❌ No API required fields available - showing unmapped fields only');
             // Generate mappings without required fields to avoid hardcoded data
             const mappings = generateCSVFieldMapping(csvData, existingKeyMapping, []);
             setCsvMappings(mappings);
@@ -245,7 +232,6 @@ export default function CSVMappingFlow({
         
         // ⚠️ CRITICAL: Only use API required fields on error, never hardcoded fallbacks
         if (apiRequiredFields && apiRequiredFields.length > 0) {
-          console.log('🔄 Error fallback - using provided API required fields:', apiRequiredFields);
           const mappings = generateCSVFieldMapping(csvData, existingKeyMapping, apiRequiredFields);
           setCsvMappings(mappings);
           
@@ -255,7 +241,6 @@ export default function CSVMappingFlow({
             setValidationResult(validation);
           }, 100);
         } else {
-          console.log('❌ Error fallback - no API data available, showing unmapped fields only');
           // Generate mappings without required fields to avoid hardcoded data
           const mappings = generateCSVFieldMapping(csvData, existingKeyMapping, []);
           setCsvMappings(mappings);
@@ -274,12 +259,10 @@ export default function CSVMappingFlow({
   // ⚠️ CRITICAL: Re-validate whenever mappings change and auto-complete when ready
   useEffect(() => {
     if (csvMappings.length > 0 && !isLoadingApiData) {
-      console.log('🔄 CSV mappings changed - running validation...');
       const validation = validateAllRequiredFieldsMapped();
       
       // ⚠️ CRITICAL: Auto-complete mapping when all required fields are mapped
       if (validation.isValid && validation.missingRequired.length === 0) {
-        console.log('✅ All required fields mapped - auto-completing CSV mapping');
         
         // Generate final data and key mapping
         const finalData = generatePreviewData();
@@ -292,7 +275,6 @@ export default function CSVMappingFlow({
             
             // Always use the camelCase version for API compatibility
             if (camelCaseFieldName !== apiFieldName) {
-              console.log(`🔄 Key mapping - Converting field name to camelCase: ${apiFieldName} → ${camelCaseFieldName}`);
               apiFieldName = camelCaseFieldName;
             }
             
@@ -301,9 +283,6 @@ export default function CSVMappingFlow({
           return acc;
         }, {} as Record<string, string>);
         
-        // Auto-complete the mapping process
-        console.log('📋 CSV Mapping Complete - Final Data Sample:', finalData[0]);
-        console.log('🔗 CSV Mapping Complete - Key Mapping:', keyMapping);
         
         setTimeout(() => {
           onComplete(finalData, keyMapping);
@@ -370,18 +349,15 @@ export default function CSVMappingFlow({
         
         // Always use the camelCase version for API compatibility
         if (camelCaseFieldName !== apiFieldName) {
-          console.log(`🔄 Converting field name to camelCase: ${apiFieldName} → ${camelCaseFieldName}`);
           apiFieldName = camelCaseFieldName;
         }
         
-        console.log(`🎯 Mapping: ${mapping.columnHeader} → ${apiFieldName} = "${csvValue}"`);
         
         // Just preserve the raw CSV value - no transformations
         // Since all CSVs are different and dynamic, show actual first row values
         transformedRow[apiFieldName] = csvValue !== undefined ? csvValue : '';
       });
 
-      console.log('✅ Final transformed row with raw CSV values:', transformedRow);
 
       return transformedRow;
     });

@@ -455,8 +455,7 @@ export default function CampaignDetail() {
           setDisplayColumns(columns)
           
           setCampaignNotFound(false)
-          console.log('Loaded campaign details:', response)
-          console.log('Generated display columns:', columns)
+          
 
           // Fetch campaign types data
           try {

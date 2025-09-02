@@ -21,10 +21,6 @@ export async function integrateCsvWithApis(
   csvHeaders: string[]
 ): Promise<ApiIntegrationResult> {
   try {
-    console.log('🚀 Starting API integration for campaign use case:', campaignUseCase);
-    console.log('📄 CSV headers:', csvHeaders);
-    console.log('🎯 Use case type:', typeof campaignUseCase);
-
     // Step 1: Fetch campaign types to get required fields
     const campaignTypesResponse: CampaignTypesResponse = await fetchCampaignTypes();
     
@@ -49,7 +45,6 @@ export async function integrateCsvWithApis(
       };
     }
 
-    console.log('Required fields from API:', requiredFields);
 
     // Step 3: Call key mapping API to get intelligent mapping
     const keyMappingResponse: KeyMappingResponse = await processKeyMapping(requiredFields, csvHeaders);
@@ -60,7 +55,6 @@ export async function integrateCsvWithApis(
     // Combine API mapping with fallback suggestions
     const combinedMapping = { ...fallbackMappings, ...keyMappingResponse };
 
-    console.log('Final key mapping result:', combinedMapping);
 
     return {
       success: true,
@@ -85,13 +79,10 @@ export async function integrateCsvWithApis(
 function extractRequiredFieldsForUseCase(campaignTypeGroups: any[], campaignUseCase: string): string[] {
   const requiredFields: string[] = [];
 
-  console.log('Extracting required fields for use case:', campaignUseCase);
-  console.log('Available campaign type groups:', campaignTypeGroups);
-
+  
   for (const group of campaignTypeGroups) {
     if (!group.campaignTypes) continue;
 
-    console.log('Checking campaign types in group:', group.campaignTypes.map((ct: any) => ct.name));
 
     for (const campaignType of group.campaignTypes) {
       if (!campaignType.requiredKeys) continue;
@@ -100,18 +91,15 @@ function extractRequiredFieldsForUseCase(campaignTypeGroups: any[], campaignUseC
       const normalizedUseCaseName = normalizeForMatching(campaignUseCase);
       const normalizedCampaignTypeName = normalizeForMatching(campaignType.name);
       
-      console.log(`Comparing: "${normalizedUseCaseName}" with "${normalizedCampaignTypeName}"`);
       
       // Check for exact match or if the use case maps to this campaign type
       if (isUseCaseMatch(campaignUseCase, campaignType.name)) {
-        console.log(`✅ Found match: ${campaignType.name} for use case: ${campaignUseCase}`);
         
         // Extract active required keys
         const activeKeys = campaignType.requiredKeys
           .filter((key: any) => key.isActive)
           .map((key: any) => key.name);
         
-        console.log('Required keys for this campaign type:', activeKeys);
         requiredFields.push(...activeKeys);
       }
     }
@@ -119,7 +107,6 @@ function extractRequiredFieldsForUseCase(campaignTypeGroups: any[], campaignUseC
 
   // Remove duplicates and return
   const uniqueFields = [...new Set(requiredFields)];
-  console.log('Final required fields:', uniqueFields);
   return uniqueFields;
 }
 
@@ -135,7 +122,6 @@ function normalizeForMatching(str: string): string {
  * as getDynamicUseCases to ensure consistency with API-driven data
  */
 function isUseCaseMatch(useCase: string, campaignTypeName: string): boolean {
-  console.log(`🔍 Checking use case mapping for: "${useCase}" against campaign type: "${campaignTypeName}"`);
   
   // Transform campaign type name to use case value using the same logic as getDynamicUseCases
   // This ensures consistency between the UI use case values and the matching logic
@@ -145,28 +131,20 @@ function isUseCaseMatch(useCase: string, campaignTypeName: string): boolean {
   const normalizedUseCase = normalizeForMatching(useCase);
   const normalizedCampaignType = normalizeForMatching(transformedCampaignTypeValue);
   
-  console.log(`Transformed campaign type: "${transformedCampaignTypeValue}"`);
-  console.log(`Normalized use case: "${normalizedUseCase}"`);
-  console.log(`Normalized campaign type: "${normalizedCampaignType}"`);
   
   // Check for exact match after normalization
   if (normalizedCampaignType === normalizedUseCase) {
-    console.log(`✅ Exact match found`);
     return true;
   }
   
   // Check if original use case matches transformed campaign type directly
   if (useCase.toLowerCase() === transformedCampaignTypeValue) {
-    console.log(`✅ Direct match found`);
     return true;
   }
   
   // Check for partial matches (contains relationship)
   if (normalizedCampaignType.includes(normalizedUseCase) || normalizedUseCase.includes(normalizedCampaignType)) {
-    console.log(`✅ Partial match found`);
     return true;
   }
-  
-  console.log(`❌ No match found`);
-  return false;
+    return false;
 }

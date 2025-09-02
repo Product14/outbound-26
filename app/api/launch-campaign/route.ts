@@ -26,8 +26,6 @@ export async function POST(request: NextRequest) {
     // Note: Customer field validation is now handled dynamically by the campaign-types API
     // The exact required fields come from the campaign-types API response and are validated during CSV mapping
     // We only send the exact fields specified in the requiredKeys array from the campaign-types API
-
-    console.log('Campaign Launch Payload:', JSON.stringify(payload, null, 2));
     
     // Call the real Spyne API
     const externalResponse = await fetch(`${configs.base_url}conversation/campaign/create`, {

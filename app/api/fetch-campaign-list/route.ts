@@ -14,8 +14,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log(`Fetching campaign list for enterprise ${enterpriseId}, team ${teamId}`);
-
     const response = await fetch(
       `${configs.base_url}conversation/campaign/list?enterpriseId=${enterpriseId}&teamId=${teamId}`,
       {
@@ -26,8 +24,6 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    console.log(`Campaign list API response status: ${response.status}`);
-
     if (!response.ok) {
       console.error(`Failed to fetch campaign list: ${response.status} ${response.statusText}`);
       return NextResponse.json(
@@ -37,7 +33,6 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json();
-    console.log('Campaign list API response data:', data);
 
     return NextResponse.json(data);
   } catch (error) {

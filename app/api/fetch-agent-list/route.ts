@@ -26,9 +26,7 @@ export async function GET(request: NextRequest) {
     if (agentUseCase) externalUrl += `&agentUseCase=${agentUseCase}`;
     if (agentType) externalUrl += `&agentType=${agentType}`;
     if (agentCallType) externalUrl += `&agentCallType=${agentCallType}`;
-    
-    console.log('Proxying request to:', externalUrl);
-    
+        
     // Call the external API
     const externalResponse = await fetch(externalUrl, {
       method: 'GET',

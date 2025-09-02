@@ -27,7 +27,6 @@ export interface MappingConfig {
 
 // ⚠️ CRITICAL: Generate import options ONLY from API fields - NO hardcoded data
 export const getImportAsOptions = (apiRequiredFields?: string[]): MappingOption[] => {
-  console.log('🔍 getImportAsOptions called with API fields:', apiRequiredFields);
   
   // If API required fields are provided, use them as the only source
   if (apiRequiredFields && apiRequiredFields.length > 0) {
@@ -46,13 +45,11 @@ export const getImportAsOptions = (apiRequiredFields?: string[]): MappingOption[
       value: 'do_not_import'
     };
     
-    console.log('✅ Returning API-driven options:', [...dynamicOptions, doNotImportOption]);
     return [...dynamicOptions, doNotImportOption];
   }
   
   // ⚠️ CRITICAL: If no API fields are provided, return ONLY the "Do Not Import" option
   // This prevents showing any hardcoded mapping options
-  console.log('❌ No API fields provided - returning only "Do Not Import" option');
   return [{
     label: 'Do Not Import',
     value: 'do_not_import'

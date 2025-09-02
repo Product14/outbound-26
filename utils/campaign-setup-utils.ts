@@ -130,7 +130,6 @@ export const getDisplayColumns = (
 ) => {
   // After CSV mapping is complete, use the actual keys from the mapped data
   if (csvMappingComplete && uploadedData.length > 0) {
-    console.log('📊 Using actual mapped data keys for display:', Object.keys(uploadedData[0]));
     return Object.keys(uploadedData[0])
   }
   

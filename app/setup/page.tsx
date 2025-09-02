@@ -209,7 +209,6 @@ export default function CampaignSetupRefactored() {
       
       // If no outbound agents found, try to get any agents for the use case (but still respect use case filter)
       if (!agents || agents.length === 0) {
-        console.log(`No outbound agents found for use case: ${agentUseCase}, trying all call types for this use case`)
         agents = await fetchAgentList(
           urlParams.enterprise_id,
           urlParams.team_id,
@@ -222,7 +221,6 @@ export default function CampaignSetupRefactored() {
       // Only fall back to all agents if no use case is specified
       // This preserves accurate use case filtering while providing fallback for development/testing
       if ((!agents || agents.length === 0) && !agentUseCase) {
-        console.log(`No agents found and no use case specified, getting all agents for type: ${agentType}`)
         agents = await fetchAgentList(
           urlParams.enterprise_id,
           urlParams.team_id,
@@ -264,7 +262,6 @@ export default function CampaignSetupRefactored() {
     const file = event.target.files?.[0]
     if (!file) return
 
-    console.log('File upload started:', file.name, file.type, file.size)
 
     setIsUploading(true)
     setHasError(false)
@@ -407,11 +404,7 @@ export default function CampaignSetupRefactored() {
       keyMapping: keyMappingResult 
     })
     
-    // Log the field names in the mapped data to verify case conversion
-    if (mappedData.length > 0) {
-      console.log('📝 Mapped data field names:', Object.keys(mappedData[0]));
-      console.log('🔗 Key mapping values:', Object.values(keyMappingResult));
-    }
+  
     
     // Update the uploaded data with mapped data
     setUploadedData(mappedData)

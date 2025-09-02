@@ -55,7 +55,6 @@ async function convertUseCaseToSnakeCase(useCase: string): Promise<string> {
                 .replace(/[_\s]/g, '_')  // Ensure consistent underscores
                 .toLowerCase();
               
-              console.log(`🔄 Converting agentUseCase: "${useCase}" -> "${campaignType.name}" -> "${snakeCaseValue}"`);
               return snakeCaseValue;
             }
           }

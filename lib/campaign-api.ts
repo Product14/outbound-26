@@ -284,21 +284,13 @@ export function transformCampaignData(
   })
   
   if (!keyMapping && campaignData.uploadedData?.[0]) {
-    console.log('🔄 No keyMapping provided - will auto-convert PascalCase to camelCase for API compatibility');
     const sampleKeys = Object.keys(campaignData.uploadedData[0]);
-    console.log('📝 Sample original keys:', sampleKeys);
     const convertedKeys = sampleKeys.map(key => `${key} → ${toCamelCase(key)}`);
-    console.log('📝 Sample converted keys:', convertedKeys);
   }
   
-  if (campaignData.uploadedData?.[0]) {
-    console.log('🔍 RECEIVED DATA KEYS:', Object.keys(campaignData.uploadedData[0]));
-    console.log('🔍 Should be camelCase API fields, but are they?');
-  }
   
   const customers: ApiCustomer[] = campaignData.uploadedData?.map((row: Record<string, any>, index) => {
-    console.log(`Processing customer row ${index}:`, row)
-    console.log('Available keys in row:', Object.keys(row))
+    
     
     // Helper function to format phone number with + sign
     const formatPhoneNumber = (phone: string): string => {
@@ -318,7 +310,6 @@ export function transformCampaignData(
     
     // If no key mapping provided, create smart case conversion mapping
     if (!keyMapping && Object.keys(row).length > 0) {
-      console.log('⚠️ No keyMapping provided, creating dynamic PascalCase to camelCase mapping');
       Object.keys(row).forEach(key => {
         // Convert PascalCase to camelCase using utility function
         let camelCaseKey = toCamelCase(key);
@@ -327,14 +318,11 @@ export function transformCampaignData(
         if (key === 'VIN' || (key === key.toUpperCase() && !key.includes('_') && !key.includes('-') && !key.includes(' '))) {
           // If key is all uppercase and a single word, convert to all lowercase
           camelCaseKey = key.toLowerCase();
-          console.log(`🔄 Converting all-caps single word: ${key} → ${camelCaseKey}`);
         }
         
         fieldMapping[key] = camelCaseKey;
-        console.log(`🔄 Auto-converting: ${key} → ${camelCaseKey}`);
       });
     } else if (keyMapping) {
-      console.log('✅ Using dynamic field mapping from CSV mapping process');
       
       // Ensure all mapped fields are in camelCase format
       Object.keys(keyMapping).forEach(originalKey => {
@@ -347,13 +335,11 @@ export function transformCampaignData(
           if (mappedKey === mappedKey.toUpperCase() && !mappedKey.includes('_') && !mappedKey.includes('-') && !mappedKey.includes(' ')) {
             // If key is all uppercase and a single word, convert to all lowercase
             camelCaseKey = mappedKey.toLowerCase();
-            console.log(`🔄 Converting all-caps single word: ${mappedKey} → ${camelCaseKey}`);
           }
           
           // Always use camelCase version regardless if it changed or not
           fieldMapping[originalKey] = camelCaseKey;
           if (mappedKey !== camelCaseKey) {
-            console.log(`🔄 Ensuring camelCase: ${mappedKey} → ${camelCaseKey}`);
           }
         }
       });
@@ -367,7 +353,6 @@ export function transformCampaignData(
       // Always ensure the field name is in camelCase format for API compatibility
       const apiFieldName = fieldMapping[originalKey] ? fieldMapping[originalKey] : toCamelCase(originalKey);
       
-      console.log(`🔧 FIELD TRANSFORM: ${originalKey} → ${apiFieldName} = "${value}"`);
       
       if (value !== undefined && value !== null && value !== '') {
         // Convert the value appropriately based on its content
@@ -397,18 +382,13 @@ export function transformCampaignData(
       }
     });
 
-    console.log(`✅ FINAL CUSTOMER ${index}:`, customer)
     return customer;
   }) || [];
 
   // Check for duplicate phone numbers to debug API error
   const phoneNumbers = customers.map(c => c.contactPhoneNumber).filter(Boolean);
   const uniquePhoneNumbers = [...new Set(phoneNumbers)];
-  
-  console.log('📞 All phone numbers:', phoneNumbers);
-  console.log('📞 Unique phone numbers:', uniquePhoneNumbers);
-  console.log('📞 Duplicate check:', phoneNumbers.length !== uniquePhoneNumbers.length ? 'DUPLICATES FOUND!' : 'No duplicates');
-  
+
   if (phoneNumbers.length !== uniquePhoneNumbers.length) {
     const duplicates = phoneNumbers.filter((phone, index) => phoneNumbers.indexOf(phone) !== index);
     console.error('🚨 DUPLICATE PHONE NUMBERS:', duplicates);

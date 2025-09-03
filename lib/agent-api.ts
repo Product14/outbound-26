@@ -1,5 +1,6 @@
 import { configs } from '@/configs';
 import { fetchCampaignTypes, type CampaignTypesResponse } from './campaign-api';
+import { addAuthToParams } from '@/lib/auth-config';
 
 export interface Agent {
   id: string;
@@ -102,10 +103,8 @@ export async function fetchAgentList(
     params.append('enterpriseId', enterpriseId);
     params.append('teamId', teamId);
     
-    // Add auth_key if provided
-    if (authKey) {
-      params.append('auth_key', authKey);
-    }
+    // Add auth_key based on configuration
+    addAuthToParams(params, authKey);
     
     // Convert agentUseCase to snake_case format specifically for this API
     if (agentUseCase) {

@@ -1,5 +1,7 @@
 import { configs } from '@/configs';
 import { toCamelCase } from '@/lib/utils';
+import { addAuthToUrl, addAuthToParams } from '@/lib/auth-config';
+import { convertTimeSlotsToApiFormat } from '@/lib/time-utils';
 
 // Campaign Types API interfaces
 export interface CampaignType {
@@ -67,6 +69,10 @@ export interface LaunchCampaignPayload {
   communicationChannel?: string;
   startDate?: string;
   endDate?: string;
+  scheduledTime?: Array<{
+    start: string;
+    end: string;
+  }>;
 
   callLimits?: {
     dailyContactLimit: number;
@@ -179,6 +185,11 @@ export interface CampaignData {
   scheduledDate: string;
   scheduledEndDate: string;
   scheduledTime: string;
+  dailyTimeSlots?: Array<{
+    id: string;
+    startTime: string;
+    endTime: string;
+  }>;
   totalRecords: number;
   // Compliance settings from UI
   compliance?: {
@@ -493,6 +504,10 @@ export function transformCampaignData(
       voicemailMessage: campaignData.voicemailMessage || "Hi, this is a follow-up call regarding your recent inquiry. Please call us back at your convenience."
     },
     escalationTriggers: escalationTriggers.length > 0 ? escalationTriggers : ["customer_angry", "technical_issue", "payment_dispute"],
+    // Convert daily time slots to API format
+    scheduledTime: campaignData.dailyTimeSlots && campaignData.dailyTimeSlots.length > 0 
+      ? convertTimeSlotsToApiFormat(campaignData.dailyTimeSlots)
+      : [{ start: "09:00", end: "17:00" }], // Default time slot
     // Always include start and end dates (with defaults if not provided)
     startDate: "",
     endDate: ""
@@ -532,7 +547,8 @@ export function transformCampaignData(
 
 export async function launchCampaign(payload: LaunchCampaignPayload, authKey?: string): Promise<CampaignApiResponse> {
   try {
-    const url = authKey ? `/api/launch-campaign?auth_key=${encodeURIComponent(authKey)}` : '/api/launch-campaign';
+    // Build URL with auth_key based on configuration
+    const url = addAuthToUrl('/api/launch-campaign', authKey);
     
     const response = await fetch(url, {
       method: 'POST',
@@ -558,9 +574,8 @@ export async function fetchCampaignList(enterpriseId: string, teamId: string, au
     const params = new URLSearchParams();
     params.append('enterpriseId', enterpriseId);
     params.append('teamId', teamId);
-    if (authKey) {
-      params.append('auth_key', authKey);
-    }
+    // Add auth_key based on configuration
+    addAuthToParams(params, authKey);
     
     const response = await fetch(`/api/fetch-campaign-list?${params.toString()}`);
 
@@ -579,9 +594,8 @@ export async function fetchCampaignDetails(campaignId: string, authKey?: string)
   try {
     const params = new URLSearchParams();
     params.append('campaignId', campaignId);
-    if (authKey) {
-      params.append('auth_key', authKey);
-    }
+    // Add auth_key based on configuration
+    addAuthToParams(params, authKey);
     
     const response = await fetch(`/api/fetch-campaign-details?${params.toString()}`);
 
@@ -598,7 +612,8 @@ export async function fetchCampaignDetails(campaignId: string, authKey?: string)
 
 export async function fetchCampaignTypes(authKey?: string): Promise<CampaignTypesResponse> {
   try {
-    const url = authKey ? `/api/fetch-campaign-types?auth_key=${encodeURIComponent(authKey)}` : '/api/fetch-campaign-types';
+    // Build URL with auth_key based on configuration
+    const url = addAuthToUrl('/api/fetch-campaign-types', authKey);
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -619,7 +634,8 @@ export async function processKeyMapping(requiredKeys: string[], availableKeys: s
       availableKeys
     };
 
-    const url = authKey ? `/api/keys-mapping?auth_key=${encodeURIComponent(authKey)}` : '/api/keys-mapping';
+    // Build URL with auth_key based on configuration
+    const url = addAuthToUrl('/api/keys-mapping', authKey);
 
     const response = await fetch(url, {
       method: 'POST',

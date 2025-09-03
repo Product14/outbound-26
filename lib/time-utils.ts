@@ -163,3 +163,33 @@ export function getEstimatedTimeInMinutes(totalCalls: number): string {
   const minutes = Math.round(seconds / 60);
   return `${minutes} minutes`;
 }
+
+/**
+ * Converts daily time slots to the API format with proper HH:MM formatting
+ * Time slots are sent as local time in HH:MM format (not UTC timestamps)
+ * @param timeSlots - Array of time slots with startTime and endTime
+ * @returns Array of formatted time slots for the API
+ */
+export function convertTimeSlotsToApiFormat(timeSlots: Array<{ startTime: string; endTime: string }>): Array<{ start: string; end: string }> {
+  return timeSlots.map(slot => ({
+    start: formatTimeToHHMM(slot.startTime),
+    end: formatTimeToHHMM(slot.endTime)
+  }));
+}
+
+/**
+ * Ensures time is in HH:MM format
+ * @param time - Time string (could be H:MM or HH:MM)
+ * @returns Time in HH:MM format
+ */
+function formatTimeToHHMM(time: string): string {
+  const parts = time.split(':');
+  if (parts.length !== 2) {
+    throw new Error(`Invalid time format: ${time}`);
+  }
+  
+  const hours = parts[0].padStart(2, '0');
+  const minutes = parts[1].padStart(2, '0');
+  
+  return `${hours}:${minutes}`;
+}

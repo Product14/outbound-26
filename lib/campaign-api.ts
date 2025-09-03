@@ -504,10 +504,6 @@ export function transformCampaignData(
       voicemailMessage: campaignData.voicemailMessage || "Hi, this is a follow-up call regarding your recent inquiry. Please call us back at your convenience."
     },
     escalationTriggers: escalationTriggers.length > 0 ? escalationTriggers : ["customer_angry", "technical_issue", "payment_dispute"],
-    // Convert daily time slots to API format
-    scheduledTime: campaignData.dailyTimeSlots && campaignData.dailyTimeSlots.length > 0 
-      ? convertTimeSlotsToApiFormat(campaignData.dailyTimeSlots)
-      : [{ start: "09:00", end: "17:00" }], // Default time slot
     // Always include start and end dates (with defaults if not provided)
     startDate: "",
     endDate: ""
@@ -531,6 +527,11 @@ export function transformCampaignData(
       endDate.setMonth(endDate.getMonth() + 1);
       basePayload.endDate = endDate.toISOString();
     }
+    
+    // Only add scheduledTime for scheduled campaigns
+    basePayload.scheduledTime = campaignData.dailyTimeSlots && campaignData.dailyTimeSlots.length > 0 
+      ? convertTimeSlotsToApiFormat(campaignData.dailyTimeSlots)
+      : [{ start: "09:00", end: "17:00" }]; // Default time slot for scheduled campaigns
   } else {
     // For "Start Now" campaigns, use current date/time
     const now = new Date();
@@ -540,6 +541,8 @@ export function transformCampaignData(
     const endDate = new Date(now);
     endDate.setMonth(endDate.getMonth() + 1);
     basePayload.endDate = endDate.toISOString();
+    
+    // Do NOT include scheduledTime for "Start Now" campaigns
   }
 
   return basePayload;

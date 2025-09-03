@@ -13,7 +13,7 @@
  */
 
 // 🔧 CONFIGURATION: Toggle this for different environments
-export const AUTH_ENABLED = false; // Set to true for production, false for staging
+export const AUTH_ENABLED = true; // Set to true for production, false for staging
 
 /**
  * Conditionally adds auth_key to URL parameters if auth is enabled

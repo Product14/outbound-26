@@ -10,7 +10,7 @@ All authentication logic is controlled by a single configuration file: `/lib/aut
 
 ```typescript
 // 🔧 CONFIGURATION: Toggle this for different environments
-export const AUTH_ENABLED = false; // Set to true for production, false for staging
+export const AUTH_ENABLED = true; // Set to true for production, false for staging
 ```
 
 ## Usage Instructions

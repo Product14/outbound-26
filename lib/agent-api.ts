@@ -117,18 +117,42 @@ export async function fetchAgentList(
     // Use internal API route to avoid CORS issues
     const url = `/api/fetch-agent-list?${params.toString()}`;
         
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('API Error response:', errorText);
-      throw new Error(`HTTP error! status: ${response.status}, response: ${errorText}`);
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage += ` - ${errorData.error || errorData.message || 'Unknown error'}`;
+      } catch {
+        // If response is not JSON, try to get text
+        try {
+          const errorText = await response.text();
+          if (errorText) {
+            errorMessage += ` - ${errorText.substring(0, 200)}...`; // Limit error text length
+          }
+        } catch {
+          // Ignore if we can't get error details
+        }
+      }
+      throw new Error(errorMessage);
     }
 
     const agents: Agent[] = await response.json();
     return agents;
   } catch (error) {
     console.error('Error fetching agent list:', error);
+    
+    // Provide more specific error information
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Network error: Unable to connect to the server. Please check your internet connection and try again.');
+    }
+    
     throw error;
   }
 }

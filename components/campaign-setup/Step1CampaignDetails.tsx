@@ -309,10 +309,10 @@ export default function Step1CampaignDetails({
 
                             {/* Tags */}
                             <div className="flex flex-wrap gap-1.5">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-gray-700 border border-gray-300">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium bg-white text-gray-700 border border-gray-300">
                                 {agent.city}
                               </span>
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-gray-700 border border-gray-300">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium bg-white text-gray-700 border border-gray-300">
                                 {agent.languageName}
                               </span>
                             </div>

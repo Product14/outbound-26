@@ -18,6 +18,7 @@ import { fetchAgentList, type Agent } from '@/lib/agent-api'
 import { extractUrlParams, buildUrlWithParams } from '@/lib/url-utils'
 import { toast } from 'sonner'
 import { getShortEstimatedTime } from '@/lib/time-utils'
+import { CampaignListShimmer } from "@/components/ui/campaign-shimmer"
 import { cn } from '@/lib/utils'
 
 // Map API campaign type to display format
@@ -128,6 +129,13 @@ export default function CampaignResults() {
     setEnterpriseId(urlParams.enterprise_id)
     setTeamId(urlParams.team_id)
   }, [urlParams.enterprise_id, urlParams.team_id])
+
+  // Restore tab from URL parameters on page load/reload
+  useEffect(() => {
+    if (urlParams.tab && ['sales', 'service'].includes(urlParams.tab)) {
+      setActiveTab(urlParams.tab)
+    }
+  }, [urlParams.tab])
 
   // Load campaigns from API on component mount
   useEffect(() => {
@@ -339,7 +347,11 @@ export default function CampaignResults() {
         <div className="mb-8">
           <div className="flex items-center border-b border-gray-200">
             <button
-              onClick={() => setActiveTab('sales')}
+              onClick={() => {
+                setActiveTab('sales')
+                const newUrl = buildUrlWithParams('/results', { tab: 'sales' })
+                window.history.replaceState({}, '', newUrl)
+              }}
               className={`px-4 py-3 text-base border-b-2 transition-all duration-200 ${
                 activeTab === 'sales'
                   ? 'text-black font-semibold border-[#4600F2] bg-transparent'
@@ -349,7 +361,11 @@ export default function CampaignResults() {
               Sales ({salesCampaignCount})
             </button>
             <button
-              onClick={() => setActiveTab('service')}
+              onClick={() => {
+                setActiveTab('service')
+                const newUrl = buildUrlWithParams('/results', { tab: 'service' })
+                window.history.replaceState({}, '', newUrl)
+              }}
               className={`px-4 py-3 text-base border-b-2 transition-all duration-200 ${
                 activeTab === 'service'
                   ? 'text-black font-semibold border-[#4600F2] bg-transparent'
@@ -522,14 +538,7 @@ export default function CampaignResults() {
         )}
 
         {/* Loading State */}
-        {loading && (
-          <div className="flex items-center justify-center py-12">
-            <div className="flex items-center space-x-3">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              <p className="text-body text-text-secondary">Loading campaigns...</p>
-            </div>
-          </div>
-        )}
+        {loading && <CampaignListShimmer />}
 
         {/* Error State */}
         {error && (

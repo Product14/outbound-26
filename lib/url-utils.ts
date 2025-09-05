@@ -2,6 +2,9 @@ export interface UrlParams {
   enterprise_id: string | null;
   team_id: string | null;
   auth_key: string | null;
+  tab: string | null;
+  callDetailsTab: string | null;
+  selectedCall: string | null;
 }
 
 export function extractUrlParams(): UrlParams {
@@ -10,6 +13,9 @@ export function extractUrlParams(): UrlParams {
       enterprise_id: null,
       team_id: null,
       auth_key: null,
+      tab: null,
+      callDetailsTab: null,
+      selectedCall: null,
     };
   }
 
@@ -19,11 +25,17 @@ export function extractUrlParams(): UrlParams {
   const enterpriseId = urlParams.get('enterprise_id');
   const teamId = urlParams.get('team_id');
   const authKey = urlParams.get('auth_key');
+  const tab = urlParams.get('tab');
+  const callDetailsTab = urlParams.get('callDetailsTab');
+  const selectedCall = urlParams.get('selectedCall');
   
   return {
     enterprise_id: enterpriseId,
     team_id: teamId,
     auth_key: authKey,
+    tab: tab,
+    callDetailsTab: callDetailsTab,
+    selectedCall: selectedCall,
   };
 }
 
@@ -72,4 +84,25 @@ export function buildUrlWithParams(basePath: string, additionalParams?: Record<s
   
   const queryString = searchParams.toString();
   return queryString ? `${basePath}?${queryString}` : basePath;
+}
+
+// Helper function to preserve state parameters when navigating
+export function buildUrlWithState(basePath: string, stateParams?: { 
+  tab?: string; 
+  callDetailsTab?: string; 
+  selectedCall?: string; 
+}, additionalParams?: Record<string, string>): string {
+  const mergedParams = { ...additionalParams };
+  
+  if (stateParams?.tab) {
+    mergedParams.tab = stateParams.tab;
+  }
+  if (stateParams?.callDetailsTab) {
+    mergedParams.callDetailsTab = stateParams.callDetailsTab;
+  }
+  if (stateParams?.selectedCall) {
+    mergedParams.selectedCall = stateParams.selectedCall;
+  }
+  
+  return buildUrlWithParams(basePath, mergedParams);
 }

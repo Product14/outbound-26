@@ -3,13 +3,179 @@
  */
 
 export type CallStatus = 'Connected' | 'Voice Mail' | 'Failed';
-export type CallOutcome = 'Success' | 'Callback Requested' | 'Not Interested' | 'Wrong Number' | 'No Answer' | 'Follow-up Requested';
+
+// Sales Call Outcomes
+export type SalesCallOutcome = 
+  | 'Test Drive Scheduled'
+  | 'Test Drive Rescheduled' 
+  | 'Test Drive Cancelled'
+  | 'Appointment for Purchase Discussion Scheduled'
+  | 'Purchase Confirmed'
+  | 'Order/Delivery Status Confirmed'
+  | 'Sale Lost/Not Interested'
+  | 'Follow-up Required'
+  | 'No Availability Found'
+  | 'Call Aborted'
+  | 'Promotional Offer Accepted'
+  | 'Promotional Offer Declined'
+  | 'Financing/Leasing Approved'
+  | 'Financing/Leasing Declined'
+  | 'Trade-in Accepted'
+  | 'Trade-in Declined'
+  | 'Inventory Waitlist Created'
+  | 'Customer Transferred to Salesperson/Manager';
+
+// Service Call Outcomes
+export type ServiceCallOutcome = 
+  | 'Service Appointment Scheduled'
+  | 'Service Appointment Rescheduled'
+  | 'Service Appointment Cancelled'
+  | 'Recall Appointment Scheduled'
+  | 'Maintenance Appointment Scheduled'
+  | 'Repair Completed/Confirmed'
+  | 'Drop-off/Pickup Scheduled'
+  | 'Loaner Vehicle Confirmed'
+  | 'Warranty Service Approved'
+  | 'Warranty Renewal/Extension Accepted'
+  | 'Warranty Renewal/Extension Declined'
+  | 'Insurance Claim Initiated'
+  | 'Complaint Logged'
+  | 'Service Discount Accepted'
+  | 'Service Discount Declined'
+  | 'No Availability Found'
+  | 'Call Aborted'
+  | 'Customer Declined Service'
+  | 'Follow-up Required';
+
+// Combined call outcome type
+export type CallOutcome = SalesCallOutcome | ServiceCallOutcome | 'Success' | 'Callback Requested' | 'Not Interested' | 'Wrong Number' | 'No Answer' | 'Follow-up Requested';
+
 export type AppointmentStatus = 'Yes' | 'No';
 
 export interface CallStatusResult {
   status: CallStatus;
   outcome: CallOutcome;
   appointment: AppointmentStatus;
+}
+
+// Utility functions for call outcomes
+export const SALES_OUTCOMES: SalesCallOutcome[] = [
+  'Test Drive Scheduled',
+  'Test Drive Rescheduled', 
+  'Test Drive Cancelled',
+  'Appointment for Purchase Discussion Scheduled',
+  'Purchase Confirmed',
+  'Order/Delivery Status Confirmed',
+  'Sale Lost/Not Interested',
+  'Follow-up Required',
+  'No Availability Found',
+  'Call Aborted',
+  'Promotional Offer Accepted',
+  'Promotional Offer Declined',
+  'Financing/Leasing Approved',
+  'Financing/Leasing Declined',
+  'Trade-in Accepted',
+  'Trade-in Declined',
+  'Inventory Waitlist Created',
+  'Customer Transferred to Salesperson/Manager'
+];
+
+export const SERVICE_OUTCOMES: ServiceCallOutcome[] = [
+  'Service Appointment Scheduled',
+  'Service Appointment Rescheduled',
+  'Service Appointment Cancelled',
+  'Recall Appointment Scheduled',
+  'Maintenance Appointment Scheduled',
+  'Repair Completed/Confirmed',
+  'Drop-off/Pickup Scheduled',
+  'Loaner Vehicle Confirmed',
+  'Warranty Service Approved',
+  'Warranty Renewal/Extension Accepted',
+  'Warranty Renewal/Extension Declined',
+  'Insurance Claim Initiated',
+  'Complaint Logged',
+  'Service Discount Accepted',
+  'Service Discount Declined',
+  'No Availability Found',
+  'Call Aborted',
+  'Customer Declined Service',
+  'Follow-up Required'
+];
+
+/**
+ * Determines if an outcome is a sales-related outcome
+ */
+export function isSalesOutcome(outcome: CallOutcome): outcome is SalesCallOutcome {
+  return SALES_OUTCOMES.includes(outcome as SalesCallOutcome);
+}
+
+/**
+ * Determines if an outcome is a service-related outcome
+ */
+export function isServiceOutcome(outcome: CallOutcome): outcome is ServiceCallOutcome {
+  return SERVICE_OUTCOMES.includes(outcome as ServiceCallOutcome);
+}
+
+/**
+ * Gets all outcomes for a specific call type (sales or service)
+ */
+export function getOutcomesByType(type: 'sales' | 'service'): CallOutcome[] {
+  return type === 'sales' ? SALES_OUTCOMES : SERVICE_OUTCOMES;
+}
+
+/**
+ * Determines if an outcome represents a successful appointment or action
+ */
+export function isPositiveOutcome(outcome: CallOutcome): boolean {
+  const positiveOutcomes: CallOutcome[] = [
+    'Test Drive Scheduled',
+    'Appointment for Purchase Discussion Scheduled',
+    'Purchase Confirmed',
+    'Order/Delivery Status Confirmed',
+    'Promotional Offer Accepted',
+    'Financing/Leasing Approved',
+    'Trade-in Accepted',
+    'Inventory Waitlist Created',
+    'Service Appointment Scheduled',
+    'Recall Appointment Scheduled',
+    'Maintenance Appointment Scheduled',
+    'Repair Completed/Confirmed',
+    'Drop-off/Pickup Scheduled',
+    'Loaner Vehicle Confirmed',
+    'Warranty Service Approved',
+    'Warranty Renewal/Extension Accepted',
+    'Insurance Claim Initiated',
+    'Service Discount Accepted',
+    'Success'
+  ];
+  
+  return positiveOutcomes.includes(outcome);
+}
+
+/**
+ * Determines if an outcome requires follow-up action
+ */
+export function requiresFollowUp(outcome: CallOutcome): boolean {
+  const followUpOutcomes: CallOutcome[] = [
+    'Follow-up Required',
+    'Test Drive Rescheduled',
+    'Service Appointment Rescheduled',
+    'Callback Requested',
+    'Customer Transferred to Salesperson/Manager',
+    'Complaint Logged',
+    'No Availability Found'
+  ];
+  
+  return followUpOutcomes.includes(outcome);
+}
+
+/**
+ * Gets the category of an outcome (sales, service, or general)
+ */
+export function getOutcomeCategory(outcome: CallOutcome): 'sales' | 'service' | 'general' {
+  if (isSalesOutcome(outcome)) return 'sales';
+  if (isServiceOutcome(outcome)) return 'service';
+  return 'general';
 }
 
 /**
@@ -19,9 +185,10 @@ export interface CallStatusResult {
  * 
  * @param callIndex - Index of the call (0-based)
  * @param totalCalls - Total number of calls for better distribution
+ * @param campaignType - Type of campaign ('sales' or 'service') to determine appropriate outcomes
  * @returns CallStatusResult with status, outcome, and appointment
  */
-export function generateCallStatus(callIndex: number, totalCalls: number): CallStatusResult {
+export function generateCallStatus(callIndex: number, totalCalls: number, campaignType: 'sales' | 'service' = 'sales'): CallStatusResult {
   // Calculate the actual distribution based on totalCalls
   const connectedCount = Math.ceil(totalCalls * 0.6); // 60% Connected
   const voiceMailCount = Math.floor(totalCalls * 0.2); // 20% Voice Mail  
@@ -31,36 +198,40 @@ export function generateCallStatus(callIndex: number, totalCalls: number): CallS
   let outcome: CallOutcome;
   let appointment: AppointmentStatus = 'No';
   
+  // Get appropriate outcomes based on campaign type
+  const availableOutcomes = getOutcomesByType(campaignType);
+  const positiveOutcomes = availableOutcomes.filter(isPositiveOutcome);
+  const followUpOutcomes = availableOutcomes.filter(requiresFollowUp);
+  const negativeOutcomes = availableOutcomes.filter(o => !isPositiveOutcome(o) && !requiresFollowUp(o));
+
   // Distribute statuses based on actual call position
   if (callIndex < connectedCount) {
     status = 'Connected';
     
-    // For Connected calls, vary the outcomes
-    const outcomeDistribution = callIndex % 5;
-    switch (outcomeDistribution) {
-      case 0:
-      case 1:
-        outcome = 'Success';
-        // 70% of successful connected calls get appointments
-        appointment = (callIndex % 10) < 7 ? 'Yes' : 'No';
-        break;
-      case 2:
-        outcome = 'Callback Requested';
-        // 30% of callback requests get appointments
-        appointment = (callIndex % 10) < 3 ? 'Yes' : 'No';
-        break;
-      case 3:
-        outcome = 'Follow-up Requested';
-        // 40% of follow-up requests eventually get appointments
-        appointment = (callIndex % 10) < 4 ? 'Yes' : 'No';
-        break;
-      case 4:
-        outcome = 'Not Interested';
-        appointment = 'No';
-        break;
-      default:
-        outcome = 'Success';
-        appointment = (callIndex % 10) < 7 ? 'Yes' : 'No';
+    // For Connected calls, vary the outcomes based on campaign type
+    const outcomeDistribution = callIndex % 10;
+    if (outcomeDistribution < 4) {
+      // 40% positive outcomes
+      outcome = positiveOutcomes[callIndex % positiveOutcomes.length];
+      // 70% of positive outcomes get appointments
+      appointment = (callIndex % 10) < 7 ? 'Yes' : 'No';
+    } else if (outcomeDistribution < 6) {
+      // 20% follow-up required outcomes
+      outcome = followUpOutcomes.length > 0 ? followUpOutcomes[callIndex % followUpOutcomes.length] : 'Follow-up Required';
+      // 30% of follow-up outcomes get appointments
+      appointment = (callIndex % 10) < 3 ? 'Yes' : 'No';
+    } else if (outcomeDistribution < 8) {
+      // 20% callback/general outcomes
+      outcome = 'Callback Requested';
+      appointment = (callIndex % 10) < 3 ? 'Yes' : 'No';
+    } else {
+      // 20% negative outcomes
+      if (negativeOutcomes.length > 0) {
+        outcome = negativeOutcomes[callIndex % negativeOutcomes.length];
+      } else {
+        outcome = campaignType === 'sales' ? 'Sale Lost/Not Interested' : 'Customer Declined Service';
+      }
+      appointment = 'No';
     }
   } else if (callIndex < connectedCount + voiceMailCount) {
     status = 'Voice Mail';
@@ -70,7 +241,7 @@ export function generateCallStatus(callIndex: number, totalCalls: number): CallS
     status = 'Failed';
     
     // For failed calls, vary the outcomes
-    const failureType = callIndex % 3;
+    const failureType = callIndex % 4;
     switch (failureType) {
       case 0:
         outcome = 'Wrong Number';
@@ -79,7 +250,10 @@ export function generateCallStatus(callIndex: number, totalCalls: number): CallS
         outcome = 'No Answer';
         break;
       case 2:
-        outcome = 'Not Interested';
+        outcome = 'Call Aborted';
+        break;
+      case 3:
+        outcome = campaignType === 'sales' ? 'Sale Lost/Not Interested' : 'Customer Declined Service';
         break;
       default:
         outcome = 'No Answer';
@@ -93,9 +267,10 @@ export function generateCallStatus(callIndex: number, totalCalls: number): CallS
 /**
  * Calculates overall campaign statistics based on call statuses
  * @param totalCalls - Total number of calls
+ * @param campaignType - Type of campaign ('sales' or 'service')
  * @returns Object with answer rate and appointment count
  */
-export function calculateCampaignStats(totalCalls: number): {
+export function calculateCampaignStats(totalCalls: number, campaignType: 'sales' | 'service' = 'sales'): {
   answerRate: number;
   appointmentCount: number;
   avgCallDuration: string;
@@ -118,7 +293,7 @@ export function calculateCampaignStats(totalCalls: number): {
   let followUpAppointments = 0;
   
   for (let i = 0; i < totalCalls; i++) {
-    const result = generateCallStatus(i, totalCalls);
+    const result = generateCallStatus(i, totalCalls, campaignType);
     const duration = generateCallDuration(i, result.status);
     
     // Convert duration string (MM:SS) to seconds
@@ -142,7 +317,7 @@ export function calculateCampaignStats(totalCalls: number): {
       noAnswerCalls++;
     }
     
-    if (result.outcome === 'Follow-up Requested') {
+    if (requiresFollowUp(result.outcome)) {
       followUpRequested++;
       if (result.appointment === 'Yes') {
         followUpAppointments++;
@@ -288,4 +463,43 @@ export function generatePerformanceTimeData(): Array<{
       successRate
     };
   });
+}
+
+export function generateTopPerformingServices(totalAppointments: number): Array<{
+  service: string;
+  appointments: number;
+  percentage: number;
+}> {
+  const services = [
+    'Oil Change',
+    'Tire Rotation',
+    'Brake Inspection',
+    'Battery Check',
+    'Transmission Service',
+    'AC Service',
+    'Engine Tune-up',
+    'Wheel Alignment'
+  ];
+
+  let remainingAppointments = totalAppointments;
+  const result = services.map((service, index) => {
+    // Generate decreasing percentages for top services
+    const basePercentage = Math.max(5, 35 - (index * 4));
+    const variance = Math.random() * 10 - 5; // ±5% variance
+    const percentage = Math.max(1, Math.min(50, basePercentage + variance));
+    
+    const appointments = Math.round((totalAppointments * percentage) / 100);
+    remainingAppointments -= appointments;
+    
+    return {
+      service,
+      appointments,
+      percentage: Math.round(percentage)
+    };
+  });
+
+  // Sort by appointments descending
+  result.sort((a, b) => b.appointments - a.appointments);
+  
+  return result.slice(0, 5);
 }

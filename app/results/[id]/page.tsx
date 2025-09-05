@@ -552,7 +552,11 @@ export default function CampaignDetail() {
             campaignResponse = await fetchCampaignDetails(campaignId)
           } catch (campaignError) {
             console.warn('Failed to fetch campaign details, using mock data:', campaignError)
-            // Provide fallback campaign data
+            // Provide fallback campaign data with proper dates
+            const campaignStartDate = new Date('2023-10-03T11:18:00')
+            const campaignEndDate = new Date('2023-10-03T14:18:00')
+            const campaignCreatedDate = new Date('2024-07-12T12:00:00')
+            
             campaignResponse = {
               success: true,
               campaign: {
@@ -565,8 +569,9 @@ export default function CampaignDetail() {
                 enterpriseId: "fallback-enterprise",
                 teamId: "fallback-team", 
                 status: "active",
-                startDate: new Date().toISOString(),
-                completedDate: "",
+                startDate: campaignStartDate.toISOString(),
+                completedDate: campaignEndDate.toISOString(),
+                createdAt: campaignCreatedDate.toISOString(),
                 campaignCustomerCreationStatus: "completed",
                 totalCustomers: 1000,
                 totalCustomersLeadCreated: 1000,
@@ -820,9 +825,9 @@ export default function CampaignDetail() {
         {/* Funnel Chart and Metrics Section */}
         {(isSalesCampaign || isServiceCampaign) && (
           <div className="mb-8">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-5 lg:grid-cols-10 gap-6">
               {/* Funnel Chart */}
-              <div className="lg:col-span-2">
+              <div className="sm:col-span-3 lg:col-span-7">
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 h-full">
                   <div className="mb-4">
                     <h2 className="text-base font-medium text-gray-900">
@@ -844,7 +849,7 @@ export default function CampaignDetail() {
               </div>
 
               {/* Metrics Grid */}
-              <div className="lg:col-span-1">
+              <div className="sm:col-span-2 lg:col-span-3">
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 h-full">
                   <div className="mb-4">
                     <h2 className="text-base font-medium text-gray-900">

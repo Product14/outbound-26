@@ -28,7 +28,7 @@ export function MetricCard({
             <div className="flex items-center gap-2 mb-1">
               <p className="text-xs font-medium text-gray-600">{title}</p>
               {subtitle && (
-                <p className="text-xs text-gray-500">{subtitle}</p>
+                <p className="text-xs text-gray-500 hidden md:block">{subtitle}</p>
               )}
             </div>
             <p className={cn("text-xl font-bold", valueColor)}>{value}</p>

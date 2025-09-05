@@ -1,25 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { configs } from '@/configs';
-import { extractAuthKey, validateAuthKey, getAuthHeaders } from '@/lib/auth-config';
 
 export async function GET(request: NextRequest) {
   try {
-    // Extract auth_key from URL parameters (controlled by auth config)
-    const authKey = extractAuthKey(request);
+    // Extract auth_key from URL parameters
+    const { searchParams } = new URL(request.url);
+    const authKey = searchParams.get('auth_key');
 
-    // Validate auth_key requirement based on configuration
-    const authValidation = validateAuthKey(authKey);
-    if (!authValidation.isValid) {
+    // Validate auth_key requirement
+    if (!authKey) {
       return NextResponse.json(
-        authValidation.error,
-        { status: authValidation.error.status }
+        { error: 'Missing required parameter: auth_key is required for authentication' },
+        { status: 401 }
       );
     }
 
     // Call the Spyne API to get campaign types
     const externalResponse = await fetch(`${configs.base_url}conversation/campaign/master-data/campaign-types`, {
       method: 'GET',
-      headers: getAuthHeaders(authKey),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authKey}`,
+      },
     });
     
     if (!externalResponse.ok) {

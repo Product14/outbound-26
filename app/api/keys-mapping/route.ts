@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { configs } from '@/configs';
-import { extractAuthKey, validateAuthKey, getAuthHeaders } from '@/lib/auth-config';
 
 export async function POST(request: NextRequest) {
   try {
     const payload = await request.json();
     
-    // Extract auth_key from URL parameters (controlled by auth config)
-    const authKey = extractAuthKey(request);
+    // Extract auth_key from URL parameters
+    const { searchParams } = new URL(request.url);
+    const authKey = searchParams.get('auth_key');
     
     // Validate the payload
     if (!payload.requiredKeys || !Array.isArray(payload.requiredKeys) ||
@@ -18,12 +18,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate auth_key requirement based on configuration
-    const authValidation = validateAuthKey(authKey);
-    if (!authValidation.isValid) {
+    // Validate auth_key requirement
+    if (!authKey) {
       return NextResponse.json(
-        authValidation.error,
-        { status: authValidation.error.status }
+        { error: 'Missing required parameter: auth_key is required for authentication' },
+        { status: 401 }
       );
     }
     
@@ -32,7 +31,10 @@ export async function POST(request: NextRequest) {
     // Call the Spyne API for key mapping
     const externalResponse = await fetch(`${configs.base_url}conversation/campaign/keys-mapping`, {
       method: 'POST',
-      headers: getAuthHeaders(authKey),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authKey}`,
+      },
       body: JSON.stringify(payload)
     });
     

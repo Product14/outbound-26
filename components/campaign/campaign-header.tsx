@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ArrowLeft, ChevronDown, Square, Calendar, Play } from 'lucide-react'
 import { buildUrlWithParams } from '@/lib/url-utils'
+import { formatTimeRange } from '@/lib/time-utils'
 import type { CampaignDetailResponse } from '@/lib/campaign-api'
 import type { Agent } from '@/lib/agent-api'
 import type { Agent as DeployedAgent } from '@/hooks/use-agents'
@@ -241,10 +242,19 @@ export function CampaignHeader({
                 <div className="text-sm font-medium text-gray-600 mb-2">
                   Scheduled for:
                 </div>
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <span className="text-gray-900">11:18 AM Oct 03. 2023</span>
-                  <span className="text-gray-600">to</span>
-                  <span className="text-gray-900">2:18 PM Oct 03. 2023</span>
+                <div className="text-sm font-medium text-gray-900">
+                  {campaignData?.campaign?.startDate ? (
+                    (() => {
+                      const startDate = new Date(campaignData.campaign.startDate)
+                      const endDate = campaignData.campaign.completedDate 
+                        ? new Date(campaignData.campaign.completedDate)
+                        : new Date(startDate.getTime() + 3 * 60 * 60 * 1000) // Default to 3 hours later
+                      
+                      return formatTimeRange(startDate, endDate)
+                    })()
+                  ) : (
+                    'Not scheduled'
+                  )}
                 </div>
               </div>
               
@@ -265,7 +275,18 @@ export function CampaignHeader({
                   Created on:
                 </div>
                 <span className="text-sm font-medium text-gray-900">
-                  2025 July, 12 at 12:00 PM
+                  {campaignData?.campaign?.createdAt ? (
+                    new Date(campaignData.campaign.createdAt).toLocaleDateString('en-US', {
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    })
+                  ) : (
+                    'Unknown'
+                  )}
                 </span>
               </div>
               

@@ -98,25 +98,13 @@ export function calculateEndDate(startDate: Date, totalCalls: number): Date {
 }
 
 /**
- * Formats a time range for display
+ * Formats a time range for display with improved US formatting
  * @param startDate - The campaign start date
  * @param endDate - The campaign end date
- * @returns Formatted time range string (e.g., "Jan 15, 2025 2:30 PM - 4:30 PM")
+ * @returns Formatted time range string optimized for US users
  */
 export function formatTimeRange(startDate: Date, endDate: Date): string {
-  const options: Intl.DateTimeFormatOptions = {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true
-  };
-  
-  const startStr = startDate.toLocaleDateString('en-US', options);
-  const endStr = endDate.toLocaleDateString('en-US', options);
-  
-  // If same date, show time range on same day
+  // If same date, show: "October 3, 2023 • 11:18 AM - 2:18 PM"
   if (startDate.toDateString() === endDate.toDateString()) {
     const startTime = startDate.toLocaleTimeString('en-US', { 
       hour: 'numeric', 
@@ -130,16 +118,45 @@ export function formatTimeRange(startDate: Date, endDate: Date): string {
     });
     
     const dateStr = startDate.toLocaleDateString('en-US', {
-      month: 'short',
+      month: 'long',
       day: 'numeric',
       year: 'numeric'
     });
     
-    return `${dateStr}, ${startTime} - ${endTime}`;
+    return `${dateStr} • ${startTime} - ${endTime}`;
   }
   
-  // Different dates
-  return `${startStr} - ${endStr}`;
+  // Different dates - check if same year
+  const sameYear = startDate.getFullYear() === endDate.getFullYear();
+  
+  if (sameYear) {
+    // Same year: "October 3 - October 5, 2023"
+    const startDateStr = startDate.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric'
+    });
+    const endDateStr = endDate.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
+    
+    return `${startDateStr} - ${endDateStr}`;
+  } else {
+    // Different years: "October 3, 2023 - January 5, 2024"
+    const startDateStr = startDate.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
+    const endDateStr = endDate.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
+    
+    return `${startDateStr} - ${endDateStr}`;
+  }
 }
 
 /**

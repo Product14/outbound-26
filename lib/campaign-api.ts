@@ -171,6 +171,7 @@ export interface CampaignDetail {
   status: string;
   startDate: string;
   completedDate: string;
+  createdAt?: string;
   campaignCustomerCreationStatus: string;
   totalCustomers: number;
   totalCustomersLeadCreated: number;

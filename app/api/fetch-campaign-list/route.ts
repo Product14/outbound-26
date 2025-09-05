@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { configs } from '@/configs';
-import { extractAuthKey, validateAuthKey, getAuthHeaders } from '@/lib/auth-config';
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const enterpriseId = searchParams.get('enterpriseId');
     const teamId = searchParams.get('teamId');
-    // Extract auth_key (controlled by auth config)
-    const authKey = extractAuthKey(request);
+    const authKey = searchParams.get('auth_key');
 
     if (!enterpriseId || !teamId) {
       return NextResponse.json(
@@ -17,12 +15,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Validate auth_key requirement based on configuration
-    const authValidation = validateAuthKey(authKey);
-    if (!authValidation.isValid) {
+    // Validate auth_key requirement
+    if (!authKey) {
       return NextResponse.json(
-        authValidation.error,
-        { status: authValidation.error.status }
+        { error: 'Missing required parameter: auth_key is required for authentication' },
+        { status: 401 }
       );
     }
 
@@ -32,7 +29,7 @@ export async function GET(request: NextRequest) {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          ...getAuthHeaders(authKey)
+          'Authorization': `Bearer ${authKey}`,
         },
       }
     );

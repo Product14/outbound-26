@@ -479,13 +479,26 @@ export default function CampaignSetupRefactored() {
         }
       }
       
+      // Prepare CRM import data if applicable
+      const crmImportData = selectedUploadOption === 'crm' ? {
+        selectedUploadOption,
+        crmSelection,
+        enableRecurringLeads,
+        leadAgeDays,
+        vinSolutionsStartDate,
+        vinSolutionsEndDate,
+        vinSolutionsStartTime,
+        vinSolutionsEndTime
+      } : undefined;
+
       const payload = transformCampaignData(
         cleanCampaignData,
         urlParams.enterprise_id,
         urlParams.team_id,
         agentId,
         storedCampaignId || undefined,
-        keyMapping || undefined
+        keyMapping || undefined,
+        crmImportData
       )
 
       console.log('Launching campaign with payload:', payload)
@@ -773,6 +786,7 @@ export default function CampaignSetupRefactored() {
   }
 
   return (
+    
     <div className="min-h-screen" style={{ backgroundColor: 'hsl(var(--background))' }}>
       <div className="min-h-screen bg-[#F4F5F8] relative">
         {/* Vertical Stepper Sidebar - Fixed on Left */}

@@ -1,6 +1,5 @@
 import { configs } from '@/configs';
 import { toCamelCase } from '@/lib/utils';
-import { addAuthToUrl, addAuthToParams } from '@/lib/auth-config';
 import { convertTimeSlotsToApiFormat } from '@/lib/time-utils';
 
 // Campaign Types API interfaces
@@ -73,6 +72,18 @@ export interface LaunchCampaignPayload {
     start: string;
     end: string;
   }>;
+
+  // CRM Import fields
+  importSource?: string;
+  leadsFilterOptions?: {
+    recurringDays?: number;
+    dateRange?: {
+      startDate: string;
+      endDate: string;
+      startTime?: string;
+      endTime?: string;
+    };
+  };
 
   callLimits?: {
     dailyContactLimit: number;
@@ -255,7 +266,17 @@ export function transformCampaignData(
   teamId: string,
   teamAgentMappingId: string = "agent234", // Default value from your API example
   existingCampaignId?: string, // For final launch with existing campaign ID
-  keyMapping?: Record<string, string> // Dynamic field mapping from CSV mapping process
+  keyMapping?: Record<string, string>, // Dynamic field mapping from CSV mapping process
+  crmImportData?: {
+    selectedUploadOption: string;
+    crmSelection: string;
+    enableRecurringLeads: boolean;
+    leadAgeDays: number;
+    vinSolutionsStartDate: string;
+    vinSolutionsEndDate: string;
+    vinSolutionsStartTime: string;
+    vinSolutionsEndTime: string;
+  }
 ): LaunchCampaignPayload {
   // Transform the use case to campaign type
   const campaignType = campaignData.useCase === 'sales' ? 'Sales' : 'Service';
@@ -460,7 +481,7 @@ export function transformCampaignData(
   // Add retry logic if available from UI
   const retryLogic: LaunchCampaignPayload['retryLogic'] | undefined = 
     (campaignData.maxRetryAttempts || campaignData.retryDelayMinutes) ? {
-      maxAttempts: campaignData.maxRetryAttempts || 3,
+      maxAttempts: campaignData.maxRetryAttempts || 1,
       retryDelay: (campaignData.retryDelayMinutes || 60) * 60, // Convert minutes to seconds
       smsSwitchover: true // Default to true for SMS fallback
     } : undefined;
@@ -509,6 +530,45 @@ export function transformCampaignData(
     endDate: ""
   };
 
+  // Add CRM import data if provided
+  if (crmImportData && crmImportData.selectedUploadOption === 'crm' && crmImportData.crmSelection) {
+    // Map CRM selection to import source
+    const importSourceMap: Record<string, string> = {
+      'vinsolutions': 'vin_solution',
+      'others': 'others'
+    };
+    
+    basePayload.importSource = importSourceMap[crmImportData.crmSelection] || crmImportData.crmSelection;
+    
+    // Add leads filter options based on the filter type
+    if (crmImportData.enableRecurringLeads && crmImportData.leadAgeDays > 0) {
+      // Recurring lead age filter
+      basePayload.leadsFilterOptions = {
+        recurringDays: crmImportData.leadAgeDays
+      };
+    } else if (!crmImportData.enableRecurringLeads && 
+               crmImportData.vinSolutionsStartDate && 
+               crmImportData.vinSolutionsEndDate) {
+      // Date range filter - convert to UTC timestamps
+      const startDateTime = crmImportData.vinSolutionsStartTime 
+        ? `${crmImportData.vinSolutionsStartDate}T${crmImportData.vinSolutionsStartTime}:00.000Z`
+        : `${crmImportData.vinSolutionsStartDate}T00:00:00.000Z`;
+      
+      const endDateTime = crmImportData.vinSolutionsEndTime 
+        ? `${crmImportData.vinSolutionsEndDate}T${crmImportData.vinSolutionsEndTime}:00.000Z`
+        : `${crmImportData.vinSolutionsEndDate}T23:59:59.000Z`;
+      
+      basePayload.leadsFilterOptions = {
+        dateRange: {
+          startDate: new Date(startDateTime).toISOString(),
+          endDate: new Date(endDateTime).toISOString(),
+          startTime: crmImportData.vinSolutionsStartTime || undefined,
+          endTime: crmImportData.vinSolutionsEndTime || undefined
+        }
+      };
+    }
+  }
+
   // Add campaign ID if it exists (for final launch)
   if (existingCampaignId) {
     basePayload.campaignId = existingCampaignId;
@@ -550,8 +610,8 @@ export function transformCampaignData(
 
 export async function launchCampaign(payload: LaunchCampaignPayload, authKey?: string): Promise<CampaignApiResponse> {
   try {
-    // Build URL with auth_key based on configuration
-    const url = addAuthToUrl('/api/launch-campaign', authKey);
+    // Build URL with auth_key parameter
+    const url = authKey ? `/api/launch-campaign?auth_key=${encodeURIComponent(authKey)}` : '/api/launch-campaign';
     
     const response = await fetch(url, {
       method: 'POST',
@@ -577,8 +637,10 @@ export async function fetchCampaignList(enterpriseId: string, teamId: string, au
     const params = new URLSearchParams();
     params.append('enterpriseId', enterpriseId);
     params.append('teamId', teamId);
-    // Add auth_key based on configuration
-    addAuthToParams(params, authKey);
+    // Add auth_key parameter
+    if (authKey) {
+      params.append('auth_key', authKey);
+    }
     
     const response = await fetch(`/api/fetch-campaign-list?${params.toString()}`);
 
@@ -597,8 +659,10 @@ export async function fetchCampaignDetails(campaignId: string, authKey?: string)
   try {
     const params = new URLSearchParams();
     params.append('campaignId', campaignId);
-    // Add auth_key based on configuration
-    addAuthToParams(params, authKey);
+    // Add auth_key parameter
+    if (authKey) {
+      params.append('auth_key', authKey);
+    }
     
     const response = await fetch(`/api/fetch-campaign-details?${params.toString()}`, {
       method: 'GET',
@@ -641,14 +705,9 @@ export async function fetchCampaignDetails(campaignId: string, authKey?: string)
 
 export async function fetchCampaignTypes(authKey?: string): Promise<CampaignTypesResponse> {
   try {
-    // Build URL with auth_key based on configuration
-    const url = addAuthToUrl('/api/fetch-campaign-types', authKey);
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    // Build URL with auth_key parameter
+    const url = authKey ? `/api/fetch-campaign-types?auth_key=${encodeURIComponent(authKey)}` : '/api/fetch-campaign-types';
+    const response = await fetch(url);
 
     if (!response.ok) {
       let errorMessage = `HTTP error! status: ${response.status}`;
@@ -689,8 +748,8 @@ export async function processKeyMapping(requiredKeys: string[], availableKeys: s
       availableKeys
     };
 
-    // Build URL with auth_key based on configuration
-    const url = addAuthToUrl('/api/keys-mapping', authKey);
+    // Build URL with auth_key parameter
+    const url = authKey ? `/api/keys-mapping?auth_key=${encodeURIComponent(authKey)}` : '/api/keys-mapping';
 
     const response = await fetch(url, {
       method: 'POST',

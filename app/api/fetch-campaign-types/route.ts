@@ -1,60 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { configs } from '@/configs';
-import { extractAuthKey, validateAuthKey, getAuthHeaders } from '@/lib/auth-config';
 
 export async function GET(request: NextRequest) {
   try {
-    // Extract auth_key from URL parameters (controlled by auth config)
-    const authKey = extractAuthKey(request);
+    // Extract auth_key from URL parameters
+    const { searchParams } = new URL(request.url);
+    const authKey = searchParams.get('auth_key');
 
-    // Validate auth_key requirement based on configuration
-    const authValidation = validateAuthKey(authKey);
-    if (!authValidation.isValid) {
+    // Validate auth_key requirement
+    if (!authKey) {
       return NextResponse.json(
-        authValidation.error,
-        { status: authValidation.error.status }
+        { error: 'Missing required parameter: auth_key is required for authentication' },
+        { status: 401 }
       );
     }
 
-    // Call the Spyne API to get campaign types with retry logic
-    let externalResponse;
-    let lastError;
-    const maxRetries = 3;
-    
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        externalResponse = await fetch(`${configs.base_url}conversation/campaign/master-data/campaign-types`, {
-          method: 'GET',
-          headers: getAuthHeaders(authKey),
-          timeout: 10000, // 10 second timeout
-        });
-        
-        // If we get a response, break out of retry loop
-        if (externalResponse) {
-          break;
-        }
-      } catch (error) {
-        lastError = error;
-        console.warn(`Attempt ${attempt} failed:`, error);
-        
-        // If this is the last attempt, we'll throw the error below
-        if (attempt === maxRetries) {
-          break;
-        }
-        
-        // Wait before retrying (exponential backoff)
-        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
-      }
-    }
-    
-    // If we still don't have a response after all retries
-    if (!externalResponse) {
-      console.error('All retry attempts failed:', lastError);
-      return NextResponse.json(
-        { error: 'Failed to connect to external API after multiple attempts', details: lastError?.message || 'Unknown error' },
-        { status: 502 }
-      );
-    }
+    // Call the Spyne API to get campaign types
+    const externalResponse = await fetch(`${configs.base_url}conversation/campaign/master-data/campaign-types`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authKey}`,
+      },
+    });
     
     if (!externalResponse.ok) {
       const errorText = await externalResponse.text();

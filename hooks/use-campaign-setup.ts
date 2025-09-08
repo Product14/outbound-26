@@ -178,6 +178,16 @@ export function useCampaignSetup() {
   useEffect(() => {
     const params = extractUrlParams()
     setUrlParams(params)
+    
+    // Restore selected category from URL tab parameter
+    if (params.tab && ['sales', 'service'].includes(params.tab)) {
+      setSelectedCategory(params.tab)
+      setCampaignData(prev => ({ 
+        ...prev, 
+        useCase: params.tab || 'sales', 
+        subUseCase: '' 
+      }))
+    }
   }, [])
 
   // Page entrance animation

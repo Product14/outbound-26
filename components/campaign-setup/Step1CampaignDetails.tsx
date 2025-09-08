@@ -128,6 +128,13 @@ export default function Step1CampaignDetails({
                       if (errors.useCase || errors.subUseCase) {
                         setErrors(prev => ({ ...prev, useCase: false, subUseCase: false }))
                       }
+                       
+                      // Update URL to preserve tab state on refresh
+                      if (typeof window !== 'undefined') {
+                        const currentUrl = new URL(window.location.href)
+                        currentUrl.searchParams.set('tab', categoryKey)
+                        window.history.replaceState({}, '', currentUrl.toString())
+                      }
                     }}
                   >
                     {/* Category Header */}

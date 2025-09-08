@@ -169,6 +169,7 @@ export interface CampaignDetail {
   status: string;
   startDate: string;
   completedDate: string;
+  createdAt?: string;
   campaignCustomerCreationStatus: string;
   totalCustomers: number;
   totalCustomersLeadCreated: number;
@@ -661,15 +662,41 @@ export async function fetchCampaignDetails(campaignId: string, authKey?: string)
       params.append('auth_key', authKey);
     }
     
-    const response = await fetch(`/api/fetch-campaign-details?${params.toString()}`);
+    const response = await fetch(`/api/fetch-campaign-details?${params.toString()}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage += ` - ${errorData.error || errorData.message || 'Unknown error'}`;
+      } catch {
+        // If response is not JSON, try to get text
+        try {
+          const errorText = await response.text();
+          if (errorText) {
+            errorMessage += ` - ${errorText}`;
+          }
+        } catch {
+          // Ignore if we can't get error details
+        }
+      }
+      throw new Error(errorMessage);
     }
 
     return await response.json();
   } catch (error) {
     console.error('Error fetching campaign details:', error);
+    
+    // Provide more specific error information
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Network error: Unable to connect to the server. Please check your internet connection and try again.');
+    }
+    
     throw error;
   }
 }
@@ -681,12 +708,33 @@ export async function fetchCampaignTypes(authKey?: string): Promise<CampaignType
     const response = await fetch(url);
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage += ` - ${errorData.error || errorData.message || 'Unknown error'}`;
+      } catch {
+        // If response is not JSON, try to get text
+        try {
+          const errorText = await response.text();
+          if (errorText) {
+            errorMessage += ` - ${errorText}`;
+          }
+        } catch {
+          // Ignore if we can't get error details
+        }
+      }
+      throw new Error(errorMessage);
     }
 
     return await response.json();
   } catch (error) {
     console.error('Error fetching campaign types:', error);
+    
+    // Provide more specific error information
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Network error: Unable to connect to the server. Please check your internet connection and try again.');
+    }
+    
     throw error;
   }
 }

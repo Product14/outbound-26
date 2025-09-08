@@ -111,7 +111,14 @@ export function useCampaignSetup() {
   const [campaignData, setCampaignData] = useState<CampaignData>(initialCampaignData)
   const [selectedCategory, setSelectedCategory] = useState<string>('sales')
   const [errors, setErrors] = useState<ValidationErrors>(initialErrors)
-  const [urlParams, setUrlParams] = useState<UrlParams>({ enterprise_id: null, team_id: null, auth_key: null })
+  const [urlParams, setUrlParams] = useState<UrlParams>({ 
+    enterprise_id: null, 
+    team_id: null, 
+    auth_key: null,
+    tab: null,
+    callDetailsTab: null,
+    selectedCall: null
+  })
   
   // Upload states
   const [uploadProgress, setUploadProgress] = useState(0)

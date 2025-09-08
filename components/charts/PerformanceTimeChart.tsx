@@ -46,7 +46,7 @@ export function PerformanceTimeChart({ data, title = "Best Campaign Performance 
               left: -5,
               bottom: 5,
             }}
-            width="100%"
+            width={800}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
             <XAxis 

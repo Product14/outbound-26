@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
+import { CSVMappingShimmer } from '@/components/ui/campaign-shimmer';
 
 import CSVFieldMappingTable from './CSVFieldMappingTable';
 import DataPreviewTable from './DataPreviewTable';
@@ -448,19 +449,7 @@ export default function CSVMappingFlow({
       )}
 
       {/* Loading State */}
-      {isLoadingApiData && (
-        <Card>
-          <CardContent className="p-12">
-            <div className="flex flex-col items-center justify-center space-y-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <div className="text-center">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading Campaign Requirements</h3>
-                <p className="text-sm text-gray-600">Fetching required fields and analyzing your CSV...</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {isLoadingApiData && <CSVMappingShimmer />}
 
       {/* Step Content */}
       {!isLoadingApiData && currentStep === 0 && (

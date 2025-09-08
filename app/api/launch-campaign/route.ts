@@ -27,10 +27,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate customers array
-    if (!Array.isArray(payload.customers) || payload.customers.length === 0) {
+    // Validate customers array - allow empty array if importSource is specified (e.g., vin_solution)
+    // as customers will be populated dynamically by the external system
+    if (!Array.isArray(payload.customers)) {
       return NextResponse.json(
-        { error: 'Customers array is required and must not be empty' },
+        { error: 'Customers must be an array' },
+        { status: 400 }
+      );
+    }
+    
+    // Only require non-empty customers array if no importSource is specified
+    if (payload.customers.length === 0 && !payload.importSource) {
+      return NextResponse.json(
+        { error: 'Customers array is required and must not be empty when no importSource is specified' },
         { status: 400 }
       );
     }

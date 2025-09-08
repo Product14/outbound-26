@@ -80,8 +80,6 @@ export interface LaunchCampaignPayload {
     dateRange?: {
       startDate: string;
       endDate: string;
-      startTime?: string;
-      endTime?: string;
     };
   };
 
@@ -562,8 +560,7 @@ export function transformCampaignData(
         dateRange: {
           startDate: new Date(startDateTime).toISOString(),
           endDate: new Date(endDateTime).toISOString(),
-          startTime: crmImportData.vinSolutionsStartTime || undefined,
-          endTime: crmImportData.vinSolutionsEndTime || undefined
+          
         }
       };
     }

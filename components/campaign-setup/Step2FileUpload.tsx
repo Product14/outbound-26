@@ -645,7 +645,7 @@ export default function Step2FileUpload({
             <div className="mt-6 pt-4 border-t border-[#E5E7EB]">
               <div className="flex items-center justify-center">
                 <button 
-                  onClick={() => downloadSampleFile(campaignData.subUseCase, campaignData.useCase)}
+                  onClick={() => downloadSampleFile(campaignData.subUseCase, campaignData.useCase, campaignTypes)}
                   className="inline-flex items-center text-[14px] font-medium text-[#4600F2] hover:text-[#4600F2]/80 transition-colors"
                 >
                   <Download className="w-4 h-4 mr-2" />
@@ -714,7 +714,7 @@ export default function Step2FileUpload({
               {/* Download sample file CTA for service */}
               <div className="mt-4">
                 <button 
-                  onClick={() => downloadSampleFile(campaignData.subUseCase, campaignData.useCase)}
+                  onClick={() => downloadSampleFile(campaignData.subUseCase, campaignData.useCase, campaignTypes)}
                   className="inline-flex items-center text-[12px] font-medium text-[#4600F2] hover:text-[#4600F2]/80 transition-colors"
                 >
                   <Download className="w-3 h-3 mr-1" />
@@ -861,7 +861,7 @@ export default function Step2FileUpload({
                   variant="outline" 
                   size="sm" 
                   className="h-9 px-3 text-[12px] border-[#EF4444] text-[#EF4444] hover:bg-[#EF4444]/10 rounded-lg font-medium"
-                  onClick={() => downloadSampleFile(campaignData.subUseCase, campaignData.useCase)}
+                  onClick={() => downloadSampleFile(campaignData.subUseCase, campaignData.useCase, campaignTypes)}
                 >
                   <Download className="h-4 w-4 mr-2" />
                   Download Template

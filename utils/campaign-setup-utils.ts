@@ -63,7 +63,8 @@ export const getDynamicUseCases = (campaignTypes: CampaignTypesResponse | null) 
             value: type.name.replace(/[_\s]/g, '-').toLowerCase(),
             label: formatUseCaseLabel(type.name),
             requiredFields: type.requiredKeys?.filter(key => key.isActive).map(key => key.name) || [],
-            disabled: false
+            disabled: false,
+            sampleCsv: type.sampleCsv
           }))
       }
     } else {
@@ -78,7 +79,8 @@ export const getDynamicUseCases = (campaignTypes: CampaignTypesResponse | null) 
             value: type.name.replace(/[_\s]/g, '-').toLowerCase(),
             label: formatUseCaseLabel(type.name),
             requiredFields: type.requiredKeys?.filter(key => key.isActive).map(key => key.name) || [],
-            disabled: false
+            disabled: false,
+            sampleCsv: type.sampleCsv
           }))
       }
     }
@@ -197,7 +199,7 @@ export const downloadSampleFile = (subUseCase: string, useCase: string, campaign
     let fileUrl = 'https://spyne-test.s3.us-east-1.amazonaws.com/csv-template1.csv';
     let fileName = 'sample-customer-data.csv';
     
-    // Dynamic template selection based on campaign types
+    // Dynamic template selection based on campaign types API data
     if (campaignTypes?.data) {
       const categoryGroup = campaignTypes.data.find(group => 
         group.campaignFor.toLowerCase() === useCase.toLowerCase()
@@ -208,32 +210,39 @@ export const downloadSampleFile = (subUseCase: string, useCase: string, campaign
           type.name.replace(/[_\s]/g, '-').toLowerCase() === subUseCase
         );
         
-        // Customize template based on specific campaign type
-        if (campaignType) {
-          if (campaignType.name.toLowerCase().includes('recall')) {
-            fileUrl = '/csv-template.csv';
-            fileName = 'recall-notification-template.csv';
-          } else if (campaignType.name.toLowerCase().includes('price')) {
-            fileUrl = '/price-drop-alert-template.csv';
-            fileName = 'price-drop-alert-template.csv';
-          } else if (useCase.toLowerCase() === 'service') {
-            fileUrl = '/csv-template.csv';
-            fileName = 'service-template.csv';
-          } else if (useCase.toLowerCase() === 'sales') {
-            fileUrl = 'https://spyne-test.s3.us-east-1.amazonaws.com/csv-template1.csv';
-            fileName = 'sales-template.csv';
+        // Use the sampleCsv URL from API if available
+        if (campaignType?.sampleCsv) {
+          fileUrl = campaignType.sampleCsv;
+          // Generate filename from campaign type name
+          fileName = `${campaignType.name.replace(/[_\s]/g, '-').toLowerCase()}-template.csv`;
+        } else {
+          // Fallback to hardcoded logic for backward compatibility
+          if (campaignType) {
+            if (campaignType.name.toLowerCase().includes('recall')) {
+              fileUrl = '/csv-template.csv';
+              fileName = 'recall-notification-template.csv';
+            } else if (campaignType.name.toLowerCase().includes('price')) {
+              fileUrl = '/price-drop-alert-template.csv';
+              fileName = 'price-drop-alert-template.csv';
+            } else if (useCase.toLowerCase() === 'service') {
+              fileUrl = '/csv-template.csv';
+              fileName = 'service-template.csv';
+            } else if (useCase.toLowerCase() === 'sales') {
+              fileUrl = 'https://spyne-test.s3.us-east-1.amazonaws.com/csv-template1.csv';
+              fileName = 'sales-template.csv';
+            }
           }
         }
       }
     } else {
       // Fallback to hardcoded logic if no API data
-      if (subUseCase === 'price-drop-alert') {
-        fileUrl = '/price-drop-alert-template.csv';
-        fileName = 'price-drop-alert-template.csv';
-      } else if (useCase === 'service') {
-        fileUrl = '/csv-template.csv';
-        fileName = 'service-recall-template.csv';
-      }
+      // if (subUseCase === 'price-drop-alert') {
+      //   fileUrl = '/price-drop-alert-template.csv';
+      //   fileName = 'price-drop-alert-template.csv';
+      // } else if (useCase === 'service') {
+      //   fileUrl = '/csv-template.csv';
+      //   fileName = 'service-recall-template.csv';
+      // }
     }
     
     parent.postMessage({

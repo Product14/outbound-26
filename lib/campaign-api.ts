@@ -8,6 +8,7 @@ export interface CampaignType {
   description: string;
   isActive: boolean;
   requiredKeys: RequiredKey[];
+  sampleCsv?: string;
 }
 
 export interface RequiredKey {

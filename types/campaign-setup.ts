@@ -3,6 +3,7 @@ export interface SubCase {
   label: string;
   requiredFields: string[];
   disabled?: boolean;
+  sampleCsv?: string;
 }
 
 export interface UseCase {

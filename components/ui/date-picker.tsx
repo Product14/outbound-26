@@ -32,7 +32,9 @@ export function DatePicker({
   // Parse initial value
   useEffect(() => {
     if (value) {
-      const date = new Date(value)
+      // Parse date string in local timezone to avoid offset issues
+      const [year, month, day] = value.split('-').map(Number)
+      const date = new Date(year, month - 1, day)
       setSelectedDate(date)
       setCurrentDate(date)
     }
@@ -60,7 +62,11 @@ export function DatePicker({
   }
 
   const formatDateForValue = (date: Date) => {
-    return date.toISOString().split('T')[0]
+    // Format date in local timezone to avoid offset issues
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
   }
 
   const getDaysInMonth = (date: Date) => {
@@ -81,8 +87,16 @@ export function DatePicker({
   }
 
   const isDisabled = (date: Date) => {
-    if (minDate && date < new Date(minDate)) return true
-    if (maxDate && date > new Date(maxDate)) return true
+    if (minDate) {
+      const [minYear, minMonth, minDay] = minDate.split('-').map(Number)
+      const minDateObj = new Date(minYear, minMonth - 1, minDay)
+      if (date < minDateObj) return true
+    }
+    if (maxDate) {
+      const [maxYear, maxMonth, maxDay] = maxDate.split('-').map(Number)
+      const maxDateObj = new Date(maxYear, maxMonth - 1, maxDay)
+      if (date > maxDateObj) return true
+    }
     return false
   }
 

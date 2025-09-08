@@ -548,19 +548,19 @@ export function transformCampaignData(
     } else if (!crmImportData.enableRecurringLeads && 
                crmImportData.vinSolutionsStartDate && 
                crmImportData.vinSolutionsEndDate) {
-      // Date range filter - convert to UTC timestamps
-      const startDateTime = crmImportData.vinSolutionsStartTime 
-        ? `${crmImportData.vinSolutionsStartDate}T${crmImportData.vinSolutionsStartTime}:00.000Z`
-        : `${crmImportData.vinSolutionsStartDate}T00:00:00.000Z`;
+      // Date range filter - convert local time to UTC for database storage
+      const localStartDateTime = crmImportData.vinSolutionsStartTime 
+        ? new Date(`${crmImportData.vinSolutionsStartDate}T${crmImportData.vinSolutionsStartTime}:00`)
+        : new Date(`${crmImportData.vinSolutionsStartDate}T00:00:00`);
       
-      const endDateTime = crmImportData.vinSolutionsEndTime 
-        ? `${crmImportData.vinSolutionsEndDate}T${crmImportData.vinSolutionsEndTime}:00.000Z`
-        : `${crmImportData.vinSolutionsEndDate}T23:59:59.000Z`;
+      const localEndDateTime = crmImportData.vinSolutionsEndTime 
+        ? new Date(`${crmImportData.vinSolutionsEndDate}T${crmImportData.vinSolutionsEndTime}:00`)
+        : new Date(`${crmImportData.vinSolutionsEndDate}T23:59:59`);
       
       basePayload.leadsFilterOptions = {
         dateRange: {
-          startDate: new Date(startDateTime).toISOString(),
-          endDate: new Date(endDateTime).toISOString(),
+          startDate: localStartDateTime.toISOString(),
+          endDate: localEndDateTime.toISOString(),
           
         }
       };
@@ -574,14 +574,17 @@ export function transformCampaignData(
 
   // Set scheduling information
   if (campaignData.schedule === 'scheduled' && campaignData.scheduledDate && campaignData.scheduledTime) {
-    // For scheduled campaigns, use provided date/time
-    basePayload.startDate = new Date(`${campaignData.scheduledDate}T${campaignData.scheduledTime}:00.000Z`).toISOString();
+    // For scheduled campaigns, convert local time to UTC for database storage
+    // Parse date/time as local time, then convert to UTC
+    const localStartDateTime = new Date(`${campaignData.scheduledDate}T${campaignData.scheduledTime}:00`);
+    basePayload.startDate = localStartDateTime.toISOString();
     
     // Calculate end date based on provided end date or add 1 month as default
     if (campaignData.scheduledEndDate) {
-      basePayload.endDate = new Date(`${campaignData.scheduledEndDate}T23:59:59.000Z`).toISOString();
+      const localEndDateTime = new Date(`${campaignData.scheduledEndDate}T23:59:59`);
+      basePayload.endDate = localEndDateTime.toISOString();
     } else {
-      const endDate = new Date(basePayload.startDate);
+      const endDate = new Date(localStartDateTime);
       endDate.setMonth(endDate.getMonth() + 1);
       basePayload.endDate = endDate.toISOString();
     }

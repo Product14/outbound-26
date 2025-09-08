@@ -109,7 +109,11 @@ export default function Step1CampaignDetails({
               )}
               {/* Category Selection */}
               <div className="grid grid-cols-2 gap-4 mb-6">
-                {Object.entries(getDynamicUseCases(campaignTypes)).map(([categoryKey, useCase]: [string, any]) => (
+                {['sales', 'service'].map((categoryKey) => {
+                  const useCases = getDynamicUseCases(campaignTypes);
+                  const useCase = useCases[categoryKey];
+                  if (!useCase) return null;
+                  return (
                   <div 
                     key={categoryKey} 
                     className={`p-4 rounded-lg border transition-all cursor-pointer ${
@@ -163,7 +167,8 @@ export default function Step1CampaignDetails({
                       }
                     </p>
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Sub-options for selected category */}

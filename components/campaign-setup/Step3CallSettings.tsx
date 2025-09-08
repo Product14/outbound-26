@@ -155,6 +155,146 @@ export default function Step3CallSettings({
               </div>
             </RadioGroup>
 
+            {/* Time Slots for Start Now */}
+            {campaignData.schedule === 'now' && (
+              <div className="bg-white border border-[#E5E7EB] rounded-lg mt-6">
+                <div className="bg-[#F4F5F8] border-b border-[#E5E7EB] px-6 py-4">
+                  <h3 className="text-[16px] font-semibold text-[#1A1A1A]">Daily Time Slots</h3>
+                  <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Set the time slots when calls should be made each day</p>
+                </div>
+                <div className="p-6">
+                  <div className="space-y-6">
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h5 className="text-[14px] font-medium text-[#1A1A1A]">Daily Time Slots</h5>
+                          <p className="text-[13px] text-[#6B7280]">Add multiple time slots for each day</p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const newSlot = {
+                              id: Date.now().toString(),
+                              startTime: '09:00',
+                              endTime: '17:00'
+                            };
+                            setCampaignData(prev => ({
+                              ...prev,
+                              dailyTimeSlots: [...prev.dailyTimeSlots, newSlot]
+                            }));
+                          }}
+                          className="text-[14px] h-8"
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Add Slot
+                        </Button>
+                      </div>
+                      
+                      {/* Time Slots List */}
+                      <div className="space-y-3">
+                        {campaignData.dailyTimeSlots.map((slot, index) => (
+                          <div key={slot.id} className="flex items-center gap-3 p-3 border border-[#E5E7EB] rounded-lg bg-gray-50">
+                            <span className="text-[13px] font-medium text-[#6B7280] min-w-[60px]">
+                              Slot {index + 1}
+                            </span>
+                            
+                            <div className="flex-1">
+                              <Label className="text-[12px] font-medium text-[#1A1A1A]/60 mb-1 block">
+                                Start Time
+                              </Label>
+                              <TimePicker
+                                value={slot.startTime}
+                                onChange={(value) => {
+                                  setCampaignData(prev => {
+                                    const updatedSlots = prev.dailyTimeSlots.map(s =>
+                                      s.id === slot.id ? { ...s, startTime: value } : s
+                                    );
+                                    // Update legacy fields with first slot for backward compatibility
+                                    const firstSlot = updatedSlots[0];
+                                    return {
+                                      ...prev,
+                                      dailyTimeSlots: updatedSlots,
+                                      dailyStartTime: firstSlot?.startTime || prev.dailyStartTime,
+                                      dailyEndTime: firstSlot?.endTime || prev.dailyEndTime
+                                    };
+                                  });
+                                }}
+                                placeholder="Start time"
+                                className="h-8 text-[13px]"
+                              />
+                            </div>
+                            
+                            <div className="flex-1">
+                              <Label className="text-[12px] font-medium text-[#1A1A1A]/60 mb-1 block">
+                                End Time
+                              </Label>
+                              <TimePicker
+                                value={slot.endTime}
+                                onChange={(value) => {
+                                  setCampaignData(prev => {
+                                    const updatedSlots = prev.dailyTimeSlots.map(s =>
+                                      s.id === slot.id ? { ...s, endTime: value } : s
+                                    );
+                                    // Update legacy fields with first slot for backward compatibility
+                                    const firstSlot = updatedSlots[0];
+                                    return {
+                                      ...prev,
+                                      dailyTimeSlots: updatedSlots,
+                                      dailyStartTime: firstSlot?.startTime || prev.dailyStartTime,
+                                      dailyEndTime: firstSlot?.endTime || prev.dailyEndTime
+                                    };
+                                  });
+                                }}
+                                placeholder="End time"
+                                className="h-8 text-[13px]"
+                              />
+                            </div>
+                            
+                            {campaignData.dailyTimeSlots.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setCampaignData(prev => {
+                                    const updatedSlots = prev.dailyTimeSlots.filter(s => s.id !== slot.id);
+                                    // Update legacy fields with first slot for backward compatibility
+                                    const firstSlot = updatedSlots[0];
+                                    return {
+                                      ...prev,
+                                      dailyTimeSlots: updatedSlots,
+                                      dailyStartTime: firstSlot?.startTime || '09:00',
+                                      dailyEndTime: firstSlot?.endTime || '17:00'
+                                    };
+                                  });
+                                }}
+                                className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Summary */}
+                      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-[13px] text-[#1A1A1A] font-medium mb-1">Daily Schedule Summary:</p>
+                        <p className="text-[12px] text-[#6B7280]">
+                          {campaignData.dailyTimeSlots.length === 1 
+                            ? `Calls will be made from ${campaignData.dailyTimeSlots[0]?.startTime || "09:00"} to ${campaignData.dailyTimeSlots[0]?.endTime || "17:00"} each day`
+                            : `Calls will be made in ${campaignData.dailyTimeSlots.length} time slots: ${campaignData.dailyTimeSlots.map(slot => `${slot.startTime}-${slot.endTime}`).join(', ')} each day`
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {campaignData.schedule === 'scheduled' && (
               <div className="bg-white border border-[#E5E7EB] rounded-lg mt-6">
                 <div className="bg-[#F4F5F8] border-b border-[#E5E7EB] px-6 py-4">

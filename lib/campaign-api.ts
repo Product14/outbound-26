@@ -586,7 +586,7 @@ export function transformCampaignData(
       basePayload.endDate = endDate.toISOString();
     }
     
-    // Only add scheduledTime for scheduled campaigns
+    // Add scheduledTime for scheduled campaigns
     basePayload.scheduledTime = campaignData.dailyTimeSlots && campaignData.dailyTimeSlots.length > 0 
       ? convertTimeSlotsToApiFormat(campaignData.dailyTimeSlots)
       : [{ start: "09:00", end: "17:00" }]; // Default time slot for scheduled campaigns
@@ -600,7 +600,10 @@ export function transformCampaignData(
     endDate.setMonth(endDate.getMonth() + 1);
     basePayload.endDate = endDate.toISOString();
     
-    // Do NOT include scheduledTime for "Start Now" campaigns
+    // Add scheduledTime for "Start Now" campaigns when time slots are provided
+    if (campaignData.dailyTimeSlots && campaignData.dailyTimeSlots.length > 0) {
+      basePayload.scheduledTime = convertTimeSlotsToApiFormat(campaignData.dailyTimeSlots);
+    }
   }
 
   return basePayload;

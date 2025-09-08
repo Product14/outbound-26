@@ -84,7 +84,6 @@ async function convertUseCaseToSnakeCase(useCase: string, authKey?: string): Pro
     fallbackValue = specificMappings[fallbackValue];
   }
   
-  console.log(`🔄 Fallback conversion: "${useCase}" -> "${fallbackValue}"`);
   return fallbackValue;
 }
 

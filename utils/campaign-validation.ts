@@ -91,10 +91,10 @@ export const validateStep = (
       } else if (selectedUploadOption === 'crm' && crmSelection === 'vinsolutions') {
         // Validate VinSolutions settings
         if (enableRecurringLeads) {
-          // For recurring leads, validate lead age
-          if (!leadAgeDays || leadAgeDays < 1) {
+          // For recurring leads, validate lead age (1-365 days)
+          if (!leadAgeDays || leadAgeDays < 1 || leadAgeDays > 365) {
             newErrors.leadAgeDays = true
-            missingFields.push('Lead Age (must be at least 1 day)')
+            missingFields.push('Lead Age (must be between 1-365 days)')
             isValid = false
           }
         } else {

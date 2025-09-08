@@ -404,10 +404,23 @@ export default function Step2FileUpload({
                                       max="365"
                                       value={leadAgeDays}
                                       onChange={(e) => {
-                                        const value = parseInt(e.target.value) || 0
-                                        setLeadAgeDays(value)
-                                        if (errors.leadAgeDays && value >= 1) {
-                                          setErrors(prev => ({ ...prev, leadAgeDays: false }))
+                                        const inputValue = e.target.value
+                                        // Allow empty input for better UX
+                                        if (inputValue === '') {
+                                          setLeadAgeDays(0)
+                                          return
+                                        }
+                                        
+                                        const value = parseInt(inputValue)
+                                        // Ensure value is within 1-365 range
+                                        if (!isNaN(value)) {
+                                          const clampedValue = Math.min(Math.max(value, 1), 365)
+                                          setLeadAgeDays(clampedValue)
+                                          
+                                          // Clear error if value is now valid
+                                          if (errors.leadAgeDays && clampedValue >= 1 && clampedValue <= 365) {
+                                            setErrors(prev => ({ ...prev, leadAgeDays: false }))
+                                          }
                                         }
                                       }}
                                       className={`w-20 h-10 text-[14px] text-center ${
@@ -422,11 +435,11 @@ export default function Step2FileUpload({
                                   {errors.leadAgeDays && (
                                     <p className="text-[12px] text-red-600 mt-1">Please enter a valid number of days (1-365)</p>
                                   )}
-                                  <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                  {/* <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                                     <p className="text-[12px] text-blue-800">
                                       <strong>Example:</strong> If set to {leadAgeDays} days, the system will automatically call leads that were created exactly {leadAgeDays} days ago. A lead created on January 1st will be called on January {leadAgeDays + 1}th.
                                     </p>
-                                  </div>
+                                  </div> */}
                                 </div>
                       </div>
                     )}

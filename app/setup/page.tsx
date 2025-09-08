@@ -18,7 +18,7 @@ import { validateGoogleDriveLink, convertToDirectDownloadLink, getRequiredKeysFo
 import Step1CampaignDetails from '@/components/campaign-setup/Step1CampaignDetails'
 import Step2FileUpload from '@/components/campaign-setup/Step2FileUpload'
 import Step3CallSettings from '@/components/campaign-setup/Step3CallSettings'
-import Step4HandoffSettings from '@/components/campaign-setup/Step4HandoffSettings'
+// import Step4HandoffSettings from '@/components/campaign-setup/Step4HandoffSettings'
 import Step5CampaignSuccess from '@/components/campaign-setup/Step5CampaignSuccess'
 import StepperSidebar from '@/components/campaign-setup/StepperSidebar'
 import StepNavigation from '@/components/campaign-setup/StepNavigation'
@@ -582,7 +582,7 @@ export default function CampaignSetupRefactored() {
 
   // Navigation handlers
   const handleNextStep = async () => {
-    const maxStep = selectedCategory === 'sales' ? 5 : 4
+    const maxStep = 4 // Both sales and service now have 4 steps
     
     if (currentStep < maxStep) {
       // Validate current step before proceeding
@@ -604,8 +604,8 @@ export default function CampaignSetupRefactored() {
         })
       }
 
-      // If we're launching the campaign (moving from step 3 to 4 for service, or step 4 to 5 for sales), create and save the campaign
-      if ((selectedCategory === 'service' && currentStep === 3) || (selectedCategory === 'sales' && currentStep === 4)) {
+      // If we're launching the campaign (moving from step 3 to 4), create and save the campaign
+      if (currentStep === 3) {
         await handleLaunchCampaign()
       } else {
         setCurrentStep(currentStep + 1)
@@ -740,30 +740,7 @@ export default function CampaignSetupRefactored() {
         )
 
       case 4:
-        // For service use case, step 4 is "Start Campaign", for sales it's "Handoff Settings"
-        if (selectedCategory === 'service') {
-          return (
-            <Step5CampaignSuccess
-              campaignData={campaignData}
-              setCampaignData={setCampaignData}
-              createdCampaignId={createdCampaignId}
-              startFreshCampaign={startFreshCampaign}
-            />
-          )
-        }
-        
-        // Sales use case - show handoff settings
-        return (
-          <Step4HandoffSettings
-            campaignData={campaignData}
-            setCampaignData={setCampaignData}
-            selectedCategory={selectedCategory}
-            errors={errors}
-            setErrors={setErrors}
-          />
-        )
-
-      case 5:
+        // Step 4 is now "Start Campaign" for both sales and service
         return (
           <Step5CampaignSuccess
             campaignData={campaignData}
@@ -772,6 +749,16 @@ export default function CampaignSetupRefactored() {
             startFreshCampaign={startFreshCampaign}
           />
         )
+
+      // case 5:
+      //   return (
+      //     <Step5CampaignSuccess
+      //       campaignData={campaignData}
+      //       setCampaignData={setCampaignData}
+      //       createdCampaignId={createdCampaignId}
+      //       startFreshCampaign={startFreshCampaign}
+      //     />
+      //   )
 
       default:
         return (
@@ -806,7 +793,7 @@ export default function CampaignSetupRefactored() {
         {/* Sticky Navigation - Outside main content for proper positioning */}
         <StepNavigation
           currentStep={currentStep}
-          maxStep={selectedCategory === 'sales' ? 6 : 4}
+          maxStep={4}
           isLaunching={isLaunching}
           selectedCategory={selectedCategory}
           isContinueDisabled={isContinueDisabledCheck}

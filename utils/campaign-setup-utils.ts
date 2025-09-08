@@ -1,6 +1,18 @@
 import { CampaignData, ValidationErrors, UseCases, SetupStep } from '@/types/campaign-setup'
 import { CampaignTypesResponse } from '@/lib/campaign-api'
 
+// Helper function to convert camelCase and other formats to properly spaced text
+export const formatUseCaseLabel = (text: string): string => {
+  return text
+    // First handle underscores and hyphens
+    .replace(/[_-]/g, ' ')
+    // Then handle camelCase by adding space before capital letters (except the first one)
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    // Capitalize first letter of each word
+    .replace(/\b\w/g, l => l.toUpperCase())
+    .trim()
+}
+
 // Fallback use cases definition - used when API data is not available
 export const fallbackUseCases: UseCases = {
   sales: {
@@ -19,22 +31,13 @@ export const fallbackUseCases: UseCases = {
 
 // Dynamic steps based on use case
 export const getSteps = (useCase: string): SetupStep[] => {
-  if (useCase === 'sales') {
-    return [
-      { id: 1, name: 'Campaign Details', number: '01' },
-      { id: 2, name: 'File Upload', number: '02' },
-      { id: 3, name: 'Call Settings', number: '03' },
-      { id: 4, name: 'Handoff Settings', number: '04' },
-      { id: 5, name: 'Start Campaign', number: '05' }
-    ]
-  } else {
-    return [
-      { id: 1, name: 'Campaign Details', number: '01' },
-      { id: 2, name: 'File Upload', number: '02' },
-      { id: 3, name: 'Call Settings', number: '03' },
-      { id: 4, name: 'Start Campaign', number: '04' }
-    ]
-  }
+  // Both sales and service now have the same 3 steps + launch
+  return [
+    { id: 1, name: 'Campaign Details', number: '01' },
+    { id: 2, name: 'File Upload', number: '02' },
+    { id: 3, name: 'Call Settings', number: '03' },
+    { id: 4, name: 'Start Campaign', number: '04' }
+  ]
 }
 
 // Get dynamic use cases from API data
@@ -58,7 +61,7 @@ export const getDynamicUseCases = (campaignTypes: CampaignTypesResponse | null) 
           .filter(type => type.isActive) // Only include active campaign types
           .map(type => ({
             value: type.name.replace(/[_\s]/g, '-').toLowerCase(),
-            label: type.name.replace(/[_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            label: formatUseCaseLabel(type.name),
             requiredFields: type.requiredKeys?.filter(key => key.isActive).map(key => key.name) || [],
             disabled: false
           }))
@@ -73,7 +76,7 @@ export const getDynamicUseCases = (campaignTypes: CampaignTypesResponse | null) 
           .filter(type => type.isActive)
           .map(type => ({
             value: type.name.replace(/[_\s]/g, '-').toLowerCase(),
-            label: type.name.replace(/[_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            label: formatUseCaseLabel(type.name),
             requiredFields: type.requiredKeys?.filter(key => key.isActive).map(key => key.name) || [],
             disabled: false
           }))

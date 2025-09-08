@@ -10,8 +10,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { TimePicker } from "@/components/ui/time-picker"
 import { DatePicker } from "@/components/ui/date-picker"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
-import { AlertCircle, Zap, Clock, Plus, Trash2 } from 'lucide-react'
+import { AlertCircle, Zap, Clock, Plus, Trash2, Info } from 'lucide-react'
 import { CampaignData, ValidationErrors } from '@/types/campaign-setup'
 import { Agent } from '@/lib/agent-api'
 import { getDynamicUseCases } from '@/utils/campaign-setup-utils'
@@ -40,18 +42,19 @@ export default function Step3CallSettings({
   const scheduleRef = useRef<HTMLDivElement | null>(null)
 
   return (
-    <div className="max-w-3xl">
-      <div className="space-y-6">
-        <div className="bg-transparent border-0 p-0">
-          <div className="mb-4">
-            <h1 className="text-[24px] font-bold text-[#1A1A1A] leading-[1.4]">
-              Call Settings
-            </h1>
-            <p className="text-[14px] text-[#6B7280] mt-2 leading-[1.5]">
-              Configure call pacing, retry logic, and voicemail handling for your campaign
-            </p>
+    <TooltipProvider>
+      <div className="max-w-3xl">
+        <div className="space-y-6">
+          <div className="bg-transparent border-0 p-0">
+            <div className="mb-4">
+              <h1 className="text-[24px] font-bold text-[#1A1A1A] leading-[1.4]">
+                Call Settings
+              </h1>
+              <p className="text-[14px] text-[#6B7280] mt-2 leading-[1.5]">
+                Configure call pacing, retry logic, and voicemail handling for your campaign
+              </p>
+            </div>
           </div>
-        </div>
 
         {/* Campaign Summary */}
         <div className={`bg-white border rounded-lg transition-colors ${
@@ -124,48 +127,27 @@ export default function Step3CallSettings({
               onValueChange={(value) => setCampaignData(prev => ({ ...prev, schedule: value }))}
               className="space-y-4"
             >
-              <div className="flex items-center space-x-3 p-4 border border-[#E5E7EB] rounded-lg hover:bg-[#4600F214] transition-colors">
-                <RadioGroupItem value="now" id="now" className="border-[#E5E7EB]" />
-                <Label htmlFor="now" className="flex-1 cursor-pointer">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-[#4600F2]/10 rounded-lg mr-3">
-                      <Zap className="h-5 w-5 text-[#4600F2]" />
+              <div className="border border-[#E5E7EB] rounded-lg hover:bg-[#4600F214] transition-colors">
+                <div className="flex items-center space-x-3 p-4">
+                  <RadioGroupItem value="now" id="now" className="border-[#E5E7EB]" />
+                  <Label htmlFor="now" className="flex-1 cursor-pointer">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-[#4600F2]/10 rounded-lg mr-3">
+                        <Zap className="h-5 w-5 text-[#4600F2]" />
+                      </div>
+                      <div>
+                        <p className="text-[14px] font-medium text-[#1A1A1A]">Start Now</p>
+                        <p className="text-[14px] text-[#6B7280] leading-[1.5]">Begin calling immediately after campaign creation</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[14px] font-medium text-[#1A1A1A]">Start Now</p>
-                      <p className="text-[14px] text-[#6B7280] leading-[1.5]">Begin calling immediately after campaign creation</p>
-                    </div>
-                  </div>
-                </Label>
-              </div>
-
-              <div className="flex items-center space-x-3 p-4 border border-[#E5E7EB] rounded-lg hover:bg-[#4600F214] transition-colors">
-                <RadioGroupItem value="scheduled" id="scheduled" className="border-[#E5E7EB]" />
-                <Label htmlFor="scheduled" className="flex-1 cursor-pointer">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-[#FACC15]/10 rounded-lg mr-3">
-                      <Clock className="h-5 w-5 text-[#FACC15]" />
-                    </div>
-                    <div>
-                      <p className="text-[14px] font-medium text-[#1A1A1A]">Schedule for Later</p>
-                      <p className="text-[14px] text-[#6B7280] leading-[1.5]">Choose a specific date and time</p>
-                    </div>
-                  </div>
-                </Label>
-              </div>
-            </RadioGroup>
-
-            {/* Time Slots for Start Now */}
-            {campaignData.schedule === 'now' && (
-              <div className="bg-white border border-[#E5E7EB] rounded-lg mt-6">
-                <div className="bg-[#F4F5F8] border-b border-[#E5E7EB] px-6 py-4">
-                  <h3 className="text-[16px] font-semibold text-[#1A1A1A]">Daily Time Slots</h3>
-                  <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Set the time slots when calls should be made each day</p>
+                  </Label>
                 </div>
-                <div className="p-6">
-                  <div className="space-y-6">
-                    <div>
-                      <div className="flex items-center justify-between mb-4">
+
+                {/* Time Slots for Start Now - Nested inside */}
+                {campaignData.schedule === 'now' && (
+                  <div className="border-t border-[#E5E7EB] bg-[#F9FAFB] p-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
                         <div>
                           <h5 className="text-[14px] font-medium text-[#1A1A1A]">Daily Time Slots</h5>
                           <p className="text-[13px] text-[#6B7280]">Add multiple time slots for each day</p>
@@ -195,7 +177,7 @@ export default function Step3CallSettings({
                       {/* Time Slots List */}
                       <div className="space-y-3">
                         {campaignData.dailyTimeSlots.map((slot, index) => (
-                          <div key={slot.id} className="flex items-center gap-3 p-3 border border-[#E5E7EB] rounded-lg bg-gray-50">
+                          <div key={slot.id} className="flex items-center gap-3 p-3 border border-[#E5E7EB] rounded-lg bg-white">
                             <span className="text-[13px] font-medium text-[#6B7280] min-w-[60px]">
                               Slot {index + 1}
                             </span>
@@ -280,7 +262,7 @@ export default function Step3CallSettings({
                       </div>
                       
                       {/* Summary */}
-                      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      {/* <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                         <p className="text-[13px] text-[#1A1A1A] font-medium mb-1">Daily Schedule Summary:</p>
                         <p className="text-[12px] text-[#6B7280]">
                           {campaignData.dailyTimeSlots.length === 1 
@@ -288,12 +270,27 @@ export default function Step3CallSettings({
                             : `Calls will be made in ${campaignData.dailyTimeSlots.length} time slots: ${campaignData.dailyTimeSlots.map(slot => `${slot.startTime}-${slot.endTime}`).join(', ')} each day`
                           }
                         </p>
-                      </div>
+                      </div> */}
                     </div>
                   </div>
-                </div>
+                )}
               </div>
-            )}
+
+              <div className="flex items-center space-x-3 p-4 border border-[#E5E7EB] rounded-lg hover:bg-[#4600F214] transition-colors">
+                <RadioGroupItem value="scheduled" id="scheduled" className="border-[#E5E7EB]" />
+                <Label htmlFor="scheduled" className="flex-1 cursor-pointer">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-[#FACC15]/10 rounded-lg mr-3">
+                      <Clock className="h-5 w-5 text-[#FACC15]" />
+                    </div>
+                    <div>
+                      <p className="text-[14px] font-medium text-[#1A1A1A]">Schedule for Later</p>
+                      <p className="text-[14px] text-[#6B7280] leading-[1.5]">Choose a specific date and time</p>
+                    </div>
+                  </div>
+                </Label>
+              </div>
+            </RadioGroup>
 
             {campaignData.schedule === 'scheduled' && (
               <div className="bg-white border border-[#E5E7EB] rounded-lg mt-6">
@@ -475,7 +472,7 @@ export default function Step3CallSettings({
                       </div>
                       
                       {/* Summary */}
-                      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      {/* <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                         <p className="text-[13px] text-[#1A1A1A] font-medium mb-1">Campaign Schedule Summary:</p>
                         <p className="text-[12px] text-[#6B7280]">
                           {campaignData.dailyTimeSlots.length === 1 
@@ -483,7 +480,7 @@ export default function Step3CallSettings({
                             : `Campaign will run in ${campaignData.dailyTimeSlots.length} time slots: ${campaignData.dailyTimeSlots.map(slot => `${slot.startTime}-${slot.endTime}`).join(', ')} each day`
                           }
                         </p>
-                      </div>
+                      </div> */}
                     </div>
                   </div>
                 </div>
@@ -500,7 +497,7 @@ export default function Step3CallSettings({
           </div>
           <div className="p-6">
             {/* Retry Scenarios */}
-            <div className="mb-10">
+            {/* <div className="mb-10">
               <h4 className={`text-[16px] font-semibold mb-4 ${
                 errors.retryScenarios ? 'text-red-600' : 'text-[#1A1A1A]'
               }`}>
@@ -547,7 +544,7 @@ export default function Step3CallSettings({
                   <span className={`text-[14px] ${campaignData.busyCustomerRetry ? 'font-bold' : 'font-medium'}`}>Customer says busy</span>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Retry Settings */}
             <div className="space-y-4 lg:col-span-2">
@@ -668,8 +665,8 @@ export default function Step3CallSettings({
                   <SelectContent>
                     <SelectItem value="leave_message">Leave voicemail message</SelectItem>
                     <SelectItem value="hang_up">Hang up</SelectItem>
-                    <SelectItem value="transfer">Transfer to human</SelectItem>
-                    <SelectItem value="sms_fallback">Send SMS fallback instead</SelectItem>
+                    {/* <SelectItem value="transfer">Transfer to human</SelectItem>
+                    <SelectItem value="sms_fallback">Send SMS fallback instead</SelectItem> */}
                   </SelectContent>
                 </Select>
               </div>
@@ -698,7 +695,29 @@ export default function Step3CallSettings({
         <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
           <div className="space-y-6">
             <div>
-              <h3 className="text-[16px] font-bold text-[#1A1A1A]">Pacing & Limits</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-[16px] font-bold text-[#1A1A1A]">Pacing & Limits</h3>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button 
+                      type="button"
+                      className="inline-flex items-center justify-center p-1 rounded-full hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-[#4600F2] focus:ring-offset-1"
+                      aria-label="Information about pacing and limits settings"
+                    >
+                      <Info className="h-4 w-4 text-[#6B7280] hover:text-[#4600F2] cursor-pointer transition-colors" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent 
+                    side="top" 
+                    className="w-72 text-center"
+                    sideOffset={5}
+                  >
+                    <p className="text-sm text-gray-700">
+                      These settings are from your signed contract. To make changes, please contact your key account manager.
+                    </p>
+                  </PopoverContent>
+                </Popover>
+              </div>
               <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Control the rate and volume of outreach</p>
             </div>
             
@@ -708,7 +727,7 @@ export default function Step3CallSettings({
                   <Label className="text-[14px] font-medium text-[#1A1A1A]">Daily Contact Limit</Label>
                   <span className="text-[14px] font-semibold text-[#4600F2]">{campaignData.maxCallsPerDay || 110} contacts/day</span>
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-3 opacity-60 blur-[0.5px]">
                   <span className="text-[12px] text-[#6B7280]">10</span>
                   <div className="flex-1">
                     <input
@@ -717,9 +736,10 @@ export default function Step3CallSettings({
                       max="500"
                       value={campaignData.maxCallsPerDay || 110}
                       onChange={(e) => setCampaignData(prev => ({ ...prev, maxCallsPerDay: parseInt(e.target.value) }))}
-                      className="w-full h-2 bg-[#E5E7EB] rounded-full appearance-none cursor-pointer"
+                      disabled
+                      className="w-full h-2 bg-[#4B5563] rounded-full appearance-none cursor-not-allowed pointer-events-none"
                       style={{
-                        background: `linear-gradient(to right, #4600F2 0%, #4600F2 ${((campaignData.maxCallsPerDay || 110) - 10) / (500 - 10) * 100}%, #E5E7EB ${((campaignData.maxCallsPerDay || 110) - 10) / (500 - 10) * 100}%, #E5E7EB 100%)`
+                        background: `linear-gradient(to right, #4B5563 0%, #4B5563 ${((campaignData.maxCallsPerDay || 110) - 10) / (500 - 10) * 100}%, #D1D5DB ${((campaignData.maxCallsPerDay || 110) - 10) / (500 - 10) * 100}%, #D1D5DB 100%)`
                       }}
                     />
                   </div>
@@ -732,7 +752,7 @@ export default function Step3CallSettings({
                   <Label className="text-[14px] font-medium text-[#1A1A1A]">Hourly Throttle</Label>
                   <span className="text-[14px] font-semibold text-[#4600F2]">{campaignData.maxCallsPerHour || 10} contacts/hour</span>
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-3 opacity-60 blur-[0.5px]">
                   <span className="text-[12px] text-[#6B7280]">1</span>
                   <div className="flex-1">
                     <input
@@ -741,9 +761,10 @@ export default function Step3CallSettings({
                       max="50"
                       value={campaignData.maxCallsPerHour || 10}
                       onChange={(e) => setCampaignData(prev => ({ ...prev, maxCallsPerHour: parseInt(e.target.value) }))}
-                      className="w-full h-2 bg-[#E5E7EB] rounded-full appearance-none cursor-pointer"
+                      disabled
+                      className="w-full h-2 bg-[#4B5563] rounded-full appearance-none cursor-not-allowed pointer-events-none"
                       style={{
-                        background: `linear-gradient(to right, #4600F2 0%, #4600F2 ${((campaignData.maxCallsPerHour || 10) - 1) / (50 - 1) * 100}%, #E5E7EB ${((campaignData.maxCallsPerHour || 10) - 1) / (50 - 1) * 100}%, #E5E7EB 100%)`
+                        background: `linear-gradient(to right, #4B5563 0%, #4B5563 ${((campaignData.maxCallsPerHour || 10) - 1) / (50 - 1) * 100}%, #D1D5DB ${((campaignData.maxCallsPerHour || 10) - 1) / (50 - 1) * 100}%, #D1D5DB 100%)`
                       }}
                     />
                   </div>
@@ -756,7 +777,7 @@ export default function Step3CallSettings({
                   <Label className="text-[14px] font-medium text-[#1A1A1A]">Max Concurrent Calls</Label>
                   <span className="text-[14px] font-semibold text-[#4600F2]">{campaignData.maxConcurrentCalls || 5} concurrent</span>
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-3 opacity-60 blur-[0.5px]">
                   <span className="text-[12px] text-[#6B7280]">1</span>
                   <div className="flex-1">
                     <input
@@ -765,9 +786,10 @@ export default function Step3CallSettings({
                       max="20"
                       value={campaignData.maxConcurrentCalls || 5}
                       onChange={(e) => setCampaignData(prev => ({ ...prev, maxConcurrentCalls: parseInt(e.target.value) }))}
-                      className="w-full h-2 bg-[#E5E7EB] rounded-full appearance-none cursor-pointer"
+                      disabled
+                      className="w-full h-2 bg-[#D1D5DB] rounded-full appearance-none cursor-not-allowed pointer-events-none"
                       style={{
-                        background: `linear-gradient(to right, #4600F2 0%, #4600F2 ${((campaignData.maxConcurrentCalls || 5) - 1) / (20 - 1) * 100}%, #E5E7EB ${((campaignData.maxConcurrentCalls || 5) - 1) / (20 - 1) * 100}%, #E5E7EB 100%)`
+                        background: `linear-gradient(to right, #4B5563 0%, #4B5563 ${((campaignData.maxConcurrentCalls || 5) - 1) / (20 - 1) * 100}%, #D1D5DB ${((campaignData.maxConcurrentCalls || 5) - 1) / (20 - 1) * 100}%, #D1D5DB 100%)`
                       }}
                     />
                   </div>
@@ -778,6 +800,7 @@ export default function Step3CallSettings({
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </TooltipProvider>
   )
 }

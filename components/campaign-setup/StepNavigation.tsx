@@ -26,7 +26,7 @@ export default function StepNavigation({
 }: StepNavigationProps) {
   const getButtonText = () => {
     if (isLaunching) return 'Starting...'
-    if ((selectedCategory === 'service' && currentStep === 3) || (selectedCategory === 'sales' && currentStep === 4)) {
+    if (currentStep === 3) {
       return 'Start Campaign'
     }
     return 'Continue'

@@ -134,7 +134,6 @@ const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
       audio.addEventListener('ended', handleEnded);
       audio.addEventListener('canplay', () => {
         // Helpful log so we can confirm the element is created
-        console.log('HTMLAudioElement canplay', { src: audio.src })
       });
       audio.addEventListener('error', handleError);
       audio.addEventListener('play', () => {

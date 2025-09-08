@@ -236,15 +236,12 @@ export default function CampaignDetail() {
   }
 
   const handleCallSelect = (call: any) => {
-    console.log('🔍 handleCallSelect called with call:', call)
     
     // Basic validation only
     if (!call || !call.id || !call.customer) {
-      console.log('🔍 Prevented opening because call data is invalid:', call)
       return
     }
     
-    console.log('🔍 Proceeding to open modal...')
     // Convert the table's CallRecord to the proper CallRecord type
     const convertedCall: CallRecord = {
       call_id: call.id,
@@ -359,7 +356,6 @@ export default function CampaignDetail() {
       tags: [call.callReason?.replace(/_/g, ' ') || 'general', call.outcome.replace(/_/g, ' ')]
     }
     
-    console.log('🔍 About to set selectedCall:', convertedCall)
     setSelectedCall(convertedCall)
     setIsCallDetailsOpen(true)
     // Update URL to include selected call
@@ -382,7 +378,6 @@ export default function CampaignDetail() {
   }
 
   const handleCallDetailsClose = () => {
-    console.log('🔍 Closing drawer...')
     lastCloseTimeRef.current = Date.now()
     setIsClosing(true)
     setIsCallDetailsOpen(false)
@@ -390,7 +385,6 @@ export default function CampaignDetail() {
     
     // Add a temporary click blocker to the document
     const clickBlocker = (e: Event) => {
-      console.log('🔍 Blocking click event during close transition')
       e.preventDefault()
       e.stopPropagation()
       e.stopImmediatePropagation()
@@ -409,7 +403,6 @@ export default function CampaignDetail() {
     
     // Reset the closing flag after a longer delay to prevent immediate reopening
     setTimeout(() => {
-      console.log('🔍 Resetting closing flag')
       setIsClosing(false)
     }, 500)
   }
@@ -511,11 +504,9 @@ export default function CampaignDetail() {
     if (isCallDetailsOpen) {
       // Disable body scroll
       document.body.style.overflow = 'hidden'
-      console.log('🔍 Disabled body scroll')
     } else {
       // Re-enable body scroll
       document.body.style.overflow = 'unset'
-      console.log('🔍 Enabled body scroll')
     }
 
     // Cleanup function to ensure scroll is always re-enabled
@@ -622,9 +613,7 @@ export default function CampaignDetail() {
             }
           }
           
-          console.log('Campaign response:', campaignResponse)
-          console.log('Types response:', typesResponse)
-          
+         
           setCampaignData(campaignResponse)
           setCampaignTypes(typesResponse)
         } catch (apiError) {

@@ -18,6 +18,7 @@ import { fetchAgentList, type Agent } from '@/lib/agent-api'
 import { extractUrlParams, buildUrlWithParams } from '@/lib/url-utils'
 import { toast } from 'sonner'
 import { getShortEstimatedTime } from '@/lib/time-utils'
+import { formatUseCaseLabel } from '@/utils/campaign-setup-utils'
 import { CampaignListShimmer } from "@/components/ui/campaign-shimmer"
 import { cn } from '@/lib/utils'
 
@@ -65,7 +66,7 @@ const getCampaignUseCaseDisplay = (
               : 'bg-blue-100 text-blue-800 border-blue-200';
             
             return {
-              label: type.name.replace(/[_]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+              label: formatUseCaseLabel(type.name),
               color
             };
           }
@@ -75,7 +76,7 @@ const getCampaignUseCaseDisplay = (
   }
   
   // Fallback to transforming the use case name
-  const fallbackLabel = campaignUseCase.replace(/[_-]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+  const fallbackLabel = formatUseCaseLabel(campaignUseCase);
   const fallbackColor = campaignType === 'Sales' 
     ? 'bg-green-100 text-green-800 border-green-200'
     : 'bg-blue-100 text-blue-800 border-blue-200';
@@ -716,7 +717,7 @@ export default function CampaignResults() {
               <p className="text-body text-text-secondary mb-8 max-w-md mx-auto">
                 {searchTerm || activeStatusFilters.length > 0 || activeCampaignTypeFilters.length > 0 || dateFilter
                   ? 'No campaigns match your current filters. Try adjusting your search criteria or removing some filters to find the campaigns you&apos;re looking for.'
-                  : 'You haven&apos;t created any campaigns yet. Ready to start your first AI-powered outbound campaign?'}
+                  : "You haven't created any campaigns yet. Ready to start your first AI-powered outbound campaign?"}
               </p>
               {searchTerm || activeStatusFilters.length > 0 || activeCampaignTypeFilters.length > 0 || dateFilter ? (
                 <Button 

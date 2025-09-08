@@ -65,9 +65,7 @@ const reportsFallback = API_URLS.reportsFallback() // Fallback reports endpoint
 import { shouldUseProduction, shouldUseStaging } from '@/config'
 
 if (shouldUseProduction()) {
-  console.log('Using production API')
 } else {
-  console.log('Using staging API')
 }
 ```
 

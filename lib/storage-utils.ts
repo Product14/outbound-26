@@ -34,7 +34,6 @@ export function storeCampaignData(data: Partial<StoredCampaignData>): void {
     };
     
     localStorage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(updatedData));
-    console.log('Campaign data stored:', updatedData);
   } catch (error) {
     console.error('Error storing campaign data:', error);
   }
@@ -53,7 +52,6 @@ export function getCampaignData(): StoredCampaignData | null {
 export function clearCampaignData(): void {
   try {
     localStorage.removeItem(CAMPAIGN_STORAGE_KEY);
-    console.log('Campaign data cleared');
   } catch (error) {
     console.error('Error clearing campaign data:', error);
   }

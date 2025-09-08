@@ -12,6 +12,7 @@ import { TimePicker } from "@/components/ui/time-picker"
 import { DatePicker } from "@/components/ui/date-picker"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { useToast } from "@/hooks/use-toast"
 
 import { AlertCircle, Zap, Clock, Plus, Trash2, Info } from 'lucide-react'
 import { CampaignData, ValidationErrors } from '@/types/campaign-setup'
@@ -40,6 +41,28 @@ export default function Step3CallSettings({
   campaignTypes
 }: Step3CallSettingsProps) {
   const scheduleRef = useRef<HTMLDivElement | null>(null)
+  const { toast } = useToast()
+
+  const handleAddTimeSlot = () => {
+    if (campaignData.dailyTimeSlots.length >= 10) {
+      toast({
+        title: "Maximum slots reached",
+        description: "You can only add up to 10 time slots per day.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const newSlot = {
+      id: Date.now().toString(),
+      startTime: '09:00',
+      endTime: '17:00'
+    }
+    setCampaignData(prev => ({
+      ...prev,
+      dailyTimeSlots: [...prev.dailyTimeSlots, newSlot]
+    }))
+  }
 
   return (
     <TooltipProvider>
@@ -156,17 +179,7 @@ export default function Step3CallSettings({
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            const newSlot = {
-                              id: Date.now().toString(),
-                              startTime: '09:00',
-                              endTime: '17:00'
-                            };
-                            setCampaignData(prev => ({
-                              ...prev,
-                              dailyTimeSlots: [...prev.dailyTimeSlots, newSlot]
-                            }));
-                          }}
+                          onClick={handleAddTimeSlot}
                           className="text-[14px] h-8"
                         >
                           <Plus className="h-4 w-4 mr-1" />
@@ -366,17 +379,7 @@ export default function Step3CallSettings({
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            const newSlot = {
-                              id: Date.now().toString(),
-                              startTime: '09:00',
-                              endTime: '17:00'
-                            };
-                            setCampaignData(prev => ({
-                              ...prev,
-                              dailyTimeSlots: [...prev.dailyTimeSlots, newSlot]
-                            }));
-                          }}
+                          onClick={handleAddTimeSlot}
                           className="text-[14px] h-8"
                         >
                           <Plus className="h-4 w-4 mr-1" />

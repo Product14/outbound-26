@@ -22,8 +22,24 @@ export function TimePicker({ value, onChange, className, placeholder = "Select t
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Predefined time slots
+  // Predefined time slots - Full 24 hour range
   const timeSlots: TimeSlot[] = [
+    { time: "00:00", display: "12:00am" },
+    { time: "00:30", display: "12:30am" },
+    { time: "01:00", display: "1:00am" },
+    { time: "01:30", display: "1:30am" },
+    { time: "02:00", display: "2:00am" },
+    { time: "02:30", display: "2:30am" },
+    { time: "03:00", display: "3:00am" },
+    { time: "03:30", display: "3:30am" },
+    { time: "04:00", display: "4:00am" },
+    { time: "04:30", display: "4:30am" },
+    { time: "05:00", display: "5:00am" },
+    { time: "05:30", display: "5:30am" },
+    { time: "06:00", display: "6:00am" },
+    { time: "06:30", display: "6:30am" },
+    { time: "07:00", display: "7:00am" },
+    { time: "07:30", display: "7:30am" },
     { time: "08:00", display: "8:00am" },
     { time: "08:30", display: "8:30am" },
     { time: "09:00", display: "9:00am" },
@@ -49,6 +65,13 @@ export function TimePicker({ value, onChange, className, placeholder = "Select t
     { time: "19:00", display: "7:00pm" },
     { time: "19:30", display: "7:30pm" },
     { time: "20:00", display: "8:00pm" },
+    { time: "20:30", display: "8:30pm" },
+    { time: "21:00", display: "9:00pm" },
+    { time: "21:30", display: "9:30pm" },
+    { time: "22:00", display: "10:00pm" },
+    { time: "22:30", display: "10:30pm" },
+    { time: "23:00", display: "11:00pm" },
+    { time: "23:30", display: "11:30pm" },
   ]
 
   // Close dropdown when clicking outside

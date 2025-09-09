@@ -295,6 +295,21 @@ export const validateStep = (
           isValid = false
         }
       }
+      
+      // Validate that scheduled date/time is in the future
+      if (campaignData.scheduledDate) {
+        const scheduledDateTime = new Date(`${campaignData.scheduledDate}T${campaignData.scheduledTime || '09:00'}:00`)
+        const now = new Date()
+        
+        // Add 5 minute buffer to account for processing time
+        const minScheduledTime = new Date(now.getTime() + 5 * 60 * 1000)
+        
+        if (scheduledDateTime <= minScheduledTime) {
+          newErrors.scheduledDate = true
+          missingFields.push('Campaign must be scheduled for at least 5 minutes in the future')
+          isValid = false
+        }
+      }
     } else {
       // For service campaigns, similar validation but simplified
       if (campaignData.schedule === 'scheduled') {

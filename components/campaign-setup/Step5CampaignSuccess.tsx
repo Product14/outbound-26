@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { BarChart3, Plus, Zap } from 'lucide-react'
 import Link from "next/link"
 import { buildUrlWithParams } from '@/lib/url-utils'
-import { calculateAndFormatTimeRange } from '@/lib/time-utils'
+import { calculateAndFormatTimeRange, calculateEndDate, formatTimeRange } from '@/lib/time-utils'
 import { CampaignData } from '@/types/campaign-setup'
 
 interface Step5CampaignSuccessProps {
@@ -21,18 +21,33 @@ export default function Step5CampaignSuccess({
   createdCampaignId,
   startFreshCampaign
 }: Step5CampaignSuccessProps) {
-  const getEstimatedTimeRange = () => {
-    // For "now" campaigns, start immediately
+  const getCampaignDateRange = () => {
+    // For "now" campaigns, just show the start date without time
     if (campaignData.schedule === 'now') {
-      return calculateAndFormatTimeRange(new Date(), campaignData.totalRecords)
+      const startDate = new Date()
+      return startDate.toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      })
     }
-    // For scheduled campaigns, use the scheduled date/time
-    if (campaignData.schedule === 'scheduled' && campaignData.scheduledDate && campaignData.scheduledTime) {
-      const startDate = new Date(`${campaignData.scheduledDate}T${campaignData.scheduledTime}`)
-      return calculateAndFormatTimeRange(startDate, campaignData.totalRecords)
+    
+    // For scheduled campaigns, use the user-selected dates with full time range
+    if (campaignData.schedule === 'scheduled' && campaignData.scheduledDate) {
+      const startDate = new Date(`${campaignData.scheduledDate}T${campaignData.scheduledTime || '09:00'}`)
+      const endDate = campaignData.scheduledEndDate 
+        ? new Date(`${campaignData.scheduledEndDate}T23:59:59`)
+        : calculateEndDate(startDate, campaignData.totalRecords)
+      return formatTimeRange(startDate, endDate)
     }
-    // Fallback to current time if schedule details are incomplete
-    return calculateAndFormatTimeRange(new Date(), campaignData.totalRecords)
+    
+    // Fallback to current date if schedule details are incomplete
+    const startDate = new Date()
+    return startDate.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    })
   }
 
   return (
@@ -63,10 +78,10 @@ export default function Step5CampaignSuccess({
             </div>
             <div>
               <p className="text-[14px] font-medium text-[#666666] mb-1">
-                {campaignData.schedule === 'now' ? 'Campaign Time Range' : 'Scheduled Time Range'}
+                {campaignData.schedule === 'now' ? 'Campaign Start Date' : 'Scheduled Time Range'}
               </p>
               <p className="text-[16px] text-[#1A1A1A]">
-                {getEstimatedTimeRange()}
+                {getCampaignDateRange()}
               </p>
             </div>
           </div>

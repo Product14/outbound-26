@@ -353,6 +353,7 @@ export default function Step2FileUpload({
                                       }}
                                     placeholder="Select start time"
                                       className={errors.vinSolutionsDateRange ? 'border-red-500' : ''}
+                                    selectedDate={vinSolutionsStartDate}
                                   />
                                 </div>
                               </div>
@@ -383,6 +384,7 @@ export default function Step2FileUpload({
                                       }}
                                     placeholder="Select end time"
                                       className={errors.vinSolutionsDateRange ? 'border-red-500' : ''}
+                                    selectedDate={vinSolutionsEndDate}
                                   />
                                 </div>
                               </div>

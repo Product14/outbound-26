@@ -25,6 +25,7 @@ export function validateColumns(headers: string[], requiredColumns: string[] = [
   return missingColumns;
 }
 
+
 // Generate smart mapping suggestions based on column names
 export function generateMappingSuggestions(headers: string[], apiRequiredFields?: string[]): Record<string, string> {
   const suggestions: Record<string, string> = {};
@@ -37,18 +38,23 @@ export function generateMappingSuggestions(headers: string[], apiRequiredFields?
   headers.forEach(header => {
     const normalizedHeader = header.toLowerCase().replace(/[^a-z0-9]/g, '');
     
-    // Try to match against API required fields
+    // Try to match against API required fields with enhanced matching
     for (const apiField of apiRequiredFields) {
       const normalizedApiField = apiField.toLowerCase().replace(/[^a-z0-9]/g, '');
       
-      // Simple similarity matching - can be enhanced with better algorithms
-      if (normalizedHeader.includes(normalizedApiField) || 
+      // Enhanced similarity matching including common field name variations
+      if (normalizedHeader === normalizedApiField ||
+          normalizedHeader.includes(normalizedApiField) || 
           normalizedApiField.includes(normalizedHeader) ||
-          normalizedHeader === normalizedApiField) {
+          // Handle exact case-insensitive match
+          header.toLowerCase() === apiField.toLowerCase() ||
+          // Handle PascalCase to camelCase matching
+          header === apiField.charAt(0).toUpperCase() + apiField.slice(1)){
         
         // Only assign if not already used
         if (!Object.values(suggestions).includes(apiField)) {
           suggestions[header] = apiField;
+          console.log(`📝 File Parser - Mapping suggestion: "${header}" -> "${apiField}"`);
           break;
         }
       }

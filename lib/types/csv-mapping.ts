@@ -1,6 +1,8 @@
 // Types for CSV field mapping system inspired by BulkUpload pattern
 import { toCamelCase } from '@/lib/utils';
 
+
+
 export interface CSVFieldMapping {
   columnHeader: string;
   columnValues: string; // Sample values from the first row
@@ -134,7 +136,7 @@ export const generateCSVFieldMapping = (
         for (const apiField of apiRequiredFields) {
           const apiFieldNormalized = apiField.toLowerCase().replace(/[^a-z0-9]/g, '');
           
-          // Improved matching logic for case variations
+          // Enhanced matching logic for better field detection
           if (headerLower === apiFieldNormalized || 
               headerLower.includes(apiFieldNormalized) || 
               apiFieldNormalized.includes(headerLower) ||

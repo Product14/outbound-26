@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Toaster } from "@/components/ui/toaster"
 import { Button } from "@/components/ui/button"
@@ -28,6 +28,10 @@ import { calculateCampaignMetrics, calculateMockCampaignMetrics } from '@/lib/me
 import { MetricsGrid } from '@/components/ui/metrics-grid'
 import { generateMockCampaignCalls } from '@/lib/mock-campaign-data'
 import type { CallRecord } from '@/types/call-record'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { ChevronDown, ChevronRight } from "lucide-react"
+import { PerformanceTimeChart } from '@/components/charts/PerformanceTimeChart'
+import { generateTopPerformingVehicles, generateTopPerformingServices, generatePerformanceTimeData } from '@/lib/call-status-utils'
 
 // Map API campaign type to display format using dynamic data
 const mapCampaignType = (campaignType: string, campaignTypes?: any | null): string => {
@@ -92,6 +96,7 @@ export default function CampaignDetail() {
   const [isClosing, setIsClosing] = useState(false)
   const lastCloseTimeRef = useRef<number>(0)
   const lastCallSelectRef = useRef<number>(0)
+  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false)
 
   // Campaign type detection
   const mappedCampaignType = campaignData?.campaign?.campaignType 
@@ -100,13 +105,15 @@ export default function CampaignDetail() {
   const isSalesCampaign = mappedCampaignType === 'Sales'
   const isServiceCampaign = mappedCampaignType === 'Service'
 
-  // Generate comprehensive mock call data based on campaign type
-  const mockCalls: CallRecord[] = campaignData?.campaign ? 
-    generateMockCampaignCalls(
-      Math.max(50, campaignData.campaign.totalCallPlaced || 100), 
-      isSalesCampaign ? 'sales' : 'service'
-    ) : 
-    generateMockCampaignCalls(100, 'sales')
+  // Generate comprehensive mock call data based on campaign type (memoized to prevent regeneration)
+  const mockCalls: CallRecord[] = useMemo(() => {
+    return campaignData?.campaign ? 
+      generateMockCampaignCalls(
+        Math.max(50, campaignData.campaign.totalCallPlaced || 100), 
+        isSalesCampaign ? 'sales' : 'service'
+      ) : 
+      generateMockCampaignCalls(100, 'sales')
+  }, [campaignData?.campaign?.totalCallPlaced, isSalesCampaign])
 
   // Keep a few sample calls for agent extraction (this would come from API in real implementation)
   const sampleCalls: CallRecord[] = [
@@ -120,16 +127,16 @@ export default function CampaignDetail() {
       campaign_id: "campaign-001",
       customer: { name: "Andrew Ray", phone: "+1-(919)-369-0815", email: null },
       vehicle: { vin: null, stock_id: null, year: 2023, make: "Toyota", model: "Camry", trim: null, delivery_type: null },
-      primary_intent: "service_appointment",
+      primary_intent: "sales_inquiry",
       intents: [],
-      outcome: "Service Appointment Scheduled",
+      outcome: "Test Drive Scheduled",
       sentiment: { label: "positive", score: 0.8 },
-      appointment: { type: "service", starts_at: null, ends_at: null, location: null, advisor: null, status: null },
+      appointment: { type: "test_drive", starts_at: null, ends_at: null, location: null, advisor: null, status: null },
       follow_up: { needed: false, reason: null, assignee: null, due_at: null },
       ai_score: 8.5,
       containment: true,
-      summary: "Customer scheduled service appointment",
-      notes: "Service appointment for routine maintenance",
+      summary: "Customer scheduled test drive appointment",
+      notes: "Test drive scheduled for 2023 Toyota Camry",
       metrics: { duration_sec: 180, hold_sec: 0, silence_sec: 0 },
       recording_url: null,
       transcript_url: null,
@@ -142,20 +149,20 @@ export default function CampaignDetail() {
       started_at: new Date().toISOString(),
       ended_at: new Date().toISOString(),
       direction: "outbound",
-      domain: "service", 
+      domain: "sales", 
       campaign_id: "campaign-001",
       customer: { name: "Sarah Johnson", phone: "+1-(555)-123-4567", email: null },
       vehicle: { vin: null, stock_id: null, year: 2022, make: "Honda", model: "Civic", trim: null, delivery_type: null },
-      primary_intent: "maintenance_reminder",
+      primary_intent: "vehicle_inquiry",
       intents: [],
-      outcome: "Maintenance Appointment Scheduled",
+      outcome: "Appointment for Purchase Discussion Scheduled",
       sentiment: { label: "neutral", score: 0.6 },
-      appointment: { type: "service", starts_at: null, ends_at: null, location: null, advisor: null, status: null },
+      appointment: { type: "test_drive", starts_at: null, ends_at: null, location: null, advisor: null, status: null },
       follow_up: { needed: false, reason: null, assignee: null, due_at: null },
       ai_score: 7.2,
       containment: true,
-      summary: "Customer scheduled maintenance appointment",
-      notes: "Regular maintenance appointment scheduled",
+      summary: "Customer scheduled sales consultation appointment",
+      notes: "Purchase discussion scheduled for Honda Civic",
       metrics: { duration_sec: 240, hold_sec: 0, silence_sec: 0 },
       recording_url: null,
       transcript_url: null,
@@ -199,8 +206,10 @@ export default function CampaignDetail() {
   const calculatedStats = isSalesCampaign && campaignData?.campaign ? 
     calculateCampaignStats(campaignData.campaign.totalCallPlaced) : null
 
-  // Calculate campaign metrics for the new metrics grid using comprehensive mock data
-  const campaignMetrics = calculateCampaignMetrics(mockCalls)
+  // Calculate campaign metrics for the new metrics grid using comprehensive mock data (memoized)
+  const campaignMetrics = useMemo(() => {
+    return calculateCampaignMetrics(mockCalls)
+  }, [mockCalls])
 
   // Utility functions
   const formatDate = (dateString: string) => {
@@ -548,14 +557,20 @@ export default function CampaignDetail() {
             const campaignEndDate = new Date('2023-10-03T14:18:00')
             const campaignCreatedDate = new Date('2024-07-12T12:00:00')
             
+            // Determine if this should be a service campaign based on URL params or campaign ID
+            const urlParams = new URLSearchParams(window.location.search)
+            const isServiceContext = urlParams.get('tab') === 'service' || 
+                                   campaignId.includes('recall') || 
+                                   campaignId.includes('service')
+            
             campaignResponse = {
               success: true,
               campaign: {
                 _id: campaignId,
                 campaignId: campaignId,
-                name: "Q4 Service Reminder Campaign",
-                campaignType: "sales",
-                campaignUseCase: "sales",
+                name: isServiceContext ? "Q4 Service Reminder Campaign" : "Q4 Vehicle Sales Campaign",
+                campaignType: isServiceContext ? "recall" : "sales",
+                campaignUseCase: isServiceContext ? "service" : "sales",
                 teamAgentMappingId: "fallback-agent",
                 enterpriseId: "fallback-enterprise",
                 teamId: "fallback-team", 
@@ -620,14 +635,20 @@ export default function CampaignDetail() {
           console.warn('API failed, using mock data:', apiError)
           
           // Fallback to mock data for development
+          // Determine if this should be a service campaign based on URL params or campaign ID
+          const urlParams = new URLSearchParams(window.location.search)
+          const isServiceContext = urlParams.get('tab') === 'service' || 
+                                 campaignId.includes('recall') || 
+                                 campaignId.includes('service')
+          
           const mockCampaignData = {
             success: true,
             campaign: {
               _id: campaignId,
               campaignId: campaignId,
-              name: "Q4 Service Reminder Campaign",
-              campaignType: "sales",
-              campaignUseCase: "sales",
+              name: isServiceContext ? "Q4 Service Reminder Campaign" : "Q4 Vehicle Sales Campaign",
+              campaignType: isServiceContext ? "recall" : "sales",
+              campaignUseCase: isServiceContext ? "service" : "sales",
               teamAgentMappingId: "agent123",
               enterpriseId: "enterprise123",
               teamId: "team123",
@@ -811,43 +832,108 @@ export default function CampaignDetail() {
       />
       
       <div className="px-12 py-8 bg-[#F4F5F8] min-h-screen">
-        {/* Funnel Chart and Metrics Section */}
+        {/* Analytics Section - Collapsible */}
         {(isSalesCampaign || isServiceCampaign) && (
           <div className="mb-8">
-            <div className="grid grid-cols-1 sm:grid-cols-5 lg:grid-cols-10 gap-6">
-              {/* Funnel Chart */}
-              <div className="sm:col-span-3 lg:col-span-7">
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 h-full">
-                  <div className="mb-4">
-                    <h2 className="text-base font-medium text-gray-900">
-                      {`${isSalesCampaign ? 'Sales' : 'Service'} Campaign Funnel`}
-                    </h2>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+              <Collapsible open={isAnalyticsOpen} onOpenChange={setIsAnalyticsOpen}>
+                <CollapsibleTrigger className="flex items-center gap-3 w-full p-4 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center gap-2">
+                    {isAnalyticsOpen ? (
+                      <ChevronDown className="h-5 w-5 text-gray-600" />
+                    ) : (
+                      <ChevronRight className="h-5 w-5 text-gray-600" />
+                    )}
+                    <h2 className="text-[18px] font-semibold text-gray-900">Analytics</h2>
                   </div>
-                  <div className="h-40">
-                    <AppointmentFunnel
-                      data={getAppointmentFunnelData(
-                        campaignData,
-                        isSalesCampaign ? 'sales' : 'service'
-                      )}
-                      cardBackgroundColor={isSalesCampaign ? '#DBEAFE' : '#DCFCE7'}
-                      graphColor={isSalesCampaign ? '#3B82F6' : '#22C55E'}
-                      conversionChipColor={isSalesCampaign ? '#93C5FD' : '#86EFAC'}
-                    />
-                  </div>
-                </div>
-              </div>
+                </CollapsibleTrigger>
+                
+                {/* Always visible: All Analytics Components */}
+                <div className="px-4 pb-4 space-y-6">
+                  {/* First Row: Funnel Chart and Metrics Section */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Funnel Chart */}
+                    <div className="lg:col-span-1">
+                      <div className="bg-gray-50 rounded-xl p-4 h-full">
+                        <div className="mb-4">
+                          <h3 className="text-sm font-semibold text-gray-900">
+                            {isSalesCampaign ? 'Sales Campaign Funnel' : 'Service Campaign Funnel'}
+                          </h3>
+                        </div>
+                        <div className="h-52">
+                          <AppointmentFunnel
+                            data={getAppointmentFunnelData(
+                              campaignData,
+                              isSalesCampaign ? 'sales' : 'service'
+                            )}
+                            cardBackgroundColor={isSalesCampaign ? '#DBEAFE' : '#DCFCE7'}
+                            graphColor={isSalesCampaign ? '#3B82F6' : '#22C55E'}
+                            conversionChipColor={isSalesCampaign ? '#93C5FD' : '#86EFAC'}
+                          />
+                        </div>
+                      </div>
+                    </div>
 
-              {/* Metrics Grid */}
-              <div className="sm:col-span-2 lg:col-span-3">
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 h-full">
-                  <div className="mb-4">
-                    <h2 className="text-base font-medium text-gray-900">
-                      Campaign Metrics
-                    </h2>
+                    {/* Metrics Grid */}
+                    <div className="lg:col-span-1">
+                      <div className="bg-gray-50 rounded-xl p-4 h-full">
+                        <div className="mb-4">
+                          <h3 className="text-sm font-semibold text-gray-900">
+                            Campaign Metrics
+                          </h3>
+                        </div>
+                        <MetricsGrid metrics={campaignMetrics} />
+                      </div>
+                    </div>
                   </div>
-                  <MetricsGrid metrics={campaignMetrics} />
+
+                  {/* Second Row: Collapsible Performance Charts */}
+                  <CollapsibleContent>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Performance Time Chart */}
+                      <div className="lg:col-span-1">
+                        <PerformanceTimeChart 
+                          data={generatePerformanceTimeData()} 
+                          title="Best Time"
+                        />
+                      </div>
+
+                      {/* Top Performing Vehicles - Only show for sales campaigns */}
+                      {isSalesCampaign && (
+                        <div className="lg:col-span-1">
+                          <div className="bg-gray-50 rounded-xl p-4 h-[340px] flex flex-col">
+                            <div className="mb-4">
+                              <h3 className="text-sm font-semibold text-gray-900">
+                                Top Performing Vehicles
+                              </h3>
+                            </div>
+                            <div className="space-y-2 overflow-y-auto flex-1 pr-2">
+                              {generateTopPerformingVehicles(campaignMetrics.totalAppointmentsSet.count).map((item: any, index: number) => (
+                                <div key={item.vehicle} className="flex items-center justify-between p-2 border border-[#E5E7EB] rounded-[8px]">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 bg-[#F0F4FF] rounded-full flex items-center justify-center text-[#4600F2] font-bold text-xs">
+                                      {index + 1}
+                                    </div>
+                                    <span className="font-medium text-[#1A1A1A]">
+                                      {item.vehicle}
+                                    </span>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="text-[16px] font-bold text-[#1A1A1A]">{item.appointments}</div>
+                                    <div className="text-xs text-[#6B7280]">
+                                      {item.percentage}%
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CollapsibleContent>
                 </div>
-              </div>
+              </Collapsible>
             </div>
           </div>
         )}

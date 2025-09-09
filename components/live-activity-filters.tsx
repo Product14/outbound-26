@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
   Search, 
   Filter, 
@@ -96,28 +95,12 @@ export function LiveActivityFilters({
   }
 
   return (
-    <div className="mb-6">
+    <div className="mb-3">
       {/* Top Row: Tabs and Main Actions */}
-      <div className="flex items-center justify-between gap-4 mb-4">
-        {/* Left Side: Tabs */}
+      <div className="flex items-center justify-between gap-4 mb-2">
+        {/* Left Side: Plain Text Heading */}
         <div className="flex items-center">
-          <Tabs value={activeTab} onValueChange={onTabChange} className="flex-1">
-            <TabsList className="h-auto p-0 bg-transparent border-0 rounded-none justify-start">
-              {/* Analytics Tab - Commented out for now */}
-              {/* <TabsTrigger 
-                value="analytics" 
-                className="flex items-center gap-2 py-3 text-base font-medium bg-transparent border-0 rounded-none data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-[#4600F2] data-[state=active]:border-b-2 data-[state=active]:border-[#4600F2] data-[state=active]:font-semibold text-gray-500 hover:text-gray-700 transition-colors mr-10"
-              >
-                Analytics
-              </TabsTrigger> */}
-              <TabsTrigger 
-                value="live-calls" 
-                className="flex items-center gap-2 py-3 text-base font-medium bg-transparent border-0 rounded-none data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-[#4600F2] data-[state=active]:border-b-2 data-[state=active]:border-[#4600F2] data-[state=active]:font-semibold text-gray-500 hover:text-gray-700 transition-colors mr-10"
-              >
-                Live Calls & Queue
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <h2 className="text-[18px] font-semibold text-gray-900">Live Calls & Queue</h2>
         </div>
 
         {/* Right Side: Search and Filters */}

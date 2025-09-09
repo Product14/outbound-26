@@ -147,39 +147,52 @@ export function AnalyticsTab({
               <div className="relative">
                 {/* Service funnel stages with visual widths representing conversion */}
                 <div className="space-y-4">
-                  {/* Calls Made */}
+                  {/* Customer contact initiated */}
                   <div>
                     <div className="bg-gradient-to-r from-[#E0E7FF] to-[#C7D2FE] text-[#3730A3] p-4 rounded-[12px] shadow-sm border border-[#C7D2FE]">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <Phone className="h-5 w-5" />
-                          <span className="font-semibold">Calls Made</span>
+                          <span className="font-semibold">Customer contact initiated</span>
                         </div>
                         <div className="text-[20px] font-bold">{serviceStats?.serviceCallsMade ?? campaignData?.campaign.totalCallPlaced ?? 0}</div>
                       </div>
                     </div>
                   </div>
                   
-                  {/* Calls Answered */}
+                  {/* Contacted successfully */}
                   <div>
                     <div className="bg-gradient-to-r from-[#D1FAE5] to-[#A7F3D0] text-[#065F46] p-4 rounded-[12px] shadow-sm border border-[#A7F3D0]" style={{width: '85%'}}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <CheckCircle className="h-5 w-5" />
-                          <span className="font-semibold">Calls Answered</span>
+                          <span className="font-semibold">Contacted successfully</span>
                         </div>
                         <div className="text-[20px] font-bold">{serviceStats?.callsAnswered ?? Math.round((campaignData?.campaign.totalCallPlaced ?? 0) * 0.6)}</div>
                       </div>
                     </div>
                   </div>
                   
-                  {/* Appointments Set */}
+                  {/* Followups requested */}
+                  <div>
+                    <div className="bg-gradient-to-r from-[#FBBF24] to-[#F59E0B] text-[#92400E] p-4 rounded-[12px] shadow-sm border border-[#F59E0B]" style={{width: '70%'}}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <RefreshCw className="h-5 w-5" />
+                          <span className="font-semibold">Followups requested</span>
+                        </div>
+                        <div className="text-[20px] font-bold">{serviceStats?.followUpRequested ?? 0}</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Appointments scheduled */}
                   <div>
                     <div className="bg-gradient-to-r from-[#FEF3C7] to-[#FDE68A] text-[#92400E] p-4 rounded-[12px] shadow-sm border border-[#FDE68A]" style={{width: '55%'}}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <Calendar className="h-5 w-5" />
-                          <span className="font-semibold">Appointments Set</span>
+                          <span className="font-semibold">Appointments scheduled</span>
                         </div>
                         <div className="text-[20px] font-bold">{serviceStats?.serviceAppointmentCount ?? campaignData?.campaign.appointmentScheduled ?? 0}</div>
                       </div>
@@ -399,52 +412,52 @@ export function AnalyticsTab({
               <div className="relative">
                 {/* Funnel stages with visual widths representing conversion */}
                 <div className="space-y-4">
-                  {/* Calls Made */}
+                  {/* Customer contact initiated */}
                   <div>
                     <div className="bg-gradient-to-r from-[#E0E7FF] to-[#C7D2FE] text-[#3730A3] p-4 rounded-[12px] shadow-sm border border-[#C7D2FE]">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <Phone className="h-5 w-5" />
-                          <span className="font-semibold">Calls Made</span>
+                          <span className="font-semibold">Customer contact initiated</span>
                         </div>
                         <div className="text-[20px] font-bold">{calculatedStats?.callsMade ?? campaignData?.campaign.totalCallPlaced ?? 0}</div>
                       </div>
                     </div>
                   </div>
                   
-                  {/* Calls Answered */}
+                  {/* Contacted successfully */}
                   <div>
                     <div className="bg-gradient-to-r from-[#D1FAE5] to-[#A7F3D0] text-[#065F46] p-4 rounded-[12px] shadow-sm border border-[#A7F3D0]" style={{width: '85%'}}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <CheckCircle className="h-5 w-5" />
-                          <span className="font-semibold">Calls Answered</span>
+                          <span className="font-semibold">Contacted successfully</span>
                         </div>
                         <div className="text-[20px] font-bold">{calculatedStats?.callsAnswered ?? Math.round((campaignData?.campaign.totalCallPlaced ?? 0) * 0.6)}</div>
                       </div>
                     </div>
                   </div>
                   
-                  {/* Follow-ups Requested */}
+                  {/* Followups requested */}
                   <div>
                     <div className="bg-gradient-to-r from-[#DBEAFE] to-[#BFDBFE] text-[#1E3A8A] p-4 rounded-[12px] shadow-sm border border-[#BFDBFE]" style={{width: '70%'}}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <RefreshCw className="h-5 w-5" />
-                          <span className="font-semibold">Follow-ups Requested</span>
+                          <span className="font-semibold">Followups requested</span>
                         </div>
                         <div className="text-[20px] font-bold">{calculatedStats?.followUpRequested ?? 0}</div>
                       </div>
                     </div>
                   </div>
                   
-                  {/* Appointments Set */}
+                  {/* Appointments scheduled */}
                   <div>
                     <div className="bg-gradient-to-r from-[#FEF3C7] to-[#FDE68A] text-[#92400E] p-4 rounded-[12px] shadow-sm border border-[#FDE68A]" style={{width: '55%'}}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <Calendar className="h-5 w-5" />
-                          <span className="font-semibold">Appointments Set</span>
+                          <span className="font-semibold">Appointments scheduled</span>
                         </div>
                         <div className="text-[20px] font-bold">{calculatedStats?.appointmentCount ?? campaignData?.campaign.appointmentScheduled ?? 0}</div>
                       </div>
@@ -463,18 +476,18 @@ export function AnalyticsTab({
             title="Best Campaign Performance Time"
           />
 
-          <Card className="border-0 bg-white rounded-[16px]">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">
+          <Card className="border-0 bg-white rounded-[16px] h-[320px] flex flex-col">
+            <CardHeader className="pb-4 flex-shrink-0">
+              <CardTitle className="text-sm font-semibold text-[#1A1A1A]">
                 Top Performing Vehicles
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-0">
-              <div className="space-y-3">
+            <CardContent className="pt-0 flex-1 overflow-hidden">
+              <div className="space-y-2 overflow-y-auto h-full pr-2">
                 {generateTopPerformingVehicles(calculatedStats?.appointmentCount ?? campaignData?.campaign.appointmentScheduled ?? 0).map((vehicle, index) => (
-                  <div key={vehicle.vehicle} className="flex items-center justify-between p-3 border border-[#E5E7EB] rounded-[8px]">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-[#F0F4FF] rounded-full flex items-center justify-center text-[#4600F2] font-bold text-sm">
+                  <div key={vehicle.vehicle} className="flex items-center justify-between p-2 border border-[#E5E7EB] rounded-[8px]">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 bg-[#F0F4FF] rounded-full flex items-center justify-center text-[#4600F2] font-bold text-xs">
                         {index + 1}
                       </div>
                       <span className="font-medium text-[#1A1A1A]">{vehicle.vehicle}</span>

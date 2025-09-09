@@ -58,17 +58,17 @@ export function calculateFunnelMetrics(campaignData: CampaignDetailResponse | nu
   const connected = Math.round(calls * (answerRate / 100))
   
   // Estimate calls completed (calls that had a resolution, not just connected)
-  // Typically 85-92% of connected calls are completed
-  const callsCompleted = Math.round(connected * (0.85 + Math.random() * 0.07))
+  // Typically 85-92% of connected calls are completed - use fixed 89%
+  const callsCompleted = Math.round(connected * 0.89)
   
   // AI Converted: Booking-related outcomes (appointments, test drives, purchases)
-  // Make it more realistic - typically 15-30% of completed calls result in bookings
-  const conversionRate = 0.15 + Math.random() * 0.15 // 15-30%
+  // Make it more realistic - typically 15-30% of completed calls result in bookings - use fixed 22%
+  const conversionRate = 0.22
   const aiConverted = Math.round(callsCompleted * conversionRate)
   
   // Require Human: Follow-up required outcomes
-  // Estimate 12-25% of connected calls require human follow-up
-  const requireHuman = Math.round(connected * (0.12 + Math.random() * 0.13))
+  // Estimate 12-25% of connected calls require human follow-up - use fixed 18%
+  const requireHuman = Math.round(connected * 0.18)
   
   // Average Quality Score: Mock calculation based on campaign performance
   // Higher answer rates and conversion rates typically correlate with higher quality
@@ -93,39 +93,32 @@ export function formatFunnelData(metrics: FunnelMetrics): FunnelData[] {
   
   return [
     {
-      stage: 'Total Calls',
+      stage: 'Customer contact initiated',
       value: calls,
       percentage: 100,
       color: '#E5E7EB', // Gray-200
-      additionalInfo: 'All attempted calls'
+      additionalInfo: 'All attempted customer contacts'
     },
     {
-      stage: 'Connected',
+      stage: 'Contacted successfully',
       value: connected,
       percentage: calls > 0 ? Math.round((connected / calls) * 100) : 0,
       color: '#93C5FD', // Blue-300
-      additionalInfo: 'Calls that were answered'
+      additionalInfo: 'Customers who answered calls'
     },
     {
-      stage: 'Calls Completed',
-      value: callsCompleted,
-      percentage: connected > 0 ? Math.round((callsCompleted / connected) * 100) : 0,
-      color: '#60A5FA', // Blue-400
-      additionalInfo: 'Calls with resolution'
-    },
-    {
-      stage: 'AI Converted',
-      value: aiConverted,
-      percentage: callsCompleted > 0 ? Math.round((aiConverted / callsCompleted) * 100) : 0,
-      color: '#22C55E', // Green-500
-      additionalInfo: 'Booking outcomes'
-    },
-    {
-      stage: 'Require Human',
+      stage: 'Followups requested',
       value: requireHuman,
-      percentage: callsCompleted > 0 ? Math.round((requireHuman / callsCompleted) * 100) : 0,
+      percentage: connected > 0 ? Math.round((requireHuman / connected) * 100) : 0,
       color: '#F59E0B', // Amber-500
-      additionalInfo: 'Follow-up needed'
+      additionalInfo: 'Customers requesting follow-up'
+    },
+    {
+      stage: 'Appointments scheduled',
+      value: aiConverted,
+      percentage: requireHuman > 0 ? Math.round((aiConverted / requireHuman) * 100) : 0,
+      color: '#22C55E', // Green-500
+      additionalInfo: 'Successfully scheduled appointments'
     }
   ]
 }
@@ -143,39 +136,32 @@ export function getCampaignFunnelData(
     // Service campaign funnel with green theme
     return [
       {
-        stage: 'Total Calls',
+        stage: 'Customer contact initiated',
         value: metrics.calls,
         percentage: 100,
         color: '#E5E7EB', // Gray-200
-        additionalInfo: `All service calls attempted`
+        additionalInfo: `All service customer contacts attempted`
       },
       {
-        stage: 'Connected',
+        stage: 'Contacted successfully',
         value: metrics.connected,
         percentage: metrics.calls > 0 ? Math.round((metrics.connected / metrics.calls) * 100) : 0,
         color: '#BBF7D0', // Green-200
-        additionalInfo: 'Customers answered'
+        additionalInfo: 'Service customers who answered'
       },
       {
-        stage: 'Calls Completed',
-        value: metrics.callsCompleted,
-        percentage: metrics.connected > 0 ? Math.round((metrics.callsCompleted / metrics.connected) * 100) : 0,
-        color: '#86EFAC', // Green-300
-        additionalInfo: 'Service calls resolved'
-      },
-      {
-        stage: 'AI Converted',
-        value: metrics.aiConverted,
-        percentage: metrics.callsCompleted > 0 ? Math.round((metrics.aiConverted / metrics.callsCompleted) * 100) : 0,
-        color: '#4ADE80', // Green-400
-        additionalInfo: 'Service appointments booked'
-      },
-      {
-        stage: 'Require Human',
+        stage: 'Followups requested',
         value: metrics.requireHuman,
-        percentage: metrics.callsCompleted > 0 ? Math.round((metrics.requireHuman / metrics.callsCompleted) * 100) : 0,
+        percentage: metrics.connected > 0 ? Math.round((metrics.requireHuman / metrics.connected) * 100) : 0,
         color: '#F59E0B', // Amber-500
-        additionalInfo: 'Need human follow-up'
+        additionalInfo: 'Service customers requesting follow-up'
+      },
+      {
+        stage: 'Appointments scheduled',
+        value: metrics.aiConverted,
+        percentage: metrics.requireHuman > 0 ? Math.round((metrics.aiConverted / metrics.requireHuman) * 100) : 0,
+        color: '#4ADE80', // Green-400
+        additionalInfo: 'Service appointments successfully scheduled'
       }
     ]
   }
@@ -184,39 +170,32 @@ export function getCampaignFunnelData(
     // Sales campaign funnel with blue theme
     return [
       {
-        stage: 'Total Calls',
+        stage: 'Customer contact initiated',
         value: metrics.calls,
         percentage: 100,
         color: '#E5E7EB', // Gray-200
-        additionalInfo: `All sales calls attempted`
+        additionalInfo: `All sales customer contacts attempted`
       },
       {
-        stage: 'Connected',
+        stage: 'Contacted successfully',
         value: metrics.connected,
         percentage: metrics.calls > 0 ? Math.round((metrics.connected / metrics.calls) * 100) : 0,
         color: '#DBEAFE', // Blue-100
-        additionalInfo: 'Prospects answered'
+        additionalInfo: 'Sales prospects who answered'
       },
       {
-        stage: 'Calls Completed',
-        value: metrics.callsCompleted,
-        percentage: metrics.connected > 0 ? Math.round((metrics.callsCompleted / metrics.connected) * 100) : 0,
-        color: '#93C5FD', // Blue-300
-        additionalInfo: 'Sales calls resolved'
-      },
-      {
-        stage: 'AI Converted',
-        value: metrics.aiConverted,
-        percentage: metrics.callsCompleted > 0 ? Math.round((metrics.aiConverted / metrics.callsCompleted) * 100) : 0,
-        color: '#3B82F6', // Blue-500
-        additionalInfo: 'Test drives/appointments'
-      },
-      {
-        stage: 'Require Human',
+        stage: 'Followups requested',
         value: metrics.requireHuman,
-        percentage: metrics.callsCompleted > 0 ? Math.round((metrics.requireHuman / metrics.callsCompleted) * 100) : 0,
+        percentage: metrics.connected > 0 ? Math.round((metrics.requireHuman / metrics.connected) * 100) : 0,
         color: '#F59E0B', // Amber-500
-        additionalInfo: 'Need sales follow-up'
+        additionalInfo: 'Sales prospects requesting follow-up'
+      },
+      {
+        stage: 'Appointments scheduled',
+        value: metrics.aiConverted,
+        percentage: metrics.requireHuman > 0 ? Math.round((metrics.aiConverted / metrics.requireHuman) * 100) : 0,
+        color: '#3B82F6', // Blue-500
+        additionalInfo: 'Sales appointments/test drives scheduled'
       }
     ]
   }
@@ -234,31 +213,13 @@ export function getAppointmentFunnelData(
 ): AppointmentFunnelData {
   const metrics = calculateFunnelMetrics(campaignData)
   
-  // Create stages based on campaign type
-  let stages: AppointmentFunnelStage[] = []
-  
-  if (campaignType === 'sales') {
-    stages = [
-      { name: 'Total Calls', count: metrics.calls },
-      { name: 'Connected', count: metrics.connected },
-      { name: 'Completed', count: metrics.callsCompleted },
-      { name: 'AI Converted', count: metrics.aiConverted }
-    ]
-  } else if (campaignType === 'service') {
-    stages = [
-      { name: 'Total Calls', count: metrics.calls },
-      { name: 'Connected', count: metrics.connected },
-      { name: 'Completed', count: metrics.callsCompleted },
-      { name: 'AI Converted', count: metrics.aiConverted }
-    ]
-  } else {
-    stages = [
-      { name: 'Total Calls', count: metrics.calls },
-      { name: 'Connected', count: metrics.connected },
-      { name: 'Completed', count: metrics.callsCompleted },
-      { name: 'AI Converted', count: metrics.aiConverted }
-    ]
-  }
+  // Create stages based on campaign type - all use the new funnel structure
+  const stages: AppointmentFunnelStage[] = [
+    { name: 'Customer contact initiated', count: metrics.calls },
+    { name: 'Contacted successfully', count: metrics.connected },
+    { name: 'Followups requested', count: metrics.requireHuman },
+    { name: 'Appointments scheduled', count: metrics.aiConverted }
+  ]
   
   // Calculate conversion rates between stages
   const conversionRates: AppointmentFunnelConversionRate[] = []

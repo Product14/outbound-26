@@ -452,8 +452,8 @@ export function generatePerformanceTimeData(): Array<{
   return hours.map((hour, index) => {
     // Peak performance around 10-11 AM and 2-3 PM
     const peakMultiplier = (index === 1 || index === 2 || index === 5 || index === 6) ? 1.5 : 1.0;
-    const baseCalls = Math.round((20 + Math.random() * 15) * peakMultiplier);
-    const appointments = Math.round(baseCalls * (0.15 + Math.random() * 0.1) * peakMultiplier);
+    const baseCalls = Math.round(27 * peakMultiplier); // Fixed base of 27 instead of random 20-35
+    const appointments = Math.round(baseCalls * 0.2 * peakMultiplier); // Fixed 20% conversion rate
     const successRate = baseCalls > 0 ? Math.round((appointments / baseCalls) * 100) : 0;
     
     return {
@@ -483,10 +483,9 @@ export function generateTopPerformingServices(totalAppointments: number): Array<
 
   let remainingAppointments = totalAppointments;
   const result = services.map((service, index) => {
-    // Generate decreasing percentages for top services
+    // Generate decreasing percentages for top services (fixed values)
     const basePercentage = Math.max(5, 35 - (index * 4));
-    const variance = Math.random() * 10 - 5; // ±5% variance
-    const percentage = Math.max(1, Math.min(50, basePercentage + variance));
+    const percentage = basePercentage; // Remove variance for consistency
     
     const appointments = Math.round((totalAppointments * percentage) / 100);
     remainingAppointments -= appointments;

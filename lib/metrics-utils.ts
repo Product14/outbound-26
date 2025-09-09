@@ -1,19 +1,30 @@
 import type { CallRecord } from '@/types/call-record'
 
 export interface CampaignMetrics {
-  voicemailRate: {
+  totalCallsMade: {
     count: number
+  }
+  totalCustomersContacted: {
+    count: number
+  }
+  totalAppointmentsSet: {
+    count: number
+  }
+  answerRate: {
     percentage: number
   }
-  callFailedRate: {
-    count: number
+  voicemailPercentage: {
     percentage: number
   }
-  positiveFollowupRate: {
-    count: number
+  avgCallDuration: {
+    duration: string
+  }
+  callFailedPercentage: {
     percentage: number
   }
-  avgAiQualityScore: number
+  percentageOfFollowups: {
+    percentage: number
+  }
 }
 
 /**
@@ -22,61 +33,78 @@ export interface CampaignMetrics {
 export function calculateCampaignMetrics(calls: CallRecord[]): CampaignMetrics {
   if (!calls || calls.length === 0) {
     return {
-      voicemailRate: { count: 0, percentage: 0 },
-      callFailedRate: { count: 0, percentage: 0 },
-      positiveFollowupRate: { count: 0, percentage: 0 },
-      avgAiQualityScore: 0
+      totalCallsMade: { count: 0 },
+      totalCustomersContacted: { count: 0 },
+      totalAppointmentsSet: { count: 0 },
+      answerRate: { percentage: 0 },
+      voicemailPercentage: { percentage: 0 },
+      avgCallDuration: { duration: '0:00' },
+      callFailedPercentage: { percentage: 0 },
+      percentageOfFollowups: { percentage: 0 }
     }
   }
 
   const totalCalls = calls.length
 
+  // Calculate customers contacted (calls that were answered)
+  const customersContacted = calls.filter(call => 
+    call.outcome !== 'No Answer' &&
+    call.outcome !== 'Call Aborted' &&
+    !call.outcome.toLowerCase().includes('voicemail') &&
+    !call.outcome.toLowerCase().includes('failed') &&
+    !call.outcome.toLowerCase().includes('busy')
+  ).length
+
+  // Calculate appointments set
+  const appointmentsSet = calls.filter(call => 
+    call.appointment?.status === 'scheduled' ||
+    call.outcome.toLowerCase().includes('appointment') ||
+    call.outcome.toLowerCase().includes('scheduled')
+  ).length
+
+  // Calculate answer rate
+  const answerRate = totalCalls > 0 ? Math.round((customersContacted / totalCalls) * 100) : 0
+
   // Calculate voicemail calls
   const voicemailCalls = calls.filter(call => 
     call.outcome === 'No Answer' ||
-    (call.report?.overview?.callOutcome?.toLowerCase().includes('voicemail'))
+    call.outcome.toLowerCase().includes('voicemail')
   ).length
+  const voicemailPercentage = totalCalls > 0 ? Math.round((voicemailCalls / totalCalls) * 100) : 0
+
+  // Calculate average call duration
+  const callDurations = calls
+    .map(call => call.metrics?.duration_sec || 0)
+    .filter(duration => duration > 0)
+  
+  const avgDurationSec = callDurations.length > 0 
+    ? Math.round(callDurations.reduce((sum, duration) => sum + duration, 0) / callDurations.length)
+    : 0
+  
+  const avgCallDuration = `${Math.floor(avgDurationSec / 60)}:${(avgDurationSec % 60).toString().padStart(2, '0')}`
 
   // Calculate failed calls
   const failedCalls = calls.filter(call => 
     call.outcome === 'Call Aborted' ||
-    (call.report?.overview?.callOutcome?.toLowerCase().includes('failed')) ||
-    (call.report?.overview?.callOutcome?.toLowerCase().includes('busy')) ||
-    (call.report?.overview?.callOutcome?.toLowerCase().includes('disconnected'))
+    call.outcome.toLowerCase().includes('failed') ||
+    call.outcome.toLowerCase().includes('busy') ||
+    call.outcome.toLowerCase().includes('disconnected')
   ).length
+  const callFailedPercentage = totalCalls > 0 ? Math.round((failedCalls / totalCalls) * 100) : 0
 
-  // Calculate positive followup calls
-  const positiveFollowupCalls = calls.filter(call => {
-    // Check if followup is needed and has positive sentiment
-    const hasPositiveFollowup = call.follow_up?.needed && 
-      (call.sentiment.label === 'positive' || call.sentiment.score > 0.6)
-    
-    return hasPositiveFollowup
-  }).length
-
-  // Calculate average AI quality score
-  const aiScores = calls
-    .map(call => call.ai_score)
-    .filter(score => score > 0)
-  
-  const avgAiQualityScore = aiScores.length > 0 
-    ? Math.round((aiScores.reduce((sum, score) => sum + score, 0) / aiScores.length) * 10) / 10
-    : 0
+  // Calculate followup calls
+  const followupCalls = calls.filter(call => call.follow_up?.needed).length
+  const percentageOfFollowups = totalCalls > 0 ? Math.round((followupCalls / totalCalls) * 100) : 0
 
   return {
-    voicemailRate: {
-      count: voicemailCalls,
-      percentage: Math.round((voicemailCalls / totalCalls) * 100)
-    },
-    callFailedRate: {
-      count: failedCalls,
-      percentage: Math.round((failedCalls / totalCalls) * 100)
-    },
-    positiveFollowupRate: {
-      count: positiveFollowupCalls,
-      percentage: Math.round((positiveFollowupCalls / totalCalls) * 100)
-    },
-    avgAiQualityScore
+    totalCallsMade: { count: totalCalls },
+    totalCustomersContacted: { count: customersContacted },
+    totalAppointmentsSet: { count: appointmentsSet },
+    answerRate: { percentage: answerRate },
+    voicemailPercentage: { percentage: voicemailPercentage },
+    avgCallDuration: { duration: avgCallDuration },
+    callFailedPercentage: { percentage: callFailedPercentage },
+    percentageOfFollowups: { percentage: percentageOfFollowups }
   }
 }
 
@@ -89,31 +117,33 @@ export function calculateMockCampaignMetrics(totalCalls: number, campaignType: '
     totalCalls = campaignType === 'sales' ? 150 : 200
   }
 
-  // Mock percentages based on typical campaign performance with some variation
-  const baseVoicemailRate = campaignType === 'sales' ? 35 : 28
-  const baseCallFailedRate = campaignType === 'sales' ? 15 : 12
-  const basePositiveFollowupRate = campaignType === 'sales' ? 25 : 32
-  const baseAvgQualityScore = campaignType === 'sales' ? 7.8 : 8.2
+  // Mock percentages based on typical campaign performance
+  const baseAnswerRate = campaignType === 'sales' ? 65 : 72
+  const baseVoicemailRate = campaignType === 'sales' ? 24 : 18
+  const baseCallFailedRate = campaignType === 'sales' ? 8 : 6
+  const baseFollowupRate = campaignType === 'sales' ? 17 : 24
+  const baseAvgDurationMin = campaignType === 'sales' ? 3.2 : 2.8
 
-  // Add some realistic variation (+/- 3 percentage points)
-  const voicemailRate = Math.max(5, Math.min(50, baseVoicemailRate + (Math.random() * 6 - 3)))
-  const callFailedRate = Math.max(5, Math.min(25, baseCallFailedRate + (Math.random() * 4 - 2)))
-  const positiveFollowupRate = Math.max(10, Math.min(40, basePositiveFollowupRate + (Math.random() * 6 - 3)))
-  const avgQualityScore = Math.max(6.0, Math.min(10.0, baseAvgQualityScore + (Math.random() * 1.0 - 0.5)))
+  // Use fixed values for consistency
+  const answerRate = baseAnswerRate
+  const voicemailRate = baseVoicemailRate
+  const callFailedRate = baseCallFailedRate
+  const followupRate = baseFollowupRate
+  const avgDurationMin = baseAvgDurationMin
+
+  const customersContacted = Math.round((answerRate / 100) * totalCalls)
+  const appointmentsSet = Math.round(customersContacted * (campaignType === 'sales' ? 0.35 : 0.42))
+  const avgDurationSec = Math.round(avgDurationMin * 60)
+  const avgCallDuration = `${Math.floor(avgDurationSec / 60)}:${(avgDurationSec % 60).toString().padStart(2, '0')}`
 
   return {
-    voicemailRate: {
-      count: Math.round((voicemailRate / 100) * totalCalls),
-      percentage: Math.round(voicemailRate)
-    },
-    callFailedRate: {
-      count: Math.round((callFailedRate / 100) * totalCalls),
-      percentage: Math.round(callFailedRate)
-    },
-    positiveFollowupRate: {
-      count: Math.round((positiveFollowupRate / 100) * totalCalls),
-      percentage: Math.round(positiveFollowupRate)
-    },
-    avgAiQualityScore: Math.round(avgQualityScore * 10) / 10
+    totalCallsMade: { count: totalCalls },
+    totalCustomersContacted: { count: customersContacted },
+    totalAppointmentsSet: { count: appointmentsSet },
+    answerRate: { percentage: Math.round(answerRate) },
+    voicemailPercentage: { percentage: Math.round(voicemailRate) },
+    avgCallDuration: { duration: avgCallDuration },
+    callFailedPercentage: { percentage: Math.round(callFailedRate) },
+    percentageOfFollowups: { percentage: Math.round(followupRate) }
   }
 }

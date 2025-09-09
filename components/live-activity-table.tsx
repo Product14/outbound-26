@@ -671,7 +671,7 @@ export function LiveActivityTable({
     }
 
     return (
-      <div className="flex items-center justify-center">
+      <div className="flex items-center justify-start">
         <button 
           onClick={handleClick}
           className="hover:scale-105 transition-transform cursor-pointer"

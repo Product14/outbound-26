@@ -111,10 +111,24 @@ export const validateStep = (
             newErrors.vinSolutionsDateRange = true
             missingFields.push('Time Range Selection')
             isValid = false
-          } else if (new Date(vinSolutionsStartDate) > new Date(vinSolutionsEndDate)) {
-            newErrors.vinSolutionsDateRange = true
-            missingFields.push('Valid Date Range (Start date must be before end date)')
-            isValid = false
+          } else {
+            // Create full datetime objects for proper comparison
+            const startDateTime = new Date(`${vinSolutionsStartDate}T${vinSolutionsStartTime}:00`)
+            const endDateTime = new Date(`${vinSolutionsEndDate}T${vinSolutionsEndTime}:00`)
+            
+            if (startDateTime >= endDateTime) {
+              newErrors.vinSolutionsDateRange = true
+              missingFields.push('Valid Date Range (Start date/time must be before end date/time)')
+              isValid = false
+            }
+            
+            // Check if end date is not too far in the future (reasonable limit for CRM imports)
+            const maxEndDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
+            if (endDateTime > maxEndDate) {
+              newErrors.vinSolutionsDateRange = true
+              missingFields.push('End date cannot be more than 7 days in the future')
+              isValid = false
+            }
           }
         }
         

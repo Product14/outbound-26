@@ -99,11 +99,11 @@ export interface LaunchCampaignPayload {
     method: string;
     voicemailMessage: string;
   };
-  handoffSettings?: {
-    targerType: string;
-    targetPhone: string[];
-  };
-  escalationTriggers?: string[];
+  // handoffSettings?: {
+  //   targerType: string;
+  //   targetPhone: string[];
+  // };
+  // escalationTriggers?: string[];
 }
 
 export interface CampaignApiResponse {
@@ -222,18 +222,18 @@ export interface CampaignData {
   maxCallsPerDay?: number;
   maxConcurrentCalls?: number;
   // Handoff settings from UI
-  handoffSettings?: {
-    target?: string;
-    businessHoursStart?: string;
-    businessHoursEnd?: string;
-  };
+  // handoffSettings?: {
+  //   target?: string;
+  //   businessHoursStart?: string;
+  //   businessHoursEnd?: string;
+  // };
   // Escalation triggers from UI
-  escalationTriggers?: {
-    leadRequestsPerson?: boolean;
-    complexFinancing?: boolean;
-    pricingNegotiation?: boolean;
-    technicalQuestions?: boolean;
-  };
+  // escalationTriggers?: {
+  //   leadRequestsPerson?: boolean;
+  //   complexFinancing?: boolean;
+  //   pricingNegotiation?: boolean;
+  //   technicalQuestions?: boolean;
+  // };
   uploadedData?: Array<Record<string, string | number | boolean>>;
 }
 
@@ -451,24 +451,24 @@ export function transformCampaignData(
   }
 
   // Transform escalation triggers from UI boolean format to API string array format
-  const escalationTriggers: string[] = [];
-  if (campaignData.escalationTriggers?.leadRequestsPerson) {
-    escalationTriggers.push("customer_angry");
-  }
-  if (campaignData.escalationTriggers?.complexFinancing) {
-    escalationTriggers.push("technical_issue");
-  }
-  if (campaignData.escalationTriggers?.pricingNegotiation) {
-    escalationTriggers.push("payment_dispute");
-  }
-  if (campaignData.escalationTriggers?.technicalQuestions) {
-    escalationTriggers.push("technical_issue");
-  }
+  // const escalationTriggers: string[] = [];
+  // if (campaignData.escalationTriggers?.leadRequestsPerson) {
+  //   escalationTriggers.push("customer_angry");
+  // }
+  // if (campaignData.escalationTriggers?.complexFinancing) {
+  //   escalationTriggers.push("technical_issue");
+  // }
+  // if (campaignData.escalationTriggers?.pricingNegotiation) {
+  //   escalationTriggers.push("payment_dispute");
+  // }
+  // if (campaignData.escalationTriggers?.technicalQuestions) {
+  //   escalationTriggers.push("technical_issue");
+  // }
   
-  // If no escalation triggers selected, use defaults
-  if (escalationTriggers.length === 0) {
-    escalationTriggers.push("customer_angry", "technical_issue", "payment_dispute");
-  }
+  // // If no escalation triggers selected, use defaults
+  // if (escalationTriggers.length === 0) {
+  //   escalationTriggers.push("customer_angry", "technical_issue", "payment_dispute");
+  // }
 
   // Add call limits if available from UI
   const callLimits: LaunchCampaignPayload['callLimits'] | undefined = 
@@ -487,11 +487,11 @@ export function transformCampaignData(
     } : undefined;
 
   // Add handoff settings if available from UI
-  const handoffSettings: LaunchCampaignPayload['handoffSettings'] | undefined = 
-    campaignData.handoffSettings?.target ? {
-      targerType: campaignData.handoffSettings.target === 'round_robin' ? 'human_agent' : 'specific_user',
-      targetPhone: ["+1-555-000-1234", "+1-555-000-5678"] // Default phone numbers, could be made configurable
-    } : undefined;
+  // const handoffSettings: LaunchCampaignPayload['handoffSettings'] | undefined = 
+  //   campaignData.handoffSettings?.target ? {
+  //     targerType: campaignData.handoffSettings.target === 'round_robin' ? 'human_agent' : 'specific_user',
+  //     targetPhone: ["+1-555-000-1234", "+1-555-000-5678"] // Default phone numbers, could be made configurable
+  //   } : undefined;
 
   const basePayload: LaunchCampaignPayload = {
     isCreated: true, // Set to true only in final campaign launch
@@ -516,15 +516,15 @@ export function transformCampaignData(
       retryDelay: 3600,
       smsSwitchover: true
     },
-    handoffSettings: handoffSettings || {
-      targerType: "human_agent",
-      targetPhone: ["+1-555-000-1234", "+1-555-000-5678"]
-    },
+    // handoffSettings: handoffSettings || {
+    //   targerType: "human_agent",
+    //   targetPhone: ["+1-555-000-1234", "+1-555-000-5678"]
+    // },
     voicemailConfig: {
       method: campaignData.voicemailStrategy || "leave_message",
       voicemailMessage: campaignData.voicemailMessage || "Hi, this is a follow-up call regarding your recent inquiry. Please call us back at your convenience."
     },
-    escalationTriggers: escalationTriggers.length > 0 ? escalationTriggers : ["customer_angry", "technical_issue", "payment_dispute"],
+    // escalationTriggers: escalationTriggers.length > 0 ? escalationTriggers : ["customer_angry", "technical_issue", "payment_dispute"],
     // Always include start and end dates (with defaults if not provided)
     startDate: "",
     endDate: ""

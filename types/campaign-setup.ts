@@ -69,17 +69,17 @@ export interface CampaignData {
     emailQuote: boolean;
     textFinanceLink: boolean;
   };
-  handoffSettings: {
-    target: string;
-    businessHoursStart: string;
-    businessHoursEnd: string;
-  };
-  escalationTriggers: {
-    leadRequestsPerson: boolean;
-    complexFinancing: boolean;
-    pricingNegotiation: boolean;
-    technicalQuestions: boolean;
-  };
+  // handoffSettings: {
+  //   target: string;
+  //   businessHoursStart: string;
+  //   businessHoursEnd: string;
+  // };
+  // escalationTriggers: {
+  //   leadRequestsPerson: boolean;
+  //   complexFinancing: boolean;
+  //   pricingNegotiation: boolean;
+  //   technicalQuestions: boolean;
+  // };
   vinSolutionsSettings?: {
     enableRecurringLeads: boolean;
     leadAgeDays: number;

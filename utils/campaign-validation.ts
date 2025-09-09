@@ -399,32 +399,32 @@ export const validateStep = (
     }
     
     // For sales campaigns, validate handoff business hours
-    if (selectedCategory === 'sales') {
-      if (!campaignData.handoffSettings?.businessHoursStart) {
-        newErrors.handoffBusinessHoursStart = true
-        missingFields.push('Handoff Business Hours Start Time')
-        isValid = false
-      }
-      if (!campaignData.handoffSettings?.businessHoursEnd) {
-        newErrors.handoffBusinessHoursEnd = true
-        missingFields.push('Handoff Business Hours End Time')
-        isValid = false
-      }
+    // if (selectedCategory === 'sales') {
+    //   if (!campaignData.handoffSettings?.businessHoursStart) {
+    //     newErrors.handoffBusinessHoursStart = true
+    //     missingFields.push('Handoff Business Hours Start Time')
+    //     isValid = false
+    //   }
+    //   if (!campaignData.handoffSettings?.businessHoursEnd) {
+    //     newErrors.handoffBusinessHoursEnd = true
+    //     missingFields.push('Handoff Business Hours End Time')
+    //     isValid = false
+    //   }
       
-      // Validate business hours times if both are provided
-      if (campaignData.handoffSettings?.businessHoursStart && campaignData.handoffSettings?.businessHoursEnd) {
-        const startTime = campaignData.handoffSettings.businessHoursStart.split(':').map(Number)
-        const endTime = campaignData.handoffSettings.businessHoursEnd.split(':').map(Number)
-        const startMinutes = startTime[0] * 60 + startTime[1]
-        const endMinutes = endTime[0] * 60 + endTime[1]
+    //   // Validate business hours times if both are provided
+    //   if (campaignData.handoffSettings?.businessHoursStart && campaignData.handoffSettings?.businessHoursEnd) {
+    //     const startTime = campaignData.handoffSettings.businessHoursStart.split(':').map(Number)
+    //     const endTime = campaignData.handoffSettings.businessHoursEnd.split(':').map(Number)
+    //     const startMinutes = startTime[0] * 60 + startTime[1]
+    //     const endMinutes = endTime[0] * 60 + endTime[1]
         
-        if (endMinutes <= startMinutes) {
-          newErrors.handoffBusinessHoursEnd = true
-          missingFields.push('Business hours end time must be after start time')
-          isValid = false
-        }
-      }
-    }
+    //     if (endMinutes <= startMinutes) {
+    //       newErrors.handoffBusinessHoursEnd = true
+    //       missingFields.push('Business hours end time must be after start time')
+    //       isValid = false
+    //     }
+    //   }
+    // }
   }
 
   return {

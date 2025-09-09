@@ -11,6 +11,10 @@ interface TimePickerProps {
   className?: string
   placeholder?: string
   disabled?: boolean
+  minTime?: string // Format: "HH:MM" - minimum selectable time
+  selectedDate?: string // Format: "YYYY-MM-DD" - to check if it's today
+  allowPastTimes?: boolean // If true, allows selection of past times even for today (useful for CRM imports)
+  isCrmImport?: boolean // If true, uses CRM import logic (allow past times, restrict future times for today)
 }
 
 interface TimeSlot {
@@ -18,9 +22,71 @@ interface TimeSlot {
   display: string
 }
 
-export function TimePicker({ value, onChange, className, placeholder = "Select time", disabled = false }: TimePickerProps) {
+export function TimePicker({ value, onChange, className, placeholder = "Select time", disabled = false, minTime, selectedDate, allowPastTimes = false, isCrmImport = false }: TimePickerProps) {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Helper function to check if a time slot should be disabled
+  const isTimeDisabled = (timeSlot: string): boolean => {
+    // If allowPastTimes is true, don't disable any times (useful for CRM imports)
+    if (allowPastTimes) return false
+    
+    // Check if selected date is today
+    const today = new Date().toISOString().split('T')[0]
+    const isToday = selectedDate === today
+    
+    // For non-today dates, no times are disabled
+    if (!isToday) return false
+    
+    // For CRM imports on today's date: disable future times, allow past times
+    if (isCrmImport && isToday) {
+      const now = new Date()
+      const currentHour = now.getHours()
+      const currentMinute = now.getMinutes()
+      const currentTimeInMinutes = currentHour * 60 + currentMinute
+      
+      const [slotHour, slotMinute] = timeSlot.split(':').map(Number)
+      const slotTimeInMinutes = slotHour * 60 + slotMinute
+      
+      // Disable future times (times that haven't happened yet)
+      return slotTimeInMinutes > currentTimeInMinutes
+    }
+    
+    // For regular campaign scheduling: disable past times
+    const effectiveMinTime = getEffectiveMinTime()
+    if (!selectedDate || effectiveMinTime === '00:00') return false
+    
+    // Convert times to minutes for comparison
+    const [minHour, minMinute] = effectiveMinTime.split(':').map(Number)
+    const [slotHour, slotMinute] = timeSlot.split(':').map(Number)
+    
+    const minTimeInMinutes = minHour * 60 + minMinute
+    const slotTimeInMinutes = slotHour * 60 + slotMinute
+    
+    return slotTimeInMinutes < minTimeInMinutes
+  }
+
+  // Get current time as minimum time if selectedDate is today and no minTime provided
+  const getEffectiveMinTime = (): string => {
+    if (minTime) return minTime
+    
+    const today = new Date().toISOString().split('T')[0]
+    const isToday = selectedDate === today
+    
+    if (isToday) {
+      const now = new Date()
+      // Add 30 minutes buffer to current time
+      now.setMinutes(now.getMinutes() + 30)
+      const hours = now.getHours().toString().padStart(2, '0')
+      const minutes = Math.ceil(now.getMinutes() / 30) * 30 // Round up to next 30-minute interval
+      const adjustedMinutes = minutes >= 60 ? '00' : minutes.toString().padStart(2, '0')
+      const adjustedHours = minutes >= 60 ? (parseInt(hours) + 1).toString().padStart(2, '0') : hours
+      
+      return `${adjustedHours}:${adjustedMinutes}`
+    }
+    
+    return '00:00'
+  }
 
   // Predefined time slots - Full 24 hour range
   const timeSlots: TimeSlot[] = [
@@ -124,20 +190,36 @@ export function TimePicker({ value, onChange, className, placeholder = "Select t
 
       {isOpen && (
         <div className="absolute z-50 mt-1 w-full bg-white border border-[#E5E7EB] rounded-lg shadow-lg max-h-60 overflow-y-auto">
-          {timeSlots.map((timeSlot) => (
-            <button
-              key={timeSlot.time}
-              type="button"
-              onClick={() => handleTimeSelect(timeSlot)}
-              className={cn(
-                "w-full px-4 py-3 text-left text-[14px] hover:bg-[#F3F4F6] transition-colors duration-150",
-                timeSlot.time === value && "bg-[#F3F4F6]",
-                "first:rounded-t-lg last:rounded-b-lg"
-              )}
-            >
-                           <span className="text-[#1A1A1A] font-medium">{timeSlot.display}</span>
-            </button>
-          ))}
+          {timeSlots.map((timeSlot) => {
+            const isDisabled = isTimeDisabled(timeSlot.time)
+            return (
+              <button
+                key={timeSlot.time}
+                type="button"
+                onClick={() => !isDisabled && handleTimeSelect(timeSlot)}
+                disabled={isDisabled}
+                className={cn(
+                  "w-full px-4 py-3 text-left text-[14px] transition-colors duration-150",
+                  !isDisabled && "hover:bg-[#F3F4F6]",
+                  timeSlot.time === value && !isDisabled && "bg-[#F3F4F6]",
+                  isDisabled && "text-gray-400 cursor-not-allowed bg-gray-50",
+                  "first:rounded-t-lg last:rounded-b-lg"
+                )}
+              >
+                <span className={cn(
+                  "font-medium",
+                  isDisabled ? "text-gray-400" : "text-[#1A1A1A]"
+                )}>
+                  {timeSlot.display}
+                </span>
+                {isDisabled && (
+                  <span className="text-xs text-gray-400 ml-2">
+                    {isCrmImport ? "(Future time)" : "(Past time)"}
+                  </span>
+                )}
+              </button>
+            )
+          })}
         </div>
       )}
     </div>

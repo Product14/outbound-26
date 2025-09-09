@@ -51,11 +51,26 @@ export async function integrateCsvWithApis(
     // Step 3: Call key mapping API to get intelligent mapping
     const keyMappingResponse: KeyMappingResponse = await processKeyMapping(requiredFields, csvHeaders, authKey);
     
-    // Step 4: Generate fallback mapping suggestions for unmapped fields
+    // Step 4: Transform API response to correct format
+
+    const transformedApiMapping: Record<string, string> = {};
+    Object.keys(keyMappingResponse).forEach(apiField => {
+      const csvHeader = keyMappingResponse[apiField];
+      if (csvHeader && csvHeaders.includes(csvHeader)) {
+        transformedApiMapping[csvHeader] = apiField;
+      }
+    });
+    
+    console.log('🔄 CSV API Integration - Key mapping transformation:', {
+      originalApiResponse: keyMappingResponse,
+      transformedMapping: transformedApiMapping
+    });
+    
+    // Step 5: Generate fallback mapping suggestions for unmapped fields
     const fallbackMappings = generateMappingSuggestions(csvHeaders, requiredFields);
     
-    // Combine API mapping with fallback suggestions
-    const combinedMapping = { ...fallbackMappings, ...keyMappingResponse };
+    // Combine transformed API mapping with fallback suggestions
+    const combinedMapping = { ...fallbackMappings, ...transformedApiMapping };
 
 
     return {

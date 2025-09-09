@@ -104,6 +104,8 @@ export default function CSVMappingFlow({
 
   // Helper function to determine if a CSV header should map to a specific API field
   const shouldMapToApiField = (csvHeader: string, apiField: string): boolean => {
+  
+
     const csvNormalized = csvHeader.toLowerCase().replace(/[^a-z0-9]/g, '');
     const apiNormalized = apiField.toLowerCase().replace(/[^a-z0-9]/g, '');
     
@@ -116,7 +118,7 @@ export default function CSVMappingFlow({
     // camelCase to PascalCase matching
     if (csvHeader.charAt(0).toUpperCase() + csvHeader.slice(1) === apiField) return true;
     
-    // Handle common variations (spaces, underscores, etc.)
+    // Handle common variations (spaces, underscores, etc.) - fallback
     const csvWords = csvHeader.toLowerCase().split(/[\s_-]+/);
     const apiWords = apiField.replace(/([A-Z])/g, ' $1').trim().toLowerCase().split(/\s+/);
     
@@ -156,17 +158,27 @@ export default function CSVMappingFlow({
               apiResult.requiredFields
             );
             
-            // Force correct API field names for any mappings that might be incorrect
+            // Apply API mappings and ensure correct field names
             const correctedMappings = mappings.map(mapping => {
-              // If this mapping should be using an API field name, ensure it's correct
               const csvHeader = mapping.columnHeader;
-              const currentMapping = mapping.importAs;
               
-              // Check if we have a better API field mapping for this CSV header
+              // Check if API result has a mapping for this CSV header
+              if (apiResult.keyMapping && apiResult.keyMapping[csvHeader]) {
+                const apiField = apiResult.keyMapping[csvHeader];
+                console.log(`🔄 CSVMappingFlow - Applying API mapping: "${csvHeader}" -> "${apiField}"`);
+                return {
+                  ...mapping,
+                  importAs: apiField,
+                  mappingStatus: 'mapped' as const
+                };
+              }
+              
+              // Check if we have a better API field mapping for this CSV header using enhanced matching
               for (const apiField of apiResult.requiredFields) {
                 if (shouldMapToApiField(csvHeader, apiField)) {
                   // Ensure the API field name is in camelCase format
                   const camelCaseApiField = toCamelCase(apiField);
+                  console.log(`🔄 CSVMappingFlow - Auto-mapping detected: "${csvHeader}" -> "${camelCaseApiField}"`);
                   return {
                     ...mapping,
                     importAs: camelCaseApiField,

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useCallback } from 'react'
+import { ArrowLeft } from 'lucide-react'
 import { Toaster } from "@/components/ui/toaster"
 import confetti from 'canvas-confetti'
 import { useCampaignSetup } from '@/hooks/use-campaign-setup'
@@ -13,6 +14,7 @@ import { fetchCampaignTypes, transformCampaignData, launchCampaign } from '@/lib
 import { storeCampaignData, updateKeyMapping, updateUploadedData } from '@/lib/storage-utils'
 import { getEstimatedTimeInMinutes, calculateEndDate, calculateAndFormatTimeRange } from '@/lib/time-utils'
 import { validateGoogleDriveLink, convertToDirectDownloadLink, getRequiredKeysForUseCase, getDisplayColumns } from '@/utils/campaign-setup-utils'
+import { buildUrlWithParams } from '@/lib/url-utils'
 
 // Import step components
 import Step1CampaignDetails from '@/components/campaign-setup/Step1CampaignDetails'
@@ -777,13 +779,13 @@ export default function CampaignSetupRefactored() {
     <div className="min-h-screen" style={{ backgroundColor: 'hsl(var(--background))' }}>
       <div className="min-h-screen bg-[#F4F5F8] relative">
         {/* Vertical Stepper Sidebar - Fixed on Left */}
-        {/* <StepperSidebar 
+        <StepperSidebar 
           steps={getSteps(selectedCategory || 'sales')} 
           currentStep={currentStep} 
-        /> */}
+        />
 
         {/* Main Content Area - Scrollable on Right */}
-        <div className="min-h-screen bg-[#F4F5F8]">
+        <div className="min-h-screen bg-[#F4F5F8] ml-64">
           {/* Content - Scrollable */}
           <div className="px-12 py-8 pb-20 min-h-full overflow-hidden">
             {renderStepContent()}

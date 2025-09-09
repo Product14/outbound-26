@@ -1,14 +1,16 @@
 'use client'
 
 import { useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { AlertCircle, TrendingUp, Wrench, Users } from 'lucide-react'
+import { AlertCircle, TrendingUp, Wrench, Users, ArrowLeft } from 'lucide-react'
 import { CampaignData, ValidationErrors } from '@/types/campaign-setup'
 import { getDynamicUseCases } from '@/utils/campaign-setup-utils'
 import { Agent } from '@/lib/agent-api'
 import { CampaignTypesResponse } from '@/lib/campaign-api'
+import { buildUrlWithParams } from '@/lib/url-utils'
 
 interface Step1CampaignDetailsProps {
   campaignData: CampaignData
@@ -39,6 +41,8 @@ export default function Step1CampaignDetails({
   agentError,
   campaignTypes
 }: Step1CampaignDetailsProps) {
+  const router = useRouter()
+  
   const campaignNameRef = useRef<HTMLDivElement | null>(null)
   const useCaseRef = useRef<HTMLDivElement | null>(null)
   const agentSelectionRef = useRef<HTMLDivElement | null>(null)
@@ -49,47 +53,92 @@ export default function Step1CampaignDetails({
     <div className="max-w-3xl">
       <div className="space-y-8">
         <div className="mb-8 bg-transparent">
-          <h1 className="text-[24px] font-bold text-[#1A1A1A] leading-[1.4]">Campaign Details</h1>
-          <p className="text-[14px] text-[#6B7280] mt-2 leading-[1.5]">
+          {/* Header with Back Button */}
+          <div className="flex items-center gap-4 mb-2">
+            <button
+              onClick={() => router.push(buildUrlWithParams('/results'))}
+              className="flex items-center gap-3 text-[#6B7280] hover:text-[#1A1A1A] transition-colors duration-200 group"
+            >
+              <ArrowLeft className="h-5 w-5 group-hover:translate-x-[-2px] transition-transform duration-200" />
+             
+            </button>
+            <h1 className="text-[24px] font-bold text-[#1A1A1A] leading-[1.4]">Campaign Details</h1>
+          </div>
+          <p className="text-[14px] text-[#6B7280] leading-[1.5]">
             Configure your campaign settings and define the specific use case for optimal AI performance
           </p>
         </div>
         <div className="space-y-6">
           
-          {/* Campaign Name Section */}
-          <div ref={campaignNameRef} className={`bg-white border rounded-lg p-6 transition-colors ${
-            errors.campaignName ? 'border-red-500' : 'border-[#E5E7EB]'
-          }`}>
-            <div className="space-y-3">
-              <Label htmlFor="campaign-name" className={`text-[16px] font-bold ${
-                errors.campaignName ? 'text-red-600' : 'text-[#1A1A1A]'
-              }`}>
-                Campaign Name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="campaign-name"
-                placeholder="Enter a descriptive campaign name"
-                value={campaignData.campaignName}
-                onChange={(e) => {
-                  setCampaignData(prev => ({ ...prev, campaignName: e.target.value }))
-                  if (errors.campaignName && e.target.value.trim()) {
-                    setErrors(prev => ({ ...prev, campaignName: false }))
-                  }
-                }}
-                className={`h-11 text-[14px] rounded-md focus:ring-[#4600F2] transition-colors ${
-                  errors.campaignName 
-                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' 
-                    : 'border-[#E5E7EB] focus:border-[#4600F2] focus:ring-2 focus:ring-[#4600F2]/20'
-                }`}
-              />
-              {errors.campaignName && (
-                <p className="text-[12px] text-red-600 flex items-center mt-1">
-                  <AlertCircle className="h-3 w-3 mr-1" />
-                  Campaign name is required
-                </p>
-              )}
-            </div>
-          </div>
+        {/* Campaign Name Section */}
+<div
+  ref={campaignNameRef}
+  className={`bg-white border rounded-lg p-6 transition-colors ${
+    errors.campaignName ? 'border-red-500' : 'border-[#E5E7EB]'
+  }`}
+>
+  <div className="space-y-3">
+    <Label
+      htmlFor="campaign-name"
+      className={`text-[16px] font-bold ${
+        errors.campaignName ? 'text-red-600' : 'text-[#1A1A1A]'
+      }`}
+    >
+      Campaign Name <span className="text-red-500">*</span>
+    </Label>
+
+    <div className="relative">
+      <Input
+        id="campaign-name"
+        placeholder="Enter a descriptive campaign name"
+        value={campaignData.campaignName}
+        maxLength={50}
+        onChange={(e) => {
+          setCampaignData((prev) => ({
+            ...prev,
+            campaignName: e.target.value,
+          }));
+          if (
+            errors.campaignName &&
+            e.target.value.trim() &&
+            e.target.value.length <= 50
+          ) {
+            setErrors((prev) => ({ ...prev, campaignName: false }));
+          }
+        }}
+        className={`h-11 w-full pr-12 text-[14px] rounded-md focus:ring-[#4600F2] transition-colors ${
+          errors.campaignName
+            ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20'
+            : 'border-[#E5E7EB] focus:border-[#4600F2] focus:ring-2 focus:ring-[#4600F2]/20'
+        }`}
+      />
+      {/* Character counter */}
+      <div
+        className={`absolute right-2 top-1/2 -translate-y-1/2 text-[12px] ${
+          campaignData.campaignName.length > 50
+            ? 'text-red-600'
+            : campaignData.campaignName.length > 40
+            ? 'text-orange-600'
+            : 'text-[#6B7280]'
+        }`}
+      >
+        {campaignData.campaignName.length}/50
+      </div>
+    </div>
+
+    {errors.campaignName && (
+      <p className="text-[12px] text-red-600 flex items-center mt-1">
+        <AlertCircle className="h-3 w-3 mr-1" />
+        {!campaignData.campaignName.trim()
+          ? 'Campaign name is required'
+          : campaignData.campaignName.length > 50
+          ? 'Campaign name must be 50 characters or less'
+          : 'Campaign name is required'}
+      </p>
+    )}
+  </div>
+</div>
+
 
           {/* Use Case Section */}
           <div ref={useCaseRef} className={`bg-white border rounded-lg p-6 transition-colors ${
@@ -217,54 +266,78 @@ export default function Step1CampaignDetails({
             </div>
           </div>
 
-          {/* Agent Selection for All Use Cases */}
-          <div 
-            ref={agentSelectionRef}
-            className={`bg-white border rounded-lg p-6 transition-colors ${
-              errors.agentSelection ? 'border-red-500' : 'border-[#E5E7EB]'
-            }`}
-          >
-            <div className="space-y-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-lg bg-[#3B82F6]/10 text-[#3B82F6] flex items-center justify-center">
-                  <Users className="w-4 h-4" />
+          {/* Agent Selection - Only show after campaign type is selected */}
+          {selectedCategory && campaignData.subUseCase && (
+            <div 
+              ref={agentSelectionRef}
+              className={`bg-white border rounded-lg p-6 transition-colors ${
+                errors.agentSelection ? 'border-red-500' : 'border-[#E5E7EB]'
+              }`}
+            >
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#3B82F6]/10 text-[#3B82F6] flex items-center justify-center">
+                    <Users className="w-4 h-4" />
+                  </div>
+                  <h3 className={`text-[16px] font-semibold ${
+                    errors.agentSelection ? 'text-red-600' : 'text-[#1A1A1A]'
+                  }`}>
+                    Select AI agent <span className="text-red-500">*</span>
+                  </h3>
                 </div>
-                <h3 className={`text-[16px] font-semibold ${
-                  errors.agentSelection ? 'text-red-600' : 'text-[#1A1A1A]'
-                }`}>
-                  Select AI agent <span className="text-red-500">*</span>
-                </h3>
-              </div>
 
-              {errors.agentSelection && (
-                <div className="flex items-center text-[12px] text-red-600">
-                  <AlertCircle className="h-3 w-3 mr-1" />
-                  Please select an agent to continue
-                </div>
-              )}
+                {errors.agentSelection && (
+                  <div className="flex items-center text-[12px] text-red-600">
+                    <AlertCircle className="h-3 w-3 mr-1" />
+                    Please select an agent to continue
+                  </div>
+                )}
 
-              {isLoadingAgents && (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin h-6 w-6 border-2 border-[#3B82F6] border-t-transparent rounded-full" />
-                  <span className="ml-3 text-[14px] text-[#6B7280]">Loading agents...</span>
-                </div>
-              )}
+                {isLoadingAgents && (
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Shimmer placeholders for agent cards */}
+                    {[1, 2].map((index) => (
+                      <div key={index} className="bg-white border rounded-xl p-4 pb-16 animate-pulse">
+                        {/* Avatar and name shimmer */}
+                        <div className="flex items-center space-x-3 mb-3">
+                          <div className="w-10 h-10 rounded-full bg-gray-200"></div>
+                          <div className="space-y-2 flex-1">
+                            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                            <div className="h-3 bg-gray-200 rounded w-full"></div>
+                          </div>
+                        </div>
+                        
+                        {/* Specialization shimmer */}
+                        <div className="space-y-2 mb-4">
+                          <div className="h-3 bg-gray-200 rounded w-1/3"></div>
+                          <div className="flex gap-1">
+                            <div className="h-6 bg-gray-200 rounded w-16"></div>
+                            <div className="h-6 bg-gray-200 rounded w-12"></div>
+                          </div>
+                        </div>
 
-              {agentError && (
-                <div className="flex items-center p-4 bg-[#EF4444]/10 border border-[#EF4444] rounded-lg">
-                  <AlertCircle className="h-5 w-5 text-[#EF4444] mr-3" />
-                  <span className="text-[14px] text-[#EF4444]">{agentError}</span>
-                </div>
-              )}
+                        {/* Button shimmer */}
+                        <div className="absolute bottom-3 left-3 right-3 h-10 bg-gray-200 rounded-lg"></div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-              {!isLoadingAgents && !agentError && availableAgents.length === 0 && (
-                <div className="flex items-center p-4 bg-[#FACC15]/10 border border-[#FACC15] rounded-lg">
-                  <AlertCircle className="h-5 w-5 text-[#FACC15] mr-3" />
-                  <span className="text-[14px] text-[#6B7280]">No agents available for this campaign type</span>
-                </div>
-              )}
+                {agentError && (
+                  <div className="flex items-center p-4 bg-[#EF4444]/10 border border-[#EF4444] rounded-lg">
+                    <AlertCircle className="h-5 w-5 text-[#EF4444] mr-3" />
+                    <span className="text-[14px] text-[#EF4444]">{agentError}</span>
+                  </div>
+                )}
 
-              {!isLoadingAgents && availableAgents.length > 0 && (
+                {!isLoadingAgents && !agentError && availableAgents.length === 0 && (
+                  <div className="flex items-center p-4 bg-[#FACC15]/10 border border-[#FACC15] rounded-lg">
+                    <AlertCircle className="h-5 w-5 text-[#FACC15] mr-3" />
+                    <span className="text-[14px] text-[#6B7280]">No agents available for this campaign type</span>
+                  </div>
+                )}
+
+                {!isLoadingAgents && availableAgents.length > 0 && (
                 <div className="grid grid-cols-2 gap-4">
                   {availableAgents.map((agent) => (
                     <div 
@@ -371,9 +444,10 @@ export default function Step1CampaignDetails({
                     </div>
                   ))}
                 </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

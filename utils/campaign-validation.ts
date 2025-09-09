@@ -60,6 +60,10 @@ export const validateStep = (
       newErrors.campaignName = true
       missingFields.push('Campaign Name')
       isValid = false
+    } else if (campaignData.campaignName.length > 50) {
+      newErrors.campaignName = true
+      missingFields.push('Campaign Name (must be 50 characters or less)')
+      isValid = false
     }
     if (!selectedCategory) {
       newErrors.useCase = true
@@ -107,10 +111,24 @@ export const validateStep = (
             newErrors.vinSolutionsDateRange = true
             missingFields.push('Time Range Selection')
             isValid = false
-          } else if (new Date(vinSolutionsStartDate) > new Date(vinSolutionsEndDate)) {
-            newErrors.vinSolutionsDateRange = true
-            missingFields.push('Valid Date Range (Start date must be before end date)')
-            isValid = false
+          } else {
+            // Create full datetime objects for proper comparison
+            const startDateTime = new Date(`${vinSolutionsStartDate}T${vinSolutionsStartTime}:00`)
+            const endDateTime = new Date(`${vinSolutionsEndDate}T${vinSolutionsEndTime}:00`)
+            
+            if (startDateTime >= endDateTime) {
+              newErrors.vinSolutionsDateRange = true
+              missingFields.push('Valid Date Range (Start date/time must be before end date/time)')
+              isValid = false
+            }
+            
+            // Check if end date is not too far in the future (reasonable limit for CRM imports)
+            const maxEndDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
+            if (endDateTime > maxEndDate) {
+              newErrors.vinSolutionsDateRange = true
+              missingFields.push('End date cannot be more than 7 days in the future')
+              isValid = false
+            }
           }
         }
         
@@ -291,6 +309,21 @@ export const validateStep = (
           isValid = false
         }
       }
+      
+      // Validate that scheduled date/time is in the future
+      if (campaignData.scheduledDate) {
+        const scheduledDateTime = new Date(`${campaignData.scheduledDate}T${campaignData.scheduledTime || '09:00'}:00`)
+        const now = new Date()
+        
+        // Add 5 minute buffer to account for processing time
+        const minScheduledTime = new Date(now.getTime() + 5 * 60 * 1000)
+        
+        if (scheduledDateTime <= minScheduledTime) {
+          newErrors.scheduledDate = true
+          missingFields.push('Campaign must be scheduled for at least 5 minutes in the future')
+          isValid = false
+        }
+      }
     } else {
       // For service campaigns, similar validation but simplified
       if (campaignData.schedule === 'scheduled') {
@@ -395,32 +428,32 @@ export const validateStep = (
     }
     
     // For sales campaigns, validate handoff business hours
-    if (selectedCategory === 'sales') {
-      if (!campaignData.handoffSettings?.businessHoursStart) {
-        newErrors.handoffBusinessHoursStart = true
-        missingFields.push('Handoff Business Hours Start Time')
-        isValid = false
-      }
-      if (!campaignData.handoffSettings?.businessHoursEnd) {
-        newErrors.handoffBusinessHoursEnd = true
-        missingFields.push('Handoff Business Hours End Time')
-        isValid = false
-      }
+    // if (selectedCategory === 'sales') {
+    //   if (!campaignData.handoffSettings?.businessHoursStart) {
+    //     newErrors.handoffBusinessHoursStart = true
+    //     missingFields.push('Handoff Business Hours Start Time')
+    //     isValid = false
+    //   }
+    //   if (!campaignData.handoffSettings?.businessHoursEnd) {
+    //     newErrors.handoffBusinessHoursEnd = true
+    //     missingFields.push('Handoff Business Hours End Time')
+    //     isValid = false
+    //   }
       
-      // Validate business hours times if both are provided
-      if (campaignData.handoffSettings?.businessHoursStart && campaignData.handoffSettings?.businessHoursEnd) {
-        const startTime = campaignData.handoffSettings.businessHoursStart.split(':').map(Number)
-        const endTime = campaignData.handoffSettings.businessHoursEnd.split(':').map(Number)
-        const startMinutes = startTime[0] * 60 + startTime[1]
-        const endMinutes = endTime[0] * 60 + endTime[1]
+    //   // Validate business hours times if both are provided
+    //   if (campaignData.handoffSettings?.businessHoursStart && campaignData.handoffSettings?.businessHoursEnd) {
+    //     const startTime = campaignData.handoffSettings.businessHoursStart.split(':').map(Number)
+    //     const endTime = campaignData.handoffSettings.businessHoursEnd.split(':').map(Number)
+    //     const startMinutes = startTime[0] * 60 + startTime[1]
+    //     const endMinutes = endTime[0] * 60 + endTime[1]
         
-        if (endMinutes <= startMinutes) {
-          newErrors.handoffBusinessHoursEnd = true
-          missingFields.push('Business hours end time must be after start time')
-          isValid = false
-        }
-      }
-    }
+    //     if (endMinutes <= startMinutes) {
+    //       newErrors.handoffBusinessHoursEnd = true
+    //       missingFields.push('Business hours end time must be after start time')
+    //       isValid = false
+    //     }
+    //   }
+    // }
   }
 
   return {

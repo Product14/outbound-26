@@ -259,7 +259,7 @@ export default function Step2FileUpload({
                           </SelectTrigger>
                           <SelectContent className="bg-white">
                             <SelectItem value="vinsolutions">VinSolutions</SelectItem>
-                            <SelectItem value="others">Others</SelectItem>
+                            {/* <SelectItem value="others">Others</SelectItem> */}
                           </SelectContent>
                         </Select>
                         {errors.crmSelection && (
@@ -341,6 +341,8 @@ export default function Step2FileUpload({
                                       }}
                                     placeholder="Select start date"
                                       className={errors.vinSolutionsDateRange ? 'border-red-500' : ''}
+                                    // For CRM imports, start date should not be in the future since we're importing historical leads
+                                    maxDate={new Date().toISOString().split('T')[0]}
                                   />
                                   <TimePicker
                                     value={vinSolutionsStartTime}
@@ -352,6 +354,8 @@ export default function Step2FileUpload({
                                       }}
                                     placeholder="Select start time"
                                       className={errors.vinSolutionsDateRange ? 'border-red-500' : ''}
+                                    selectedDate={vinSolutionsStartDate}
+                                    isCrmImport={true} // Enable CRM import mode: allow past times, restrict future times for today
                                   />
                                 </div>
                               </div>
@@ -370,6 +374,8 @@ export default function Step2FileUpload({
                                       }}
                                     placeholder="Select end date"
                                       className={errors.vinSolutionsDateRange ? 'border-red-500' : ''}
+                                    // Allow end date to be up to today + reasonable buffer for CRM imports
+                                    maxDate={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
                                   />
                                   <TimePicker
                                     value={vinSolutionsEndTime}
@@ -381,11 +387,15 @@ export default function Step2FileUpload({
                                       }}
                                     placeholder="Select end time"
                                       className={errors.vinSolutionsDateRange ? 'border-red-500' : ''}
+                                    selectedDate={vinSolutionsEndDate}
+                                    isCrmImport={true} // Enable CRM import mode: allow past times, restrict future times for today
                                   />
                                 </div>
                               </div>
                                 {errors.vinSolutionsDateRange && (
-                                  <p className="text-[12px] text-red-600 mt-1">Please select valid date and time range</p>
+                                  <p className="text-[12px] text-red-600 mt-1">
+                                    Please ensure start date/time is before end date/time, and end date is not more than 7 days in the future
+                                  </p>
                                 )}
                             </div>
                             ) : (

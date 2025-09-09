@@ -341,6 +341,7 @@ export default function Step2FileUpload({
                                       }}
                                     placeholder="Select start date"
                                       className={errors.vinSolutionsDateRange ? 'border-red-500' : ''}
+                                    maxDate={new Date().toISOString().split('T')[0]}
                                   />
                                   <TimePicker
                                     value={vinSolutionsStartTime}
@@ -370,6 +371,7 @@ export default function Step2FileUpload({
                                       }}
                                     placeholder="Select end date"
                                       className={errors.vinSolutionsDateRange ? 'border-red-500' : ''}
+                                    maxDate={new Date().toISOString().split('T')[0]}
                                   />
                                   <TimePicker
                                     value={vinSolutionsEndTime}

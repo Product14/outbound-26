@@ -540,16 +540,19 @@ export function transformCampaignData(
     
     basePayload.importSource = importSourceMap[crmImportData.crmSelection] || crmImportData.crmSelection;
     
-    // Add leads filter options based on the filter type
+    // Add leads filter options - ONLY ONE filter type is allowed at a time
+    // This ensures exclusive filtering behavior in the API body
     if (crmImportData.enableRecurringLeads && crmImportData.leadAgeDays > 0) {
-      // Recurring lead age filter
+      // RECURRING LEAD AGE FILTER - Call leads when they reach a specific age
       basePayload.leadsFilterOptions = {
         recurringDays: crmImportData.leadAgeDays
+        // Note: dateRange is intentionally omitted when using recurring leads
       };
     } else if (!crmImportData.enableRecurringLeads && 
                crmImportData.vinSolutionsStartDate && 
                crmImportData.vinSolutionsEndDate) {
-      // Date range filter - convert local time to UTC for database storage
+      // DATE RANGE FILTER - Import leads created within a specific date range
+      // Convert local time to UTC for database storage
       const localStartDateTime = crmImportData.vinSolutionsStartTime 
         ? new Date(`${crmImportData.vinSolutionsStartDate}T${crmImportData.vinSolutionsStartTime}:00`)
         : new Date(`${crmImportData.vinSolutionsStartDate}T00:00:00`);
@@ -561,11 +564,12 @@ export function transformCampaignData(
       basePayload.leadsFilterOptions = {
         dateRange: {
           startDate: localStartDateTime.toISOString(),
-          endDate: localEndDateTime.toISOString(),
-          
+          endDate: localEndDateTime.toISOString()
         }
+        // Note: recurringDays is intentionally omitted when using date range filter
       };
     }
+    // If neither filter condition is met, leadsFilterOptions remains undefined
   }
 
   // Add campaign ID if it exists (for final launch)

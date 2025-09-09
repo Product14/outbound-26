@@ -70,9 +70,10 @@ export default function Step1CampaignDetails({
                 id="campaign-name"
                 placeholder="Enter a descriptive campaign name"
                 value={campaignData.campaignName}
+                maxLength={50}
                 onChange={(e) => {
                   setCampaignData(prev => ({ ...prev, campaignName: e.target.value }))
-                  if (errors.campaignName && e.target.value.trim()) {
+                  if (errors.campaignName && e.target.value.trim() && e.target.value.length <= 50) {
                     setErrors(prev => ({ ...prev, campaignName: false }))
                   }
                 }}
@@ -82,12 +83,30 @@ export default function Step1CampaignDetails({
                     : 'border-[#E5E7EB] focus:border-[#4600F2] focus:ring-2 focus:ring-[#4600F2]/20'
                 }`}
               />
-              {errors.campaignName && (
-                <p className="text-[12px] text-red-600 flex items-center mt-1">
-                  <AlertCircle className="h-3 w-3 mr-1" />
-                  Campaign name is required
-                </p>
-              )}
+              <div className="flex justify-between items-center mt-1">
+                <div>
+                  {errors.campaignName && (
+                    <p className="text-[12px] text-red-600 flex items-center">
+                      <AlertCircle className="h-3 w-3 mr-1" />
+                      {!campaignData.campaignName.trim() 
+                        ? 'Campaign name is required'
+                        : campaignData.campaignName.length > 50
+                        ? 'Campaign name must be 50 characters or less'
+                        : 'Campaign name is required'
+                      }
+                    </p>
+                  )}
+                </div>
+                <div className={`text-[12px] ${
+                  campaignData.campaignName.length > 50 
+                    ? 'text-red-600' 
+                    : campaignData.campaignName.length > 40 
+                    ? 'text-orange-600' 
+                    : 'text-[#6B7280]'
+                }`}>
+                  {campaignData.campaignName.length}/50
+                </div>
+              </div>
             </div>
           </div>
 

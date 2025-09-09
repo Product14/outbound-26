@@ -60,6 +60,10 @@ export const validateStep = (
       newErrors.campaignName = true
       missingFields.push('Campaign Name')
       isValid = false
+    } else if (campaignData.campaignName.length > 50) {
+      newErrors.campaignName = true
+      missingFields.push('Campaign Name (must be 50 characters or less)')
+      isValid = false
     }
     if (!selectedCategory) {
       newErrors.useCase = true

@@ -775,14 +775,17 @@ export async function fetchCampaignLeadsCount(
         endDate: dateRange.endDate
       }
     };
-    params.append('leadsFilterOptions', encodeURIComponent(JSON.stringify(leadsFilterOptions)));
+    // URLSearchParams.append() already handles encoding, so don't double-encode
+    params.append('leadsFilterOptions', JSON.stringify(leadsFilterOptions));
 
     // Add auth_key parameter if provided
     if (authKey) {
       params.append('auth_key', authKey);
     }
 
-    const response = await fetch(`${configs.base_url}conversation/campaign/campaign-leads-count?${params.toString()}`);
+    const fullUrl = `${configs.base_url}conversation/campaign/campaign-leads-count?${params.toString()}`;
+    
+    const response = await fetch(fullUrl);
 
     if (!response.ok) {
       let errorMessage = `HTTP error! status: ${response.status}`;

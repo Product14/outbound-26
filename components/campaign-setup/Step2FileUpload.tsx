@@ -336,7 +336,7 @@ export default function Step2FileUpload({
                                         }
                                         
                                         // Fetch lead count if both dates are selected
-                                        if (value && vinSolutionsEndDate && urlParams.enterprise_id && urlParams.team_id) {
+                                        if (value && vinSolutionsEndDate && urlParams?.enterprise_id && urlParams?.team_id) {
                                           try {
                                             const startDateTime = vinSolutionsStartTime 
                                               ? new Date(`${value}T${vinSolutionsStartTime}:00`)
@@ -347,13 +347,13 @@ export default function Step2FileUpload({
                                               : new Date(`${vinSolutionsEndDate}T23:59:59`);
                                             
                                             const response = await fetchCampaignLeadsCount(
-                                              urlParams.enterprise_id,
-                                              urlParams.team_id,
+                                              urlParams?.enterprise_id || '',
+                                              urlParams?.team_id || '',
                                               {
                                                 startDate: startDateTime.toISOString(),
                                                 endDate: endDateTime.toISOString()
                                               },
-                                              urlParams.auth_key || undefined
+                                              urlParams?.auth_key || undefined
                                             );
                                             
                                             if (response) {
@@ -381,7 +381,7 @@ export default function Step2FileUpload({
                                         }
                                         
                                         // Fetch lead count if both dates are selected
-                                        if (vinSolutionsStartDate && vinSolutionsEndDate && urlParams.enterprise_id && urlParams.team_id) {
+                                        if (vinSolutionsStartDate && vinSolutionsEndDate && urlParams?.enterprise_id && urlParams?.team_id) {
                                           try {
                                             const startDateTime = new Date(`${vinSolutionsStartDate}T${value}:00`);
                                             const endDateTime = vinSolutionsEndTime 
@@ -389,13 +389,13 @@ export default function Step2FileUpload({
                                               : new Date(`${vinSolutionsEndDate}T23:59:59`);
                                             
                                             const response = await fetchCampaignLeadsCount(
-                                              urlParams.enterprise_id,
-                                              urlParams.team_id,
+                                              urlParams?.enterprise_id || '',
+                                              urlParams?.team_id || '',
                                               {
                                                 startDate: startDateTime.toISOString(),
                                                 endDate: endDateTime.toISOString()
                                               },
-                                              urlParams.auth_key || undefined
+                                              urlParams?.auth_key || undefined
                                             );
                                             
                                             if (response) {
@@ -430,7 +430,7 @@ export default function Step2FileUpload({
                                         }
                                         
                                         // Fetch lead count if both dates are selected
-                                        if (vinSolutionsStartDate && value && urlParams.enterprise_id && urlParams.team_id) {
+                                        if (vinSolutionsStartDate && value && urlParams?.enterprise_id && urlParams?.team_id) {
                                           try {
                                             const startDateTime = vinSolutionsStartTime 
                                               ? new Date(`${vinSolutionsStartDate}T${vinSolutionsStartTime}:00`)
@@ -441,13 +441,13 @@ export default function Step2FileUpload({
                                               : new Date(`${value}T23:59:59`);
                                             
                                             const response = await fetchCampaignLeadsCount(
-                                              urlParams.enterprise_id,
-                                              urlParams.team_id,
+                                              urlParams?.enterprise_id || '',
+                                              urlParams?.team_id || '',
                                               {
                                                 startDate: startDateTime.toISOString(),
                                                 endDate: endDateTime.toISOString()
                                               },
-                                              urlParams.auth_key || undefined
+                                              urlParams?.auth_key || undefined
                                             );
                                             
                                             if (response) {
@@ -484,13 +484,13 @@ export default function Step2FileUpload({
                                             const endDateTime = new Date(`${vinSolutionsEndDate}T${value}:00`);
                                             
                                             const response = await fetchCampaignLeadsCount(
-                                              urlParams.enterprise_id,
-                                              urlParams.team_id,
+                                              urlParams?.enterprise_id || '',
+                                              urlParams?.team_id || '',
                                               {
                                                 startDate: startDateTime.toISOString(),
                                                 endDate: endDateTime.toISOString()
                                               },
-                                              urlParams.auth_key || undefined
+                                              urlParams?.auth_key || undefined
                                             );
                                             
                                             if (response) {

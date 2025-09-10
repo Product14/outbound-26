@@ -612,7 +612,8 @@ export default function CampaignSetupRefactored() {
             leadAgeDays={leadAgeDays}
             setLeadAgeDays={setLeadAgeDays}
             
-
+            // URL Parameters
+            urlParams={urlParams}
             
             // CSV mapping
             showCSVMappingStep={showCSVMappingStep}

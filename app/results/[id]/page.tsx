@@ -501,11 +501,7 @@ export default function CampaignDetail() {
 
   // Debug logging for drawer state
   useEffect(() => {
-    console.log('🔍 Drawer state changed:', { 
-      selectedCall: !!selectedCall, 
-      selectedCallId: selectedCall?.call_id, 
-      isCallDetailsOpen 
-    })
+    
   }, [selectedCall, isCallDetailsOpen])
 
   // Disable/enable body scroll when modal opens/closes

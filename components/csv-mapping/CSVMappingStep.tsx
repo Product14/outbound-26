@@ -43,12 +43,10 @@ export default function CSVMappingStep({
   // Check if we can auto-map most fields
   useEffect(() => {
     if (csvData && csvData.length > 0) {
-      console.log('CSV Mapping Step - API Required Fields:', apiRequiredFields);
       const suggestedMappings = parseResult?.suggestedMappings || {};
       const mappings = generateCSVFieldMapping(csvData, suggestedMappings, apiRequiredFields);
       const validation = validateMappingCompleteness(mappings, apiRequiredFields);
-      console.log('CSV Mapping Step - Generated mappings:', mappings);
-      console.log('CSV Mapping Step - Validation result:', validation);
+     
       
       setMappingStats({
         total: mappings.length,
@@ -69,10 +67,7 @@ export default function CSVMappingStep({
   };
 
   const handleMappingFlowComplete = (mappedData: any[], keyMapping: Record<string, string>) => {
-    console.log('🎯 CSVMappingStep - Received mappedData:', mappedData);
-    console.log('🎯 CSVMappingStep - Received keyMapping:', keyMapping);
-    console.log('🎯 CSVMappingStep - Sample keys:', mappedData?.[0] ? Object.keys(mappedData[0]) : 'No data');
-    
+   
     onMappingComplete(mappedData, keyMapping);
   };
 

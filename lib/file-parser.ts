@@ -54,7 +54,6 @@ export function generateMappingSuggestions(headers: string[], apiRequiredFields?
         // Only assign if not already used
         if (!Object.values(suggestions).includes(apiField)) {
           suggestions[header] = apiField;
-          console.log(`📝 File Parser - Mapping suggestion: "${header}" -> "${apiField}"`);
           break;
         }
       }
@@ -76,7 +75,6 @@ export function parseCSVFile(file: File, requiredColumns: string[] = []): Promis
         // Just log what's missing for debugging
         const missingColumns = validateColumns(headers, requiredColumns);
         if (missingColumns.length > 0) {
-          console.log('Note: Some columns are missing from CSV, but key mapping will handle this:', missingColumns);
         }
 
         // Validate and clean data
@@ -153,7 +151,6 @@ export function parseExcelFile(file: File, requiredColumns: string[] = []): Prom
         
         // Don't fail immediately on missing columns - let key mapping handle it
         if (missingColumns.length > 0) {
-          console.log('Note: Some columns are missing from Excel, but key mapping will handle this:', missingColumns);
         }
 
         // Process data rows

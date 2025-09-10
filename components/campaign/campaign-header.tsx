@@ -177,7 +177,7 @@ export function CampaignHeader({
                     campaignData?.campaign?.name && 
                     !campaignData.campaign.name.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
                       ? campaignData.campaign.name 
-                      : 'Q4 Service Reminder Campaign'
+                      : isSalesCampaign ? 'Q4 Vehicle Sales Campaign' : 'Q4 Service Reminder Campaign'
                   }
                 </h1>
                 <button className={`
@@ -231,12 +231,12 @@ export function CampaignHeader({
         
         {/* Campaign Details Section - Animated visibility */}
         <div className={`
-          transition-all duration-300 ease-out overflow-hidden
-          ${isCompact ? 'max-h-0 opacity-0 mt-0' : 'max-h-40 opacity-100 mt-6'}
+          transition-all duration-300 ease-out
+          ${isCompact ? 'max-h-0 opacity-0 mt-0 overflow-hidden' : 'max-h-40 opacity-100 mt-6 overflow-visible'}
         `}>
-          <div className="flex items-start justify-between w-full">
+          <div className="flex items-start w-full">
             {/* Left side - Campaign details */}
-            <div className="flex items-start gap-16">
+            <div className="flex items-start gap-16 flex-1">
               {/* Scheduled for column */}
               <div className="flex flex-col">
                 <div className="text-sm font-medium text-gray-600 mb-2">
@@ -263,7 +263,7 @@ export function CampaignHeader({
                 <div className="text-sm font-medium text-gray-600 mb-2">
                   Campaign Type
                 </div>
-                <Badge className="bg-green-50 text-green-600 border-green-100 px-2 py-1 text-xs font-semibold italic flex items-center gap-2">
+                <Badge className="bg-green-50 text-green-600 border-green-100 px-2 py-1 text-xs font-semibold italic flex items-center gap-2 hover:bg-green-50 hover:text-green-600 hover:border-green-100 cursor-default">
                   <Calendar className="h-4 w-4" />
                   Appointment Reminder
                 </Badge>
@@ -297,22 +297,50 @@ export function CampaignHeader({
                 </div>
                 <div className="flex items-center gap-4">
                   {agentsWithAvatars.length > 0 ? (
-                    agentsWithAvatars.map((agent, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <Avatar className="w-6 h-6">
-                          <AvatarImage 
-                            src={agent.imageUrl} 
-                            alt={agent.name}
-                          />
-                          <AvatarFallback className="bg-purple-100 text-purple-600 text-xs">
-                            {agent.name.slice(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm font-medium text-gray-900">
-                          {agent.name}{index < agentsWithAvatars.length - 1 ? ',' : ''}
-                        </span>
+                    <>
+                      {/* Desktop view - show all agents */}
+                      <div className="hidden xl:flex items-center gap-4">
+                        {agentsWithAvatars.map((agent, index) => (
+                          <div key={index} className="flex items-center gap-2">
+                            <Avatar className="w-6 h-6">
+                              <AvatarFallback className="bg-purple-100 text-purple-600 text-xs font-medium">
+                                {agent.name.split(' ').map(word => word[0]).filter(Boolean).join('').toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm font-medium text-gray-900">
+                              {agent.name}{index < agentsWithAvatars.length - 1 ? ',' : ''}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ))
+                      
+                      {/* Mobile/Tablet view - show truncated with tooltip */}
+                      <div className="xl:hidden flex items-center gap-2">
+                        {agentsWithAvatars.slice(0, 2).map((agent, index) => (
+                          <div key={index} className="flex items-center gap-1">
+                            <Avatar className="w-6 h-6">
+                              <AvatarFallback className="bg-purple-100 text-purple-600 text-xs font-medium">
+                                {agent.name.split(' ').map(word => word[0]).filter(Boolean).join('').toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm font-medium text-gray-900">
+                              {agent.name}{index < Math.min(2, agentsWithAvatars.length) - 1 ? ',' : ''}
+                            </span>
+                          </div>
+                        ))}
+                        {agentsWithAvatars.length > 2 && (
+                          <div className="relative group">
+                            <span className="text-sm font-medium text-gray-500 cursor-help">
+                              +{agentsWithAvatars.length - 2} more
+                            </span>
+                            {/* Tooltip */}
+                            <div className="absolute right-0 top-6 px-2 py-1 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                              {agentsWithAvatars.slice(2).map(agent => agent.name).join(', ')}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </>
                   ) : (
                     <span className="text-sm text-gray-500">No agents deployed</span>
                   )}
@@ -321,7 +349,7 @@ export function CampaignHeader({
             </div>
 
             {/* Right side - Campaign Progress */}
-            <div className="flex flex-col">
+            <div className="flex flex-col flex-shrink-0 ml-8">
               <div className="flex flex-col gap-3 w-48">
                 <div className="flex items-center justify-between text-sm font-medium text-gray-600 leading-[18px]">
                   <span>{callsMade.toLocaleString()}/{totalCalls.toLocaleString()}</span>

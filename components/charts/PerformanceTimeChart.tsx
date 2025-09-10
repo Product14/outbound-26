@@ -1,6 +1,5 @@
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
 
@@ -29,24 +28,23 @@ const chartConfig = {
 
 export function PerformanceTimeChart({ data, title = "Best Campaign Performance Time" }: PerformanceTimeChartProps) {
   return (
-    <Card className="border-0 bg-white rounded-[16px] p-6">
+    <div className="bg-gray-50 rounded-xl p-4 h-full">
       <div className="mb-4">
-        <h3 className="text-[18px] font-semibold text-[#1A1A1A]">
+        <h3 className="text-sm font-semibold text-[#1A1A1A]">
           {title}
         </h3>
       </div>
       
-      <div className="w-full">
-        <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
+      <div className="w-full h-full">
+        <ResponsiveContainer width="100%" height={200}>
           <BarChart
             data={data}
             margin={{
-              top: 20,
+              top: 5,
               right: 0,
               left: -5,
-              bottom: 5,
+              bottom: 2,
             }}
-            width={800}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
             <XAxis 
@@ -62,7 +60,6 @@ export function PerformanceTimeChart({ data, title = "Best Campaign Performance 
               width={35}
             />
             <ChartTooltip
-              content={<ChartTooltipContent />}
               formatter={(value, name) => [
                 value,
                 name === "calls" ? "Calls" : "Appointments"
@@ -71,23 +68,23 @@ export function PerformanceTimeChart({ data, title = "Best Campaign Performance 
             />
             <Bar
               dataKey="calls"
-              fill="var(--color-calls)"
+              fill="#3B82F6"
               radius={[4, 4, 0, 0]}
               opacity={0.8}
             />
             <Bar
               dataKey="appointments"
-              fill="var(--color-appointments)"
+              fill="#10B981"
               radius={[4, 4, 0, 0]}
               opacity={0.9}
             />
           </BarChart>
-        </ChartContainer>
+        </ResponsiveContainer>
         
         {/* Peak performance metrics below the chart */}
-        <div className="mt-4 grid grid-cols-2 gap-6">
-          <div className="text-center p-4 bg-[#F0FDF4] rounded-[8px]">
-            <div className="text-[18px] font-bold text-[#10B981] mb-1">
+        <div className="mt-1 grid grid-cols-2 gap-2">
+          <div className="text-center p-1 bg-[#F0FDF4] rounded-[8px]">
+            <div className="text-[14px] font-bold text-[#10B981] mb-1">
               {(() => {
                 const peakConversion = data.reduce((max, item) => 
                   item.successRate > max.successRate ? item : max
@@ -95,7 +92,7 @@ export function PerformanceTimeChart({ data, title = "Best Campaign Performance 
                 return peakConversion.hour;
               })()}
             </div>
-            <div className="text-sm text-[#6B7280] mb-1">Peak Conversion Time</div>
+            <div className="text-xs text-[#6B7280] mb-0.5">Peak Conversion Time</div>
             <div className="text-xs text-[#10B981] font-medium">
               {(() => {
                 const peakConversion = data.reduce((max, item) => 
@@ -105,8 +102,8 @@ export function PerformanceTimeChart({ data, title = "Best Campaign Performance 
               })()}
             </div>
           </div>
-          <div className="text-center p-4 bg-[#F8FAFC] rounded-[8px]">
-            <div className="text-[18px] font-bold text-[#3B82F6] mb-1">
+          <div className="text-center p-1 bg-[#F8FAFC] rounded-[8px]">
+            <div className="text-[14px] font-bold text-[#3B82F6] mb-1">
               {(() => {
                 const peakCalls = data.reduce((max, item) => 
                   item.calls > max.calls ? item : max
@@ -114,7 +111,7 @@ export function PerformanceTimeChart({ data, title = "Best Campaign Performance 
                 return peakCalls.hour;
               })()}
             </div>
-            <div className="text-sm text-[#6B7280] mb-1">Peak Call Time</div>
+            <div className="text-xs text-[#6B7280] mb-0.5">Peak Call Time</div>
             <div className="text-xs text-[#3B82F6] font-medium">
               {(() => {
                 const peakCalls = data.reduce((max, item) => 
@@ -126,6 +123,6 @@ export function PerformanceTimeChart({ data, title = "Best Campaign Performance 
           </div>
         </div>
       </div>
-    </Card>
+    </div>
   )
 }

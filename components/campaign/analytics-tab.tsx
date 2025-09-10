@@ -62,7 +62,7 @@ export function AnalyticsTab({
             <CardContent className="pt-0">
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#F0F4FF] rounded-[8px] flex-shrink-0">
+                  <div className="p-2 bg-[#F0F4FF] rounded-[8px] flex-shrink-0 hidden min-[1100px]:block">
                     <Phone className="h-5 w-5 text-[#4600F2]" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -74,7 +74,7 @@ export function AnalyticsTab({
                 </div>
                 
                 <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0">
+                  <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0 hidden min-[1100px]:block">
                     <Calendar className="h-5 w-5 text-[#22C55E]" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -86,7 +86,7 @@ export function AnalyticsTab({
                 </div>
                 
                 <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#FEFCE8] rounded-[8px] flex-shrink-0">
+                  <div className="p-2 bg-[#FEFCE8] rounded-[8px] flex-shrink-0 hidden min-[1100px]:block">
                     <TrendingUp className="h-5 w-5 text-[#F59E0B]" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -97,20 +97,9 @@ export function AnalyticsTab({
                   </div>
                 </div>
                 
-                <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#EFF6FF] rounded-[8px] flex-shrink-0">
-                    <RefreshCw className="h-5 w-5 text-[#3B82F6]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Follow-ups Requested</h3>
-                    <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
-                      {serviceStats?.followUpRequested ?? 0}
-                    </p>
-                  </div>
-                </div>
                 
                 <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0">
+                  <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0 hidden min-[1100px]:block">
                     <CheckCircle className="h-5 w-5 text-[#22C55E]" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -122,7 +111,7 @@ export function AnalyticsTab({
                 </div>
                 
                 <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#FDF2F8] rounded-[8px] flex-shrink-0">
+                  <div className="p-2 bg-[#FDF2F8] rounded-[8px] flex-shrink-0 hidden min-[1100px]:block">
                     <Timer className="h-5 w-5 text-[#EC4899]" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -152,7 +141,7 @@ export function AnalyticsTab({
                     <div className="bg-gradient-to-r from-[#E0E7FF] to-[#C7D2FE] text-[#3730A3] p-4 rounded-[12px] shadow-sm border border-[#C7D2FE]">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <Phone className="h-5 w-5" />
+                          <Phone className="h-5 w-5 hidden min-[1100px]:block" />
                           <span className="font-semibold">Customer contact initiated</span>
                         </div>
                         <div className="text-[20px] font-bold">{serviceStats?.serviceCallsMade ?? campaignData?.campaign.totalCallPlaced ?? 0}</div>
@@ -165,7 +154,7 @@ export function AnalyticsTab({
                     <div className="bg-gradient-to-r from-[#D1FAE5] to-[#A7F3D0] text-[#065F46] p-4 rounded-[12px] shadow-sm border border-[#A7F3D0]" style={{width: '85%'}}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <CheckCircle className="h-5 w-5" />
+                          <CheckCircle className="h-5 w-5 hidden min-[1100px]:block" />
                           <span className="font-semibold">Contacted successfully</span>
                         </div>
                         <div className="text-[20px] font-bold">{serviceStats?.callsAnswered ?? Math.round((campaignData?.campaign.totalCallPlaced ?? 0) * 0.6)}</div>
@@ -174,24 +163,24 @@ export function AnalyticsTab({
                   </div>
                   
                   {/* Followups requested */}
-                  <div>
+                  {/* <div>
                     <div className="bg-gradient-to-r from-[#FBBF24] to-[#F59E0B] text-[#92400E] p-4 rounded-[12px] shadow-sm border border-[#F59E0B]" style={{width: '70%'}}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <RefreshCw className="h-5 w-5" />
+                          <RefreshCw className="h-5 w-5 hidden min-[1100px]:block" />
                           <span className="font-semibold">Followups requested</span>
                         </div>
                         <div className="text-[20px] font-bold">{serviceStats?.followUpRequested ?? 0}</div>
                       </div>
                     </div>
-                  </div>
+                  </div> */}
                   
                   {/* Appointments scheduled */}
                   <div>
                     <div className="bg-gradient-to-r from-[#FEF3C7] to-[#FDE68A] text-[#92400E] p-4 rounded-[12px] shadow-sm border border-[#FDE68A]" style={{width: '55%'}}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <Calendar className="h-5 w-5" />
+                          <Calendar className="h-5 w-5 hidden min-[1100px]:block" />
                           <span className="font-semibold">Appointments scheduled</span>
                         </div>
                         <div className="text-[20px] font-bold">{serviceStats?.serviceAppointmentCount ?? campaignData?.campaign.appointmentScheduled ?? 0}</div>
@@ -251,43 +240,6 @@ export function AnalyticsTab({
           </Card>
         </div>
 
-        {/* 4. Follow-up Metrics (Service) */}
-        <Card className="border-0 bg-white rounded-[16px]">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">
-              Follow-up Metrics (Service)
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                <div className="p-2 bg-[#EFF6FF] rounded-[8px] flex-shrink-0">
-                  <RefreshCw className="h-5 w-5 text-[#3B82F6]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Total Follow-ups Requested (Service)</h3>
-                  <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
-                    {serviceStats?.followUpRequested ?? 0}
-                  </p>
-                  <p className="text-[#6B7280] text-xs mt-1">Number of follow-up requests made for service-related calls</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0">
-                  <Target className="h-5 w-5 text-[#22C55E]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Follow-up Success Rate (Service)</h3>
-                  <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
-                    {serviceStats?.followUpSuccessRate ?? 0}%
-                  </p>
-                  <p className="text-[#6B7280] text-xs mt-1">Percentage of follow-up calls that resulted in confirmed service appointments</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     )
   } else {
@@ -327,7 +279,7 @@ export function AnalyticsTab({
             <CardContent className="pt-0">
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#F0F4FF] rounded-[8px] flex-shrink-0">
+                  <div className="p-2 bg-[#F0F4FF] rounded-[8px] flex-shrink-0 hidden min-[1100px]:block">
                     <Phone className="h-5 w-5 text-[#4600F2]" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -339,7 +291,7 @@ export function AnalyticsTab({
                 </div>
                 
                 <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0">
+                  <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0 hidden min-[1100px]:block">
                     <Calendar className="h-5 w-5 text-[#22C55E]" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -351,7 +303,7 @@ export function AnalyticsTab({
                 </div>
                 
                 <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#FEFCE8] rounded-[8px] flex-shrink-0">
+                  <div className="p-2 bg-[#FEFCE8] rounded-[8px] flex-shrink-0 hidden min-[1100px]:block">
                     <TrendingUp className="h-5 w-5 text-[#F59E0B]" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -362,20 +314,9 @@ export function AnalyticsTab({
                   </div>
                 </div>
                 
-                <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#EFF6FF] rounded-[8px] flex-shrink-0">
-                    <RefreshCw className="h-5 w-5 text-[#3B82F6]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Follow-ups Requested</h3>
-                    <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
-                      {calculatedStats?.followUpRequested ?? 0}
-                    </p>
-                  </div>
-                </div>
                 
                 <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0">
+                  <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0 hidden min-[1100px]:block">
                     <CheckCircle className="h-5 w-5 text-[#22C55E]" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -387,7 +328,7 @@ export function AnalyticsTab({
                 </div>
                 
                 <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#FDF2F8] rounded-[8px] flex-shrink-0">
+                  <div className="p-2 bg-[#FDF2F8] rounded-[8px] flex-shrink-0 hidden min-[1100px]:block">
                     <Timer className="h-5 w-5 text-[#EC4899]" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -417,7 +358,7 @@ export function AnalyticsTab({
                     <div className="bg-gradient-to-r from-[#E0E7FF] to-[#C7D2FE] text-[#3730A3] p-4 rounded-[12px] shadow-sm border border-[#C7D2FE]">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <Phone className="h-5 w-5" />
+                          <Phone className="h-5 w-5 hidden min-[1100px]:block" />
                           <span className="font-semibold">Customer contact initiated</span>
                         </div>
                         <div className="text-[20px] font-bold">{calculatedStats?.callsMade ?? campaignData?.campaign.totalCallPlaced ?? 0}</div>
@@ -430,7 +371,7 @@ export function AnalyticsTab({
                     <div className="bg-gradient-to-r from-[#D1FAE5] to-[#A7F3D0] text-[#065F46] p-4 rounded-[12px] shadow-sm border border-[#A7F3D0]" style={{width: '85%'}}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <CheckCircle className="h-5 w-5" />
+                          <CheckCircle className="h-5 w-5 hidden min-[1100px]:block" />
                           <span className="font-semibold">Contacted successfully</span>
                         </div>
                         <div className="text-[20px] font-bold">{calculatedStats?.callsAnswered ?? Math.round((campaignData?.campaign.totalCallPlaced ?? 0) * 0.6)}</div>
@@ -439,24 +380,24 @@ export function AnalyticsTab({
                   </div>
                   
                   {/* Followups requested */}
-                  <div>
+                  {/* <div>
                     <div className="bg-gradient-to-r from-[#DBEAFE] to-[#BFDBFE] text-[#1E3A8A] p-4 rounded-[12px] shadow-sm border border-[#BFDBFE]" style={{width: '70%'}}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <RefreshCw className="h-5 w-5" />
+                          <RefreshCw className="h-5 w-5 hidden min-[1100px]:block" />
                           <span className="font-semibold">Followups requested</span>
                         </div>
                         <div className="text-[20px] font-bold">{calculatedStats?.followUpRequested ?? 0}</div>
                       </div>
                     </div>
-                  </div>
+                  </div> */}
                   
                   {/* Appointments scheduled */}
                   <div>
                     <div className="bg-gradient-to-r from-[#FEF3C7] to-[#FDE68A] text-[#92400E] p-4 rounded-[12px] shadow-sm border border-[#FDE68A]" style={{width: '55%'}}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <Calendar className="h-5 w-5" />
+                          <Calendar className="h-5 w-5 hidden min-[1100px]:block" />
                           <span className="font-semibold">Appointments scheduled</span>
                         </div>
                         <div className="text-[20px] font-bold">{calculatedStats?.appointmentCount ?? campaignData?.campaign.appointmentScheduled ?? 0}</div>

@@ -34,7 +34,7 @@ export function MetricCard({
             <p className={cn("text-xl font-bold leading-relaxed", valueColor)}>{value}</p>
           </div>
           {icon && (
-            <div className="flex-shrink-0 ml-3 text-gray-400">
+            <div className="flex-shrink-0 ml-3 text-gray-400 hidden min-[1100px]:block">
               {icon}
             </div>
           )}

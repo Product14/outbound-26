@@ -129,12 +129,12 @@ export default function DataPreviewTable({
                 {columns.map((column) => (
                   <th
                     key={column.key}
-                    className={`text-left py-4 px-4 font-medium text-gray-900 ${column.width}`}
+                    className={`text-left py-4 px-4 font-medium text-gray-900 whitespace-nowrap ${column.width}`}
                   >
                     {column.label}
                   </th>
                 ))}
-                <th className="text-center py-4 px-4 font-medium text-gray-900 w-32">
+                <th className="text-center py-4 px-4 font-medium text-gray-900 whitespace-nowrap w-32">
                   Actions
                 </th>
               </tr>

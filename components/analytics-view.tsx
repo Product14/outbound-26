@@ -111,13 +111,13 @@ export function AnalyticsView() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
-            <Target className="h-4 w-4 text-green-600" />
+            <Target className="h-4 w-4 text-green-600 hidden min-[1100px]:block" />
           </CardHeader>
           <CardContent>
             <div className="text-xs text-gray-500 mb-1">Appointments per Call</div>
             <div className="text-2xl font-bold text-green-600">{appointmentConversionRate}%</div>
             <div className="flex items-center text-xs text-green-600 mt-1">
-              <TrendingUp className="h-3 w-3 mr-1" />
+              <TrendingUp className="h-3 w-3 mr-1 hidden min-[1100px]:inline" />
               +2.3% from last week
             </div>
           </CardContent>
@@ -126,7 +126,7 @@ export function AnalyticsView() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Avg Call Duration</CardTitle>
-            <Clock className="h-4 w-4 text-blue-600" />
+            <Clock className="h-4 w-4 text-blue-600 hidden min-[1100px]:block" />
           </CardHeader>
           <CardContent>
             <div className="text-xs text-gray-500 mb-1">Minutes:Seconds</div>
@@ -134,7 +134,7 @@ export function AnalyticsView() {
               {Math.floor(avgCallDuration / 60)}:{(avgCallDuration % 60).toString().padStart(2, "0")}
             </div>
             <div className="flex items-center text-xs text-red-600 mt-1">
-              <TrendingDown className="h-3 w-3 mr-1" />
+              <TrendingDown className="h-3 w-3 mr-1 hidden min-[1100px]:inline" />
               -0.5% from last week
             </div>
           </CardContent>
@@ -143,13 +143,13 @@ export function AnalyticsView() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Containment Rate</CardTitle>
-            <Users className="h-4 w-4 text-purple-600" />
+            <Users className="h-4 w-4 text-purple-600 hidden min-[1100px]:block" />
           </CardHeader>
           <CardContent>
             <div className="text-xs text-gray-500 mb-1">AI Handled Calls</div>
             <div className="text-2xl font-bold">{containmentRate}%</div>
             <div className="flex items-center text-xs text-green-600 mt-1">
-              <TrendingUp className="h-3 w-3 mr-1" />
+              <TrendingUp className="h-3 w-3 mr-1 hidden min-[1100px]:inline" />
               +1.2% from last week
             </div>
           </CardContent>
@@ -158,13 +158,13 @@ export function AnalyticsView() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Quality Score</CardTitle>
-            <Award className="h-4 w-4 text-yellow-600" />
+            <Award className="h-4 w-4 text-yellow-600 hidden min-[1100px]:block" />
           </CardHeader>
           <CardContent>
             <div className="text-xs text-gray-500 mb-1">Out of 10 Points</div>
             <div className="text-2xl font-bold">{avgAIScore}/10</div>
             <div className="flex items-center text-xs text-green-600 mt-1">
-              <TrendingUp className="h-3 w-3 mr-1" />
+              <TrendingUp className="h-3 w-3 mr-1 hidden min-[1100px]:inline" />
               +0.3 from last week
             </div>
           </CardContent>

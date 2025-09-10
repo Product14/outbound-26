@@ -8,11 +8,14 @@ interface LiveCallsTabProps {
   isCallDetailsOpen: boolean
   onCallSelect: (call: any) => void
   searchTerm?: string
-  statusFilter?: string
+  statusFilter?: string[]
+  connectionFilter?: string[]
   onPauseCampaign?: () => void
   campaignRunning?: boolean
   activeTab: string
   onTabChange: (tab: string) => void
+  onToggleFilters?: () => void
+  showFilters?: boolean
 }
 
 export function LiveCallsTab({
@@ -20,15 +23,18 @@ export function LiveCallsTab({
   onCallSelect,
   searchTerm: initialSearchTerm,
   statusFilter: initialStatusFilter,
+  connectionFilter: initialConnectionFilter,
   onPauseCampaign,
   campaignRunning = true,
   activeTab,
-  onTabChange
+  onTabChange,
+  onToggleFilters,
+  showFilters = false
 }: LiveCallsTabProps) {
   // Local state for all filters
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm || '')
-  const [statusFilter, setStatusFilter] = useState(initialStatusFilter || 'all')
-  const [connectionFilter, setConnectionFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState(initialStatusFilter || ['all'])
+  const [connectionFilter, setConnectionFilter] = useState(initialConnectionFilter || ['all'])
   const [outcomeFilter, setOutcomeFilter] = useState('all')
   const [priorityFilter, setPriorityFilter] = useState('all')
   const [agentFilter, setAgentFilter] = useState('all')
@@ -38,8 +44,8 @@ export function LiveCallsTab({
   const [totalResults, setTotalResults] = useState(0)
 
   return (
-    <div className="space-y-0">
-      {/* Filter Controls */}
+    <div className="space-y-0 px-6 pt-6">
+      {/* Filter Controls - Hidden search and connection filter */}
       <LiveActivityFilters
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
@@ -60,6 +66,9 @@ export function LiveCallsTab({
         totalResults={totalResults}
         activeTab={activeTab}
         onTabChange={onTabChange}
+        hideSearchAndConnection={true}
+        showAllFilters={showFilters}
+        setShowAllFilters={() => onToggleFilters?.()}
       />
 
       {/* Main Content Area - Full Width (Modal is positioned absolutely) */}

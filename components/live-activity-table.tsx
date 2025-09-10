@@ -45,8 +45,8 @@ interface LiveActivityTableProps {
   isCallDetailsOpen?: boolean
   onCallSelect?: (call: CallRecord) => void
   searchTerm?: string
-  statusFilter?: string
-  connectionFilter?: string
+  statusFilter?: string[]
+  connectionFilter?: string[]
   outcomeFilter?: string
   priorityFilter?: string
   agentFilter?: string
@@ -58,8 +58,8 @@ export function LiveActivityTable({
   isCallDetailsOpen = false, 
   onCallSelect, 
   searchTerm = "", 
-  statusFilter = "all",
-  connectionFilter = "all",
+  statusFilter = ["all"],
+  connectionFilter = ["all"],
   outcomeFilter = "all",
   priorityFilter = "all",
   agentFilter = "all",
@@ -373,8 +373,8 @@ export function LiveActivityTable({
                            call.callReason.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            (call.vehicleInfo && `${call.vehicleInfo.year} ${call.vehicleInfo.make} ${call.vehicleInfo.model}`.toLowerCase().includes(searchTerm.toLowerCase()))
       
-      const matchesStatus = statusFilter === "all" || call.callStatus === statusFilter
-      const matchesConnection = connectionFilter === "all" || call.connectionStatus === connectionFilter
+      const matchesStatus = statusFilter.includes("all") || statusFilter.includes(call.callStatus)
+      const matchesConnection = connectionFilter.includes("all") || connectionFilter.includes(call.connectionStatus)
       const matchesOutcome = outcomeFilter === "all" || call.outcome === outcomeFilter
       const matchesPriority = priorityFilter === "all" || call.priority === priorityFilter
       const matchesAgent = agentFilter === "all" || call.agent.name === agentFilter
@@ -699,28 +699,29 @@ export function LiveActivityTable({
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <Table>
+      <div className="overflow-x-auto">
+        <Table className="min-w-[1100px]">
             <TableHeader>
               <TableRow className="bg-gray-50">
-                <TableHead className="font-semibold text-gray-900 cursor-pointer" onClick={() => handleSort("customer")}>
+                <TableHead className="font-semibold text-gray-900 cursor-pointer whitespace-nowrap min-w-[250px]" onClick={() => handleSort("customer")}>
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4" />
                     Customer Details
                     <ArrowUpDown className="w-3 h-3" />
                   </div>
                 </TableHead>
-                <TableHead className="font-semibold text-gray-900">Connection Status</TableHead>
-                <TableHead className="font-semibold text-gray-900 cursor-pointer" onClick={() => handleSort("timestamp")}>
+                <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[140px]">Connection Status</TableHead>
+                <TableHead className="font-semibold text-gray-900 cursor-pointer whitespace-nowrap min-w-[160px]" onClick={() => handleSort("timestamp")}>
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4" />
                     Timestamp
                     <ArrowUpDown className="w-3 h-3" />
                   </div>
                 </TableHead>
-                <TableHead className="font-semibold text-gray-900">Duration</TableHead>
-                <TableHead className="font-semibold text-gray-900">Outcome</TableHead>
-                <TableHead className="font-semibold text-gray-900">Agent</TableHead>
-                <TableHead className="font-semibold text-gray-900 cursor-pointer" onClick={() => handleSort("qualityScore")}>
+                <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[120px]">Duration</TableHead>
+                <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[160px]">Outcome</TableHead>
+                <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[140px]">Agent</TableHead>
+                <TableHead className="font-semibold text-gray-900 cursor-pointer whitespace-nowrap min-w-[160px]" onClick={() => handleSort("qualityScore")}>
                   <div className="flex items-center gap-2">
                     Quality Score
                     <ArrowUpDown className="w-3 h-3" />
@@ -756,7 +757,7 @@ export function LiveActivityTable({
                       </Avatar>
                       <div>
                         <div className="font-medium text-gray-900">{call.customer.name}</div>
-                        <div className="text-sm text-gray-500">{call.customer.phone}</div>
+                        <div className="text-sm text-gray-500 whitespace-nowrap">{call.customer.phone}</div>
                       </div>
                     </div>
                   </TableCell>
@@ -804,6 +805,7 @@ export function LiveActivityTable({
               ))}
             </TableBody>
           </Table>
+        </div>
       
       {filteredAndSortedCalls.length === 0 && (
         <div className="text-center py-12 px-6">

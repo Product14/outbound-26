@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { MultiSelect, MultiSelectOption } from "@/components/ui/multi-select"
 import { 
   Search, 
   Filter, 
@@ -29,10 +30,10 @@ import {
 interface LiveActivityFiltersProps {
   searchTerm: string
   setSearchTerm: (value: string) => void
-  statusFilter: string
-  setStatusFilter: (value: string) => void
-  connectionFilter: string
-  setConnectionFilter: (value: string) => void
+  statusFilter: string[]
+  setStatusFilter: (value: string[]) => void
+  connectionFilter: string[]
+  setConnectionFilter: (value: string[]) => void
   outcomeFilter: string
   setOutcomeFilter: (value: string) => void
   priorityFilter: string
@@ -47,6 +48,11 @@ interface LiveActivityFiltersProps {
   // Tab-related props
   activeTab: string
   onTabChange: (tab: string) => void
+  // New prop to hide search and connection filter (handled by TabsNavigation)
+  hideSearchAndConnection?: boolean
+  // External control of filter visibility
+  showAllFilters?: boolean
+  setShowAllFilters?: (show: boolean) => void
 }
 
 export function LiveActivityFilters({
@@ -68,15 +74,35 @@ export function LiveActivityFilters({
   campaignRunning = true,
   totalResults = 0,
   activeTab,
-  onTabChange
+  onTabChange,
+  hideSearchAndConnection = false,
+  showAllFilters: externalShowAllFilters,
+  setShowAllFilters: externalSetShowAllFilters
 }: LiveActivityFiltersProps) {
-  const [showAllFilters, setShowAllFilters] = useState(false)
+  const [internalShowAllFilters, setInternalShowAllFilters] = useState(false)
+  
+  // Use external state if provided, otherwise use internal state
+  const showAllFilters = externalShowAllFilters !== undefined ? externalShowAllFilters : internalShowAllFilters
+  const setShowAllFilters = externalSetShowAllFilters || setInternalShowAllFilters
+
+  // Connection status options for multi-select
+  const connectionOptions: MultiSelectOption[] = [
+    { value: 'all', label: 'All Connections', icon: <List className="h-4 w-4 text-gray-500" /> },
+    { value: 'connected', label: 'Connected', icon: <PhoneCall className="h-4 w-4 text-green-600" /> },
+    { value: 'live', label: 'Live', icon: <div className="w-4 h-4 flex items-center justify-center"><div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div></div> },
+    { value: 'queue', label: 'Queue', icon: <Timer className="h-4 w-4 text-blue-600" /> },
+    { value: 'not_connected', label: 'Not Connected', icon: <PhoneOff className="h-4 w-4 text-gray-600" /> },
+    { value: 'voice_mail', label: 'Voice Mail', icon: <Voicemail className="h-4 w-4 text-yellow-600" /> },
+    { value: 'call_failed', label: 'Call Failed', icon: <X className="h-4 w-4 text-red-600" /> },
+    { value: 'busy', label: 'Busy', icon: <PhoneMissed className="h-4 w-4 text-orange-600" /> },
+    { value: 'do_not_call', label: 'Do Not Call', icon: <Ban className="h-4 w-4 text-red-600" /> }
+  ];
 
   // Count active filters
   const activeFiltersCount = [
     searchTerm.trim() !== "",
-    statusFilter !== "all",
-    connectionFilter !== "all",
+    statusFilter.length > 1 || (statusFilter.length === 1 && statusFilter[0] !== "all"),
+    connectionFilter.length > 1 || (connectionFilter.length === 1 && connectionFilter[0] !== "all"),
     outcomeFilter !== "all",
     priorityFilter !== "all",
     agentFilter !== "all",
@@ -86,12 +112,106 @@ export function LiveActivityFilters({
   // Clear all filters
   const clearAllFilters = () => {
     setSearchTerm("")
-    setStatusFilter("all")
-    setConnectionFilter("all")
+    setStatusFilter(["all"])
+    setConnectionFilter(["all"])
     setOutcomeFilter("all")
     setPriorityFilter("all")
     setAgentFilter("all")
     setCallReasonFilter("all")
+  }
+
+  // If hiding search and connection, don't render the top section at all
+  if (hideSearchAndConnection) {
+    return (
+      <div className="mb-3">
+        {/* Only show expanded filters if any are active */}
+        {showAllFilters && (
+          <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
+            {/* Additional Filters Row */}
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Outcome Filter */}
+              <Select value={outcomeFilter} onValueChange={setOutcomeFilter}>
+                <SelectTrigger className="w-48 h-9 border-gray-200 bg-white rounded-lg text-sm">
+                  <div className="flex items-center gap-2">
+                    <Target className="h-4 w-4 text-gray-400" />
+                    <SelectValue placeholder="All Outcomes" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="w-48 bg-white border border-gray-200 rounded-xl shadow-lg p-1">
+                  <SelectItem value="all" className="rounded-lg py-2 px-3 hover:bg-gray-50 cursor-pointer">All Outcomes</SelectItem>
+                  <SelectItem value="appointment_set" className="rounded-lg py-2 px-3 hover:bg-gray-50 cursor-pointer">Appointment Set</SelectItem>
+                  <SelectItem value="info_provided" className="rounded-lg py-2 px-3 hover:bg-gray-50 cursor-pointer">Info Provided</SelectItem>
+                  <SelectItem value="callback_requested" className="rounded-lg py-2 px-3 hover:bg-gray-50 cursor-pointer">Callback Requested</SelectItem>
+                  <SelectItem value="not_interested" className="rounded-lg py-2 px-3 hover:bg-gray-50 cursor-pointer">Not Interested</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Priority Filter */}
+              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <SelectTrigger className="w-44 h-9 border-gray-200 bg-white rounded-lg text-sm">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-gray-400" />
+                    <SelectValue placeholder="All Priority" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="w-44 bg-white border border-gray-200 rounded-xl shadow-lg p-1">
+                  <SelectItem value="all" className="rounded-lg py-2 px-3 hover:bg-gray-50 cursor-pointer">All Priority</SelectItem>
+                  <SelectItem value="high" className="rounded-lg py-2 px-3 hover:bg-gray-50 cursor-pointer">High Priority</SelectItem>
+                  <SelectItem value="medium" className="rounded-lg py-2 px-3 hover:bg-gray-50 cursor-pointer">Medium Priority</SelectItem>
+                  <SelectItem value="low" className="rounded-lg py-2 px-3 hover:bg-gray-50 cursor-pointer">Low Priority</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Agent Filter */}
+              <Select value={agentFilter} onValueChange={setAgentFilter}>
+                <SelectTrigger className="w-40 h-9 border-gray-200 bg-white rounded-lg text-sm">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-gray-400" />
+                    <SelectValue placeholder="All Agents" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="w-40 bg-white border border-gray-200 rounded-xl shadow-lg p-1">
+                  <SelectItem value="all" className="rounded-lg py-2 px-3 hover:bg-gray-50 cursor-pointer">All Agents</SelectItem>
+                  <SelectItem value="kylie" className="rounded-lg py-2 px-3 hover:bg-gray-50 cursor-pointer">Kylie</SelectItem>
+                  <SelectItem value="marcus" className="rounded-lg py-2 px-3 hover:bg-gray-50 cursor-pointer">Marcus</SelectItem>
+                  <SelectItem value="mia" className="rounded-lg py-2 px-3 hover:bg-gray-50 cursor-pointer">Mia</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Call Reason Filter */}
+              <Select value={callReasonFilter} onValueChange={setCallReasonFilter}>
+                <SelectTrigger className="w-48 h-9 border-gray-200 bg-white rounded-lg text-sm">
+                  <div className="flex items-center gap-2">
+                    <List className="h-4 w-4 text-gray-400" />
+                    <SelectValue placeholder="All Call Reasons" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="w-48 bg-white border border-gray-200 rounded-xl shadow-lg p-1">
+                  <SelectItem value="all" className="rounded-lg py-2 px-3 hover:bg-gray-50 cursor-pointer">All Call Reasons</SelectItem>
+                  <SelectItem value="vehicle_inquiry" className="rounded-lg py-2 px-3 hover:bg-gray-50 cursor-pointer">Vehicle Inquiry</SelectItem>
+                  <SelectItem value="service_appointment" className="rounded-lg py-2 px-3 hover:bg-gray-50 cursor-pointer">Service Appointment</SelectItem>
+                  <SelectItem value="test_drive" className="rounded-lg py-2 px-3 hover:bg-gray-50 cursor-pointer">Test Drive</SelectItem>
+                  <SelectItem value="pricing_info" className="rounded-lg py-2 px-3 hover:bg-gray-50 cursor-pointer">Pricing Info</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Clear Filters Button */}
+              {activeFiltersCount > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearAllFilters}
+                  className="h-9 px-3 text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Clear All
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -141,101 +261,37 @@ export function LiveActivityFilters({
           </Button>
 
           {/* Status Filter - Always Visible */}
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-52 h-10 border-gray-200 bg-white rounded-lg shadow-sm">
-              <SelectValue placeholder="All Connections" />
-            </SelectTrigger>
-            <SelectContent className="w-52 bg-white border border-gray-200 rounded-xl shadow-lg p-1">
-              <SelectItem value="all" className="rounded-lg py-2.5 px-3 hover:bg-gray-50 cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <List className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm font-medium">All Connections</span>
-                </div>
-              </SelectItem>
-              <SelectItem value="connected" className="rounded-lg py-2.5 px-3 hover:bg-gray-50 cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <PhoneCall className="h-4 w-4 text-green-600" />
-                  <span className="text-sm font-medium">Connected</span>
-                </div>
-              </SelectItem>
-              <SelectItem value="live" className="rounded-lg py-2.5 px-3 hover:bg-gray-50 cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <div className="w-4 h-4 flex items-center justify-center">
-                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                  </div>
-                  <span className="text-sm font-medium">Live</span>
-                </div>
-              </SelectItem>
-              <SelectItem value="queue" className="rounded-lg py-2.5 px-3 hover:bg-gray-50 cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <Timer className="h-4 w-4 text-blue-600" />
-                  <span className="text-sm font-medium">Queue</span>
-                </div>
-              </SelectItem>
-              <SelectItem value="not_connected" className="rounded-lg py-2.5 px-3 hover:bg-gray-50 cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <PhoneOff className="h-4 w-4 text-gray-600" />
-                  <span className="text-sm font-medium">Not Connected</span>
-                </div>
-              </SelectItem>
-              <SelectItem value="voice_mail" className="rounded-lg py-2.5 px-3 hover:bg-gray-50 cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <Voicemail className="h-4 w-4 text-yellow-600" />
-                  <span className="text-sm font-medium">Voice Mail</span>
-                </div>
-              </SelectItem>
-              <SelectItem value="call_failed" className="rounded-lg py-2.5 px-3 hover:bg-gray-50 cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <X className="h-4 w-4 text-red-600" />
-                  <span className="text-sm font-medium">Call Failed</span>
-                </div>
-              </SelectItem>
-              <SelectItem value="busy" className="rounded-lg py-2.5 px-3 hover:bg-gray-50 cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <PhoneMissed className="h-4 w-4 text-orange-600" />
-                  <span className="text-sm font-medium">Busy</span>
-                </div>
-              </SelectItem>
-              <SelectItem value="do_not_call" className="rounded-lg py-2.5 px-3 hover:bg-gray-50 cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <Ban className="h-4 w-4 text-red-600" />
-                  <span className="text-sm font-medium">Do Not Call</span>
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          <MultiSelect
+            options={connectionOptions}
+            selected={statusFilter}
+            onChange={setStatusFilter}
+            placeholder="All Connections"
+            className="w-52 h-10 border-gray-200 bg-white rounded-lg shadow-sm"
+            maxDisplay={1}
+          />
         </div>
       </div>
 
       {/* Extended Filters Row - Collapsible */}
       {showAllFilters && (
         <div className="border-t border-gray-100 pt-4">
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+          <div className="flex items-center gap-2 min-h-[40px]">
             {/* Connection Status Filter */}
-            <Select value={connectionFilter} onValueChange={setConnectionFilter}>
-              <SelectTrigger className="h-9 border-gray-200">
-                <div className="flex items-center gap-2">
-                  <Phone className="h-3 w-3 text-gray-500" />
-                  <SelectValue placeholder="Connection" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Connections</SelectItem>
-                <SelectItem value="connected">Connected</SelectItem>
-                <SelectItem value="voice_mail">Voice Mail</SelectItem>
-                <SelectItem value="busy">Busy</SelectItem>
-                <SelectItem value="not_connected">Not Connected</SelectItem>
-                <SelectItem value="call_failed">Call Failed</SelectItem>
-                <SelectItem value="do_not_call">Do Not Call</SelectItem>
-              </SelectContent>
-            </Select>
+            <MultiSelect
+              options={connectionOptions}
+              selected={connectionFilter}
+              onChange={setConnectionFilter}
+              placeholder="Connections"
+              className="h-9 border-gray-200 bg-white flex-1 whitespace-nowrap"
+              maxDisplay={1}
+            />
 
             {/* Outcome Filter */}
             <Select value={outcomeFilter} onValueChange={setOutcomeFilter}>
-              <SelectTrigger className="h-9 border-gray-200">
+              <SelectTrigger className="h-9 border-gray-200 bg-white flex-1 whitespace-nowrap">
                 <div className="flex items-center gap-2">
                   <Target className="h-3 w-3 text-gray-500" />
-                  <SelectValue placeholder="Outcome" />
+                  <SelectValue placeholder="Outcomes" />
                 </div>
               </SelectTrigger>
               <SelectContent>
@@ -253,10 +309,10 @@ export function LiveActivityFilters({
 
             {/* Priority Filter */}
             <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger className="h-9 border-gray-200">
+              <SelectTrigger className="h-9 border-gray-200 bg-white flex-1 whitespace-nowrap">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-3 w-3 text-gray-500" />
-                  <SelectValue placeholder="Priority" />
+                  <SelectValue placeholder="Priorities" />
                 </div>
               </SelectTrigger>
               <SelectContent>
@@ -269,10 +325,10 @@ export function LiveActivityFilters({
 
             {/* Agent Filter */}
             <Select value={agentFilter} onValueChange={setAgentFilter}>
-              <SelectTrigger className="h-9 border-gray-200">
+              <SelectTrigger className="h-9 border-gray-200 bg-white flex-1 whitespace-nowrap">
                 <div className="flex items-center gap-2">
                   <Users className="h-3 w-3 text-gray-500" />
-                  <SelectValue placeholder="Agent" />
+                  <SelectValue placeholder="Agents" />
                 </div>
               </SelectTrigger>
               <SelectContent>
@@ -286,10 +342,10 @@ export function LiveActivityFilters({
 
             {/* Call Reason Filter */}
             <Select value={callReasonFilter} onValueChange={setCallReasonFilter}>
-              <SelectTrigger className="h-9 border-gray-200">
+              <SelectTrigger className="h-9 border-gray-200 bg-white flex-1 whitespace-nowrap">
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-3 w-3 text-gray-500" />
-                  <SelectValue placeholder="Intent" />
+                  <SelectValue placeholder="Intents" />
                 </div>
               </SelectTrigger>
               <SelectContent>
@@ -325,11 +381,11 @@ export function LiveActivityFilters({
               </Badge>
             )}
             
-            {statusFilter !== "all" && (
+            {(statusFilter.length > 1 || (statusFilter.length === 1 && statusFilter[0] !== "all")) && (
               <Badge variant="secondary" className="flex items-center gap-1 px-2 py-1">
-                Status: {statusFilter.replace("_", " ")}
+                Status: {statusFilter.length === 1 ? statusFilter[0].replace("_", " ") : `${statusFilter.length} selected`}
                 <button
-                  onClick={() => setStatusFilter("all")}
+                  onClick={() => setStatusFilter(["all"])}
                   className="ml-1 hover:bg-gray-200 rounded-full p-0.5"
                 >
                   <X className="h-3 w-3" />
@@ -337,11 +393,11 @@ export function LiveActivityFilters({
               </Badge>
             )}
             
-            {connectionFilter !== "all" && (
+            {(connectionFilter.length > 1 || (connectionFilter.length === 1 && connectionFilter[0] !== "all")) && (
               <Badge variant="secondary" className="flex items-center gap-1 px-2 py-1">
-                Connection: {connectionFilter.replace("_", " ")}
+                Connection: {connectionFilter.length === 1 ? connectionFilter[0].replace("_", " ") : `${connectionFilter.length} selected`}
                 <button
-                  onClick={() => setConnectionFilter("all")}
+                  onClick={() => setConnectionFilter(["all"])}
                   className="ml-1 hover:bg-gray-200 rounded-full p-0.5"
                 >
                   <X className="h-3 w-3" />

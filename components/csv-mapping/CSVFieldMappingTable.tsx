@@ -58,16 +58,16 @@ export default function CSVFieldMappingTable({
             <table className="w-full">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="text-left py-4 px-6 font-medium text-gray-900">
+                  <th className="text-left py-4 px-6 font-medium text-gray-900 whitespace-nowrap">
                     Column header from file ({csvMappings.length})
                   </th>
-                  <th className="text-left py-4 px-6 font-medium text-gray-900">
+                  <th className="text-left py-4 px-6 font-medium text-gray-900 whitespace-nowrap">
                     Column values
                   </th>
-                  <th className="text-center py-4 px-6 font-medium text-gray-900">
+                  <th className="text-center py-4 px-6 font-medium text-gray-900 whitespace-nowrap">
                     Status
                   </th>
-                  <th className="text-left py-4 px-6 font-medium text-gray-900">
+                  <th className="text-left py-4 px-6 font-medium text-gray-900 whitespace-nowrap">
                     Import as
                   </th>
                 </tr>

@@ -19,6 +19,7 @@ import { useAgents } from '@/hooks/use-agents'
 import { CampaignHeader } from '@/components/campaign/campaign-header'
 import { LiveCallsTab } from '@/components/campaign/live-calls-tab'
 import { AnalyticsTab } from '@/components/campaign/analytics-tab'
+import { TabsNavigation } from '@/components/ui/tabs-navigation'
 import { BlankCallDrawer } from '@/components/blank-call-drawer'
 import { CampaignPageShimmer } from '@/components/ui/campaign-shimmer'
 import { FunnelChart } from '@/components/ui/funnel-chart'
@@ -28,8 +29,6 @@ import { calculateCampaignMetrics, calculateMockCampaignMetrics } from '@/lib/me
 import { MetricsGrid } from '@/components/ui/metrics-grid'
 import { generateMockCampaignCalls } from '@/lib/mock-campaign-data'
 import type { CallRecord } from '@/types/call-record'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { ChevronDown, ChevronRight } from "lucide-react"
 import { PerformanceTimeChart } from '@/components/charts/PerformanceTimeChart'
 import { generateTopPerformingVehicles, generateTopPerformingServices, generatePerformanceTimeData } from '@/lib/call-status-utils'
 
@@ -90,13 +89,14 @@ export default function CampaignDetail() {
   const [callDetailsTab, setCallDetailsTab] = useState('highlights')
   const [callTimer, setCallTimer] = useState(0)
   const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState(["all"])
+  const [connectionFilter, setConnectionFilter] = useState(["all"])
+  const [showFilters, setShowFilters] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const audioRef = useRef<any>(null)
   const [isClosing, setIsClosing] = useState(false)
   const lastCloseTimeRef = useRef<number>(0)
   const lastCallSelectRef = useRef<number>(0)
-  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false)
 
   // Campaign type detection
   const mappedCampaignType = campaignData?.campaign?.campaignType 
@@ -819,6 +819,7 @@ export default function CampaignDetail() {
     <div className="min-h-screen" style={{ backgroundColor: 'hsl(var(--background))' }}>
       <CampaignHeader
         campaignData={campaignData}
+        campaignId={campaignId}
         isSalesCampaign={isSalesCampaign}
         isServiceCampaign={isServiceCampaign}
         isCallDetailsOpen={isCallDetailsOpen}
@@ -831,210 +832,195 @@ export default function CampaignDetail() {
         onToggleCampaignStatus={toggleCampaignStatus}
       />
       
-      <div className="px-12 py-8 bg-[#F4F5F8] min-h-screen">
-        {/* Analytics Section - Collapsible */}
-        {(isSalesCampaign || isServiceCampaign) && (
-          <div className="mb-8">
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-              <Collapsible open={isAnalyticsOpen} onOpenChange={setIsAnalyticsOpen}>
-                <CollapsibleTrigger className="flex items-center gap-3 w-full p-4 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center gap-2">
-                    {isAnalyticsOpen ? (
-                      <ChevronDown className="h-5 w-5 text-gray-600" />
-                    ) : (
-                      <ChevronRight className="h-5 w-5 text-gray-600" />
-                    )}
-                    <h2 className="text-[18px] font-semibold text-gray-900">Analytics</h2>
-                  </div>
-                </CollapsibleTrigger>
-                
-                {/* Always visible: All Analytics Components */}
-                <div className="px-4 pb-4 space-y-6">
-                  {/* First Row: Funnel Chart and Metrics Section */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Funnel Chart */}
-                    <div className="lg:col-span-1">
-                      <div className="bg-gray-50 rounded-xl p-4 h-full">
-                        <div className="mb-4">
-                          <h3 className="text-sm font-semibold text-gray-900">
-                            {isSalesCampaign ? 'Sales Campaign Funnel' : 'Service Campaign Funnel'}
-                          </h3>
-                        </div>
-                        <div className="h-52">
-                          <AppointmentFunnel
-                            data={getAppointmentFunnelData(
-                              campaignData,
-                              isSalesCampaign ? 'sales' : 'service'
-                            )}
-                            cardBackgroundColor={isSalesCampaign ? '#DBEAFE' : '#DCFCE7'}
-                            graphColor={isSalesCampaign ? '#3B82F6' : '#22C55E'}
-                            conversionChipColor={isSalesCampaign ? '#93C5FD' : '#86EFAC'}
-                          />
-                        </div>
-                      </div>
-                    </div>
+      {/* Tabs Navigation */}
+      <TabsNavigation
+        defaultActiveTab={activeTab}
+        onTabChange={handleTabChange}
+        showSearch={true}
+        showFilters={true}
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        statusFilter={statusFilter}
+        setStatusFilter={setStatusFilter}
+        onToggleFilters={() => setShowFilters(!showFilters)}
+      />
+      
+      {/* Content Area with Tabs for Sales and Service Campaigns */}
+      {(isSalesCampaign || isServiceCampaign) ? (
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+          {/* Live Calls Tab */}
+          <TabsContent value="live-calls" className="mt-0">
+            <LiveCallsTab
+              isCallDetailsOpen={isCallDetailsOpen}
+              onCallSelect={handleCallSelect}
+              searchTerm={searchTerm}
+              statusFilter={statusFilter}
+              connectionFilter={connectionFilter}
+              onPauseCampaign={() => setCampaignRunning(!campaignRunning)}
+              campaignRunning={campaignRunning}
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+              onToggleFilters={() => setShowFilters(!showFilters)}
+              showFilters={showFilters}
+            />
+          </TabsContent>
 
-                    {/* Metrics Grid */}
-                    <div className="lg:col-span-1">
-                      <div className="bg-gray-50 rounded-xl p-4 h-full">
-                        <div className="mb-4">
-                          <h3 className="text-sm font-semibold text-gray-900">
-                            Campaign Metrics
-                          </h3>
-                        </div>
-                        <MetricsGrid metrics={campaignMetrics} />
+          {/* Analytics Tab */}
+          <TabsContent value="analytics" className="mt-0">
+              <div className="space-y-6">
+                {/* Analytics Content */}
+                <div className="bg-white shadow-sm p-6">
+                {/* First Row: Funnel Chart - Full width on screens < 1400px */}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+                  {/* Funnel Chart */}
+                  <div className="xl:col-span-1">
+                    <div className="bg-gray-50 rounded-xl p-4 h-full">
+                      <div className="mb-4">
+                        <h3 className="text-sm font-semibold text-gray-900">
+                          {isSalesCampaign ? 'Sales Campaign Funnel' : 'Service Campaign Funnel'}
+                        </h3>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Second Row: Collapsible Performance Charts */}
-                  <CollapsibleContent>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Performance Time Chart */}
-                      <div className="lg:col-span-1">
-                        <PerformanceTimeChart 
-                          data={generatePerformanceTimeData()} 
-                          title="Best Time"
+                      <div className="h-52">
+                        <AppointmentFunnel
+                          data={getAppointmentFunnelData(
+                            campaignData,
+                            isSalesCampaign ? 'sales' : 'service'
+                          )}
+                          cardBackgroundColor={isSalesCampaign ? '#DBEAFE' : '#DCFCE7'}
+                          graphColor={isSalesCampaign ? '#3B82F6' : '#22C55E'}
+                          conversionChipColor={isSalesCampaign ? '#93C5FD' : '#86EFAC'}
                         />
                       </div>
-
-                      {/* Top Performing Vehicles - Only show for sales campaigns */}
-                      {isSalesCampaign && (
-                        <div className="lg:col-span-1">
-                          <div className="bg-gray-50 rounded-xl p-4 h-[340px] flex flex-col">
-                            <div className="mb-4">
-                              <h3 className="text-sm font-semibold text-gray-900">
-                                Top Performing Vehicles
-                              </h3>
-                            </div>
-                            <div className="space-y-2 overflow-y-auto flex-1 pr-2">
-                              {generateTopPerformingVehicles(campaignMetrics.totalAppointmentsSet.count).map((item: any, index: number) => (
-                                <div key={item.vehicle} className="flex items-center justify-between p-2 border border-[#E5E7EB] rounded-[8px]">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 bg-[#F0F4FF] rounded-full flex items-center justify-center text-[#4600F2] font-bold text-xs">
-                                      {index + 1}
-                                    </div>
-                                    <span className="font-medium text-[#1A1A1A]">
-                                      {item.vehicle}
-                                    </span>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="text-[16px] font-bold text-[#1A1A1A]">{item.appointments}</div>
-                                    <div className="text-xs text-[#6B7280]">
-                                      {item.percentage}%
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      )}
                     </div>
-                  </CollapsibleContent>
+                  </div>
+
+                  {/* Metrics Grid */}
+                  <div className="xl:col-span-1">
+                    <div className="bg-gray-50 rounded-xl p-4 h-full">
+                      <div className="mb-4">
+                        <h3 className="text-sm font-semibold text-gray-900">
+                          Campaign Metrics
+                        </h3>
+                      </div>
+                      <MetricsGrid metrics={campaignMetrics} />
+                    </div>
+                  </div>
                 </div>
-              </Collapsible>
-            </div>
-          </div>
-        )}
 
-        {/* Content Area with Tabs for Sales and Service Campaigns */}
-        {(isSalesCampaign || isServiceCampaign) ? (
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            {/* Live Calls Tab */}
-            <TabsContent value="live-calls" className="mt-0">
-              <LiveCallsTab
-                isCallDetailsOpen={isCallDetailsOpen}
-                onCallSelect={handleCallSelect}
-                searchTerm={searchTerm}
-                statusFilter={statusFilter}
-                onPauseCampaign={() => setCampaignRunning(!campaignRunning)}
-                campaignRunning={campaignRunning}
-                activeTab={activeTab}
-                onTabChange={handleTabChange}
-              />
-            </TabsContent>
+                {/* Second Row: Performance Charts */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Performance Time Chart */}
+                  <div className="md:col-span-1">
+                    <PerformanceTimeChart 
+                      data={generatePerformanceTimeData()} 
+                      title="Best Time"
+                    />
+                  </div>
 
-            {/* Analytics Tab - Commented out for now */}
-            {/* <TabsContent value="analytics" className="mt-0">
-              <AnalyticsTab
-                isServiceCampaign={isServiceCampaign}
-                campaignData={campaignData}
-                serviceStats={serviceStats}
-                calculatedStats={calculatedStats}
-                activeTab={activeTab}
-                onTabChange={handleTabChange}
-              />
-            </TabsContent> */}
-          </Tabs>
-        ) : (
-          // Non-Sales/Service campaigns - show simple completion message
-          <Card>
-            <CardContent className="p-12 text-center">
-              <div className="w-20 h-20 mx-auto mb-6 bg-green-100 rounded-full flex items-center justify-center">
-                <CheckCircle className="h-10 w-10 text-green-600" />
-              </div>
-              <h2 className="text-xl font-semibold mb-2">Campaign Complete</h2>
-              <p className="text-muted-foreground mb-6">
-                This {mappedCampaignType.toLowerCase()} campaign has finished running. 
-                {campaignData?.campaign?.totalCallPlaced || 0} calls were made with {campaignData?.campaign?.appointmentScheduled || 0} appointments scheduled.
-              </p>
-              <div className="flex justify-center gap-4">
-                <Button variant="outline" onClick={() => router.push('/results')}>
-                  Back to Campaigns
-                    </Button>
-                <Button>
-                  <Download className="w-4 h-4 mr-2" />
-                  Export Results
-                              </Button>
+                  {/* Top Performing Vehicles - Only show for sales campaigns */}
+                  {isSalesCampaign && (
+                    <div className="md:col-span-1">
+                      <div className="bg-gray-50 rounded-xl p-4 h-[340px] flex flex-col">
+                        <div className="mb-4">
+                          <h3 className="text-sm font-semibold text-gray-900">
+                            Top Performing Vehicles
+                          </h3>
+                        </div>
+                        <div className="space-y-2 overflow-y-auto flex-1 pr-2">
+                          {generateTopPerformingVehicles(campaignMetrics.totalAppointmentsSet.count).map((item: any, index: number) => (
+                            <div key={item.vehicle} className="flex items-center justify-between p-2 border border-[#E5E7EB] rounded-[8px]">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 bg-[#F0F4FF] rounded-full flex items-center justify-center text-[#4600F2] font-bold text-xs">
+                                  {index + 1}
+                                </div>
+                                <span className="font-medium text-[#1A1A1A]">
+                                  {item.vehicle}
+                                </span>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-[16px] font-bold text-[#1A1A1A]">{item.appointments}</div>
+                                <div className="text-xs text-[#6B7280]">
+                                  {item.percentage}%
+                                </div>
+                              </div>
                             </div>
-          </CardContent>
-        </Card>
-        )}
-
-        {/* Custom Modal Implementation */}
-        {isCallDetailsOpen && selectedCall && (
-          <div className="fixed inset-0 z-50">
-            {/* Overlay */}
-            <div 
-              className="fixed inset-0 bg-black/20 backdrop-blur-sm"
-              onClick={(e) => {
-                console.log('🔍 Custom overlay clicked')
-                e.preventDefault()
-                e.stopPropagation()
-                handleCallDetailsClose()
-              }}
-              onWheel={(e) => e.preventDefault()}
-              onTouchMove={(e) => e.preventDefault()}
-            />
-            
-            {/* Modal Content */}
-            <div 
-              className="fixed top-0 right-0 h-full w-full sm:max-w-2xl bg-white shadow-2xl transform transition-all duration-300 ease-out overflow-hidden"
-              style={{ maxWidth: '48rem' }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <BlankCallDrawer
-                call={selectedCall}
-                open={isCallDetailsOpen}
-                onClose={handleCallDetailsClose}
-                onPlayStateChange={handlePlayStateChange}
-                isPlaying={isPlaying}
-                audioRef={audioRef}
-                autoStartPlayback={false}
-                getAgentDetails={getAgentDetails}
-                getCallSummary={getCallSummary}
-                getVehicleInfo={getVehicleInfo}
-                getNextAction={getNextAction}
-                getPotentialRevenue={getPotentialRevenue}
-                formatRevenue={formatRevenue}
-                getTimeAgo={getTimeAgo}
-                getCallTitle={getCallTitle}
-              />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
+          </TabsContent>
+        </Tabs>
+      ) : (
+        // Non-Sales/Service campaigns - show simple completion message
+        <Card>
+          <CardContent className="p-12 text-center">
+            <div className="w-20 h-20 mx-auto mb-6 bg-green-100 rounded-full flex items-center justify-center">
+              <CheckCircle className="h-10 w-10 text-green-600" />
+            </div>
+            <h2 className="text-xl font-semibold mb-2">Campaign Complete</h2>
+            <p className="text-muted-foreground mb-6">
+              This {mappedCampaignType.toLowerCase()} campaign has finished running. 
+              {campaignData?.campaign?.totalCallPlaced || 0} calls were made with {campaignData?.campaign?.appointmentScheduled || 0} appointments scheduled.
+            </p>
+            <div className="flex justify-center gap-4">
+              <Button variant="outline" onClick={() => router.push('/results')}>
+                Back to Campaigns
+                  </Button>
+              <Button>
+                <Download className="w-4 h-4 mr-2" />
+                Export Results
+                            </Button>
+                          </div>
+        </CardContent>
+      </Card>
+      )}
+
+      {/* Custom Modal Implementation */}
+      {isCallDetailsOpen && selectedCall && (
+        <div className="fixed inset-0 z-50">
+          {/* Overlay */}
+          <div 
+            className="fixed inset-0 bg-black/20 backdrop-blur-sm"
+            onClick={(e) => {
+              console.log('🔍 Custom overlay clicked')
+              e.preventDefault()
+              e.stopPropagation()
+              handleCallDetailsClose()
+            }}
+            onWheel={(e) => e.preventDefault()}
+            onTouchMove={(e) => e.preventDefault()}
+          />
+          
+          {/* Modal Content */}
+          <div 
+            className="fixed top-0 right-0 h-full w-full sm:max-w-2xl bg-white shadow-2xl transform transition-all duration-300 ease-out overflow-hidden"
+            style={{ maxWidth: '48rem' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <BlankCallDrawer
+              call={selectedCall}
+              open={isCallDetailsOpen}
+              onClose={handleCallDetailsClose}
+              onPlayStateChange={handlePlayStateChange}
+              isPlaying={isPlaying}
+              audioRef={audioRef}
+              autoStartPlayback={false}
+              getAgentDetails={getAgentDetails}
+              getCallSummary={getCallSummary}
+              getVehicleInfo={getVehicleInfo}
+              getNextAction={getNextAction}
+              getPotentialRevenue={getPotentialRevenue}
+              formatRevenue={formatRevenue}
+              getTimeAgo={getTimeAgo}
+              getCallTitle={getCallTitle}
+            />
           </div>
-        )}
-      </div>
+        </div>
+      )}
       
       <Toaster />
     </div>  

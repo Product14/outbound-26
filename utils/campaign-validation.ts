@@ -14,8 +14,6 @@ export const validateStep = (
   vinSolutionsEndDate: string,
   vinSolutionsStartTime: string,
   vinSolutionsEndTime: string,
-  googleDriveLink: string,
-  googleDriveComplete: boolean,
   uploadComplete: boolean,
   csvMappingComplete: boolean,
   missingColumns: string[],
@@ -34,7 +32,6 @@ export const validateStep = (
   } else if (step === 2) {
     newErrors.fileUpload = false
     newErrors.crmSelection = false
-    newErrors.googleDriveLink = false
     newErrors.vinSolutionsDateRange = false
     newErrors.leadAgeDays = false
   } else if (step === 3) {
@@ -145,28 +142,6 @@ export const validateStep = (
           missingFields.push(`Missing required data: ${missingColumns.join(', ')}`)
           isValid = false
         }
-      } else if (selectedUploadOption === 'drive') {
-        if (!googleDriveLink.trim()) {
-          newErrors.googleDriveLink = true
-          missingFields.push('Google Drive Link')
-          isValid = false
-        } else if (!googleDriveComplete) {
-          newErrors.googleDriveLink = true
-          missingFields.push('Google Drive Data Import (please fetch and validate the data)')
-          isValid = false
-        } else if (!csvMappingComplete) {
-          // Check CSV mapping completion for Google Drive imports
-          newErrors.googleDriveLink = true
-          missingFields.push('CSV Field Mapping - Please complete the field mapping process')
-          isValid = false
-        }
-        
-        // Also check if there are missing required fields after key mapping
-        if (googleDriveComplete && missingColumns.length > 0) {
-          newErrors.googleDriveLink = true
-          missingFields.push(`Missing required data: ${missingColumns.join(', ')}`)
-          isValid = false
-        }
       } else if (selectedUploadOption === 'upload') {
         // For CSV upload option, comprehensive validation like service campaigns
         if (!uploadComplete) {
@@ -186,13 +161,11 @@ export const validateStep = (
       }
       
       // Final validation for all sales upload options: check for missing required data
-      // This ensures comprehensive validation across all upload methods (CRM, Google Drive, CSV)
+      // This ensures comprehensive validation across all upload methods (CRM, CSV)
       if (uploadComplete && selectedUploadOption && missingColumns.length > 0) {
         // Set the appropriate error based on upload method
         if (selectedUploadOption === 'crm') {
           newErrors.crmSelection = true
-        } else if (selectedUploadOption === 'drive') {
-          newErrors.googleDriveLink = true
         } else if (selectedUploadOption === 'upload') {
           newErrors.fileUpload = true
         }

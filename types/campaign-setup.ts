@@ -112,7 +112,6 @@ export interface ValidationErrors {
   handoffBusinessHoursStart: boolean;
   handoffBusinessHoursEnd: boolean;
   crmSelection: boolean;
-  googleDriveLink: boolean;
   vinSolutionsDateRange: boolean;
   leadAgeDays: boolean;
   communicationChannels: boolean;

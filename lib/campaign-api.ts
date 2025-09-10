@@ -750,6 +750,66 @@ export async function fetchCampaignTypes(authKey?: string): Promise<CampaignType
   }
 }
 
+export interface CampaignLeadsCountResponse {
+  count: number;
+}
+
+export async function fetchCampaignLeadsCount(
+  enterpriseId: string,
+  teamId: string,
+  dateRange: {
+    startDate: string;
+    endDate: string;
+  },
+  authKey?: string
+): Promise<CampaignLeadsCountResponse> {
+  try {
+    const params = new URLSearchParams();
+    params.append('enterpriseId', enterpriseId);
+    params.append('teamId', teamId);
+    
+    // Add leadsFilterOptions with dateRange
+    const leadsFilterOptions = {
+      dateRange: {
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate
+      }
+    };
+    params.append('leadsFilterOptions', encodeURIComponent(JSON.stringify(leadsFilterOptions)));
+
+    // Add auth_key parameter if provided
+    if (authKey) {
+      params.append('auth_key', authKey);
+    }
+
+    const response = await fetch(`${configs.base_url}conversation/campaign/campaign-leads-count?${params.toString()}`);
+
+    if (!response.ok) {
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage += ` - ${errorData.error || errorData.message || 'Unknown error'}`;
+      } catch {
+        // If response is not JSON, try to get text
+        try {
+          const errorText = await response.text();
+          if (errorText) {
+            errorMessage += ` - ${errorText}`;
+          }
+        } catch {
+          // Ignore if we can't get error details
+        }
+      }
+      throw new Error(errorMessage);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching campaign leads count:', error);
+    throw error;
+  }
+}
+
 export async function processKeyMapping(requiredKeys: string[], availableKeys: string[], authKey?: string): Promise<KeyMappingResponse> {
   try {
     const payload: KeyMappingRequest = {

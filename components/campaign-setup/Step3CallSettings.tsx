@@ -624,7 +624,7 @@ export default function Step3CallSettings({
                     Voicemail Message
                   </Label>
                   <Textarea
-                    value={campaignData.voicemailMessage || "Hi, this is [Company Name] calling about an important safety recall for your vehicle. This is a free service to ensure your safety. Please call us back at [Phone Number] as soon as possible to schedule your free recall repair. Your safety is our top priority. Thank you."}
+                    value={campaignData.voicemailMessage || "Hi, this is [Company Name] calling with some exciting news about your vehicle. We’re offering a special opportunity to upgrade or take advantage of exclusive savings. Please call us back at [Phone Number] to learn how you can benefit. This is a limited-time offer designed to give you the best value on your next vehicle. Thank you, and we look forward to speaking with you."}
                     onChange={(e) => setCampaignData(prev => ({ ...prev, voicemailMessage: e.target.value }))}
                     placeholder="Enter your voicemail message..."
                     className="min-h-[120px] text-[14px] border-[#E5E7EB] focus:border-[#4600F2] focus:ring-2 focus:ring-[#4600F2]/20 transition-all duration-200 resize-none"

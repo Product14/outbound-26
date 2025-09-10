@@ -259,7 +259,7 @@ export default function Step2FileUpload({
                           </SelectTrigger>
                           <SelectContent className="bg-white">
                             <SelectItem value="vinsolutions">VinSolutions</SelectItem>
-                            <SelectItem value="others">Others</SelectItem>
+                            {/* <SelectItem value="others">Others</SelectItem> */}
                           </SelectContent>
                         </Select>
                         {errors.crmSelection && (

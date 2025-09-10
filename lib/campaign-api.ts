@@ -535,7 +535,7 @@ export function transformCampaignData(
     // Map CRM selection to import source
     const importSourceMap: Record<string, string> = {
       'vinsolutions': 'vin_solution',
-      'others': 'others'
+    
     };
     
     basePayload.importSource = importSourceMap[crmImportData.crmSelection] || crmImportData.crmSelection;

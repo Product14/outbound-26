@@ -42,7 +42,7 @@ const initialCampaignData: CampaignData = {
     includeRecordingConsent: true,
     includeSmsOptOut: true,
   },
-  maxRetryAttempts: 3,
+  maxRetryAttempts: 1,
   retryDelayMinutes: 60,
   callWindowStart: '09:00',
   callWindowEnd: '17:00',

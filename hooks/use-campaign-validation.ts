@@ -17,8 +17,6 @@ interface UseCampaignValidationProps {
   vinSolutionsEndDate: string
   vinSolutionsStartTime: string
   vinSolutionsEndTime: string
-  googleDriveLink: string
-  googleDriveComplete: boolean
   uploadComplete: boolean
   csvMappingComplete: boolean
   missingColumns: string[]
@@ -38,8 +36,6 @@ export function useCampaignValidation({
   vinSolutionsEndDate,
   vinSolutionsStartTime,
   vinSolutionsEndTime,
-  googleDriveLink,
-  googleDriveComplete,
   uploadComplete,
   csvMappingComplete,
   missingColumns,
@@ -61,8 +57,6 @@ export function useCampaignValidation({
       vinSolutionsEndDate,
       vinSolutionsStartTime,
       vinSolutionsEndTime,
-      googleDriveLink,
-      googleDriveComplete,
       uploadComplete,
       csvMappingComplete,
       missingColumns,
@@ -83,8 +77,6 @@ export function useCampaignValidation({
     vinSolutionsEndDate,
     vinSolutionsStartTime,
     vinSolutionsEndTime,
-    googleDriveLink,
-    googleDriveComplete,
     uploadComplete,
     csvMappingComplete,
     missingColumns,
@@ -107,8 +99,6 @@ export function useCampaignValidation({
       vinSolutionsEndDate,
       vinSolutionsStartTime,
       vinSolutionsEndTime,
-      googleDriveLink,
-      googleDriveComplete,
       uploadComplete,
       csvMappingComplete,
       missingColumns,
@@ -129,8 +119,6 @@ export function useCampaignValidation({
     vinSolutionsEndDate,
     vinSolutionsStartTime,
     vinSolutionsEndTime,
-    googleDriveLink,
-    googleDriveComplete,
     uploadComplete,
     csvMappingComplete,
     missingColumns,

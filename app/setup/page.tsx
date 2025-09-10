@@ -13,7 +13,7 @@ import { fetchAgentList } from '@/lib/agent-api'
 import { fetchCampaignTypes, transformCampaignData, launchCampaign } from '@/lib/campaign-api'
 import { storeCampaignData, updateKeyMapping, updateUploadedData } from '@/lib/storage-utils'
 import { getEstimatedTimeInMinutes, calculateEndDate, calculateAndFormatTimeRange } from '@/lib/time-utils'
-import { validateGoogleDriveLink, convertToDirectDownloadLink, getRequiredKeysForUseCase, getDisplayColumns } from '@/utils/campaign-setup-utils'
+import { getRequiredKeysForUseCase, getDisplayColumns } from '@/utils/campaign-setup-utils'
 import { buildUrlWithParams } from '@/lib/url-utils'
 
 // Import step components
@@ -61,9 +61,7 @@ export default function CampaignSetupRefactored() {
     setSelectedUploadOption,
     crmSelection,
     setCrmSelection,
-    googleDriveLink,
-    setGoogleDriveLink,
-    
+  
     // VinSolutions state
     vinSolutionsStartDate,
     setVinSolutionsStartDate,
@@ -78,15 +76,6 @@ export default function CampaignSetupRefactored() {
     leadAgeDays,
     setLeadAgeDays,
     
-    // Google Drive state
-    isGoogleDriveLoading,
-    setIsGoogleDriveLoading,
-    googleDriveData,
-    setGoogleDriveData,
-    googleDriveComplete,
-    setGoogleDriveComplete,
-    googleDriveErrors,
-    setGoogleDriveErrors,
     
     // Agent state
     availableAgents,
@@ -148,8 +137,6 @@ export default function CampaignSetupRefactored() {
     vinSolutionsEndDate,
     vinSolutionsStartTime,
     vinSolutionsEndTime,
-    googleDriveLink,
-    googleDriveComplete,
     uploadComplete,
     csvMappingComplete,
     missingColumns,
@@ -325,77 +312,7 @@ export default function CampaignSetupRefactored() {
     }
   }
 
-  // Google Drive data fetcher
-  const fetchGoogleDriveData = async (shareUrl: string) => {
-    try {
-      setIsGoogleDriveLoading(true)
-      setGoogleDriveErrors([])
-      setGoogleDriveComplete(false)
-      
-      // Validate the URL format first
-      if (!validateGoogleDriveLink(shareUrl)) {
-        throw new Error('Invalid Google Drive link format. Please use a valid Google Drive share link.')
-      }
-      
-      // Convert to direct download link
-      const downloadUrl = convertToDirectDownloadLink(shareUrl)
-      
-      // Fetch the CSV data
-      const response = await fetch(downloadUrl, {
-        method: 'GET',
-        mode: 'cors'
-      })
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error('File not found. Please check if the file exists and is publicly accessible.')
-        } else if (response.status === 403) {
-          throw new Error('Access denied. Please make sure the file is shared publicly or with link access.')
-        } else {
-          throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`)
-        }
-      }
-      
-      const csvText = await response.text()
-      
-      if (!csvText || csvText.trim().length === 0) {
-        throw new Error('The file appears to be empty.')
-      }
-      
-      // Parse the CSV data using the existing parser with dynamic columns
-      const csvFile = new File([csvText], 'google-drive-data.csv', { type: 'text/csv' })
-      const apiRequiredKeys = getRequiredKeysForUseCase(campaignData.subUseCase, selectedCategory, campaignTypes)
-      const parsedData = await parseUploadedFile(csvFile, apiRequiredKeys.length > 0 ? apiRequiredKeys : undefined)
-      
-      // Set the parsed data initially
-      setGoogleDriveData(parsedData.data)
-      setCampaignData(prev => ({ ...prev, totalRecords: parsedData.data.length }))
-      
-      // Always use new mapping system for Google Drive data
-      setUploadedData(parsedData.data)
-      setCsvParseResult(parsedData)
-      setShowCSVMappingStep(true)
-      
-      setGoogleDriveComplete(true)
-      
-      // Clear any previous errors
-      setGoogleDriveErrors([])
-      
-      // Clear the googleDriveLink error if it exists
-      if (errors.googleDriveLink) {
-        setErrors(prev => ({ ...prev, googleDriveLink: false }))
-      }
-      
-    } catch (error) {
-      console.error('Google Drive fetch error:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch data from Google Drive'
-      setGoogleDriveErrors([errorMessage])
-      setGoogleDriveComplete(false)
-      setGoogleDriveData([])
-    } finally {
-      setIsGoogleDriveLoading(false)
-    }
-  }
+
 
   // Handle CSV mapping completion
   const handleCSVMappingComplete = async (mappedData: any[], keyMappingResult: Record<string, string>) => {
@@ -453,10 +370,8 @@ export default function CampaignSetupRefactored() {
       // Transform campaign data to the required payload format
       const agentId = selectedAgent?.id
       
-      // Use Google Drive data if available, otherwise use uploaded file data
-      const effectiveUploadedData = selectedUploadOption === 'drive' && googleDriveComplete 
-        ? googleDriveData 
-        : uploadedData
+      // Use uploaded file data
+      const effectiveUploadedData = uploadedData
         
       const cleanCampaignData: CampaignData = {
         ...campaignData,
@@ -682,8 +597,6 @@ export default function CampaignSetupRefactored() {
             setSelectedUploadOption={setSelectedUploadOption}
             crmSelection={crmSelection}
             setCrmSelection={setCrmSelection}
-            googleDriveLink={googleDriveLink}
-            setGoogleDriveLink={setGoogleDriveLink}
             
             // VinSolutions state
             vinSolutionsStartDate={vinSolutionsStartDate}
@@ -699,11 +612,7 @@ export default function CampaignSetupRefactored() {
             leadAgeDays={leadAgeDays}
             setLeadAgeDays={setLeadAgeDays}
             
-            // Google Drive state
-            isGoogleDriveLoading={isGoogleDriveLoading}
-            googleDriveData={googleDriveData}
-            googleDriveComplete={googleDriveComplete}
-            googleDriveErrors={googleDriveErrors}
+
             
             // CSV mapping
             showCSVMappingStep={showCSVMappingStep}
@@ -721,7 +630,6 @@ export default function CampaignSetupRefactored() {
             
             // Handlers
             handleFileUpload={handleFileUpload}
-            fetchGoogleDriveData={fetchGoogleDriveData}
             handleCSVMappingComplete={handleCSVMappingComplete}
             handleSkipCSVMapping={handleSkipCSVMapping}
             getDisplayColumns={getDisplayColumnsForCurrentState}

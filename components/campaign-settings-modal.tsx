@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
 import { Loader2, Calendar, Clock, Phone, MessageSquare, Settings2, FileText, Zap, Users } from 'lucide-react'
 import { fetchCampaignDetails, type CampaignDetailResponse } from '@/lib/campaign-api'
 import { fetchAgentList, type Agent } from '@/lib/agent-api'
@@ -174,7 +173,7 @@ export function CampaignSettingsModal({
         </DialogHeader>
 
         <div className="flex-1 max-h-[calc(90vh-120px)] overflow-y-auto">
-          <div className="px-6 py-4 space-y-6">
+          <div className="px-6 py-4 space-y-8">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
@@ -198,188 +197,170 @@ export function CampaignSettingsModal({
           ) : settings ? (
             <div>
               {/* Campaign Details */}
-              <div>
+              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
                 <div className="flex items-center gap-2 mb-3">
                   <FileText className="h-4 w-4 text-gray-500" />
                   <h3 className="text-sm font-semibold text-gray-900">Campaign Details</h3>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 mb-1">Campaign Name</p>
-                      <p className="text-sm font-medium text-gray-900">{settings.name}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 mb-1">Use Case</p>
-                      <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs">
-                        {formatUseCaseLabel(settings.type)} - {formatUseCaseLabel(settings.useCase)}
-                      </Badge>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 mb-1">Total Records</p>
-                      <p className="text-sm font-medium text-gray-900">{settings.totalCustomers} customers</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 mb-1">Status</p>
-                      <Badge className={`text-xs ${
-                        settings.status === 'Running' ? 'bg-green-100 text-green-800 border-green-200' :
-                        settings.status === 'Completed' ? 'bg-gray-100 text-gray-800 border-gray-200' :
-                        'bg-yellow-100 text-yellow-800 border-yellow-200'
-                      }`}>
-                        {settings.status}
-                      </Badge>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 mb-1">Campaign Name</p>
+                    <p className="text-sm font-medium text-gray-900">{settings.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 mb-1">Use Case</p>
+                    <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs">
+                      {formatUseCaseLabel(settings.type)} - {formatUseCaseLabel(settings.useCase)}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 mb-1">Total Records</p>
+                    <p className="text-sm font-medium text-gray-900">{settings.totalCustomers} customers</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 mb-1">Status</p>
+                    <Badge className={`text-xs ${
+                      settings.status === 'Running' ? 'bg-green-100 text-green-800 border-green-200' :
+                      settings.status === 'Completed' ? 'bg-gray-100 text-gray-800 border-gray-200' :
+                      'bg-yellow-100 text-yellow-800 border-yellow-200'
+                    }`}>
+                      {settings.status}
+                    </Badge>
+                  </div>
+                </div>
+                
+                {agent && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 mb-2">AI Agent</p>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 border border-gray-300">
+                        <img
+                          src={agent.imageUrl || '/placeholder-user.jpg'}
+                          alt={agent.name}
+                          className="w-full h-full object-cover object-top"
+                        />
+                      </div>
+                      <span className="text-sm font-medium text-gray-900">{agent.name}</span>
                     </div>
                   </div>
-                  
-                  {agent && (
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 mb-2">AI Agent</p>
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 border border-gray-300">
-                          <img
-                            src={agent.imageUrl || '/placeholder-user.jpg'}
-                            alt={agent.name}
-                            className="w-full h-full object-cover object-top"
-                          />
-                        </div>
-                        <span className="text-sm font-medium text-gray-900">{agent.name}</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
 
-              <Separator />
-
               {/* Schedule Settings */}
-              <div>
+              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
                 <div className="flex items-center gap-2 mb-3">
                   <Calendar className="h-4 w-4 text-gray-500" />
                   <h3 className="text-sm font-semibold text-gray-900">Schedule Settings</h3>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                <div>
+                  <p className="text-xs font-medium text-gray-500 mb-1">Schedule Type</p>
+                  <div className="flex items-center gap-2">
+                    {settings.schedule === 'now' ? (
+                      <Zap className="h-4 w-4 text-blue-500" />
+                    ) : (
+                      <Clock className="h-4 w-4 text-yellow-500" />
+                    )}
+                    <p className="text-sm font-medium text-gray-900">
+                      {formatScheduleType(settings.schedule)}
+                    </p>
+                  </div>
+                </div>
+                
+                {settings.timeSlots && settings.timeSlots.length > 0 && (
                   <div>
-                    <p className="text-xs font-medium text-gray-500 mb-1">Schedule Type</p>
-                    <div className="flex items-center gap-2">
-                      {settings.schedule === 'now' ? (
-                        <Zap className="h-4 w-4 text-blue-500" />
-                      ) : (
-                        <Clock className="h-4 w-4 text-yellow-500" />
-                      )}
-                      <p className="text-sm font-medium text-gray-900">
-                        {formatScheduleType(settings.schedule)}
-                      </p>
+                    <p className="text-xs font-medium text-gray-500 mb-2">Daily Time Slots</p>
+                    <div className="space-y-1">
+                      {settings.timeSlots.map((slot, index) => (
+                        <div key={index} className="flex items-center gap-2 text-sm text-gray-700">
+                          <Clock className="h-3 w-3 text-gray-400" />
+                          <span>{slot.startTime} - {slot.endTime}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  
-                  {settings.timeSlots && settings.timeSlots.length > 0 && (
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 mb-2">Daily Time Slots</p>
-                      <div className="space-y-1">
-                        {settings.timeSlots.map((slot, index) => (
-                          <div key={index} className="flex items-center gap-2 text-sm text-gray-700">
-                            <Clock className="h-3 w-3 text-gray-400" />
-                            <span>{slot.startTime} - {slot.endTime}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
 
-              <Separator />
-
               {/* Call Settings */}
-              <div>
+              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
                 <div className="flex items-center gap-2 mb-3">
                   <Phone className="h-4 w-4 text-gray-500" />
                   <h3 className="text-sm font-semibold text-gray-900">Call Rules & Behavior</h3>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 mb-1">Max Retry Attempts</p>
-                      <p className="text-sm font-medium text-gray-900">{settings.maxRetryAttempts} attempts</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 mb-1">Retry Delay</p>
-                      <p className="text-sm font-medium text-gray-900">
-                        {formatRetryDelay(settings.retryDelayMinutes || 60)}
-                      </p>
-                    </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 mb-1">Max Retry Attempts</p>
+                    <p className="text-sm font-medium text-gray-900">{settings.maxRetryAttempts} attempts</p>
                   </div>
-                  
-                  {/* <div>
-                    <p className="text-xs font-medium text-gray-500 mb-1">SMS Switch on 2nd Attempt</p>
-                    <Badge className={`text-xs ${
-                      settings.smsSwitchOnSecondAttempt 
-                        ? 'bg-green-100 text-green-800 border-green-200' 
-                        : 'bg-gray-100 text-gray-800 border-gray-200'
-                    }`}>
-                      {settings.smsSwitchOnSecondAttempt ? 'Enabled' : 'Disabled'}
-                    </Badge>
-                  </div> */}
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 mb-1">Retry Delay</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {formatRetryDelay(settings.retryDelayMinutes || 60)}
+                    </p>
+                  </div>
                 </div>
+                
+                {/* <div>
+                  <p className="text-xs font-medium text-gray-500 mb-1">SMS Switch on 2nd Attempt</p>
+                  <Badge className={`text-xs ${
+                    settings.smsSwitchOnSecondAttempt 
+                      ? 'bg-green-100 text-green-800 border-green-200' 
+                      : 'bg-gray-100 text-gray-800 border-gray-200'
+                  }`}>
+                    {settings.smsSwitchOnSecondAttempt ? 'Enabled' : 'Disabled'}
+                  </Badge>
+                </div> */}
               </div>
 
-              <Separator />
-
               {/* Voicemail Settings */}
-              <div>
+              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
                 <div className="flex items-center gap-2 mb-3">
                   <MessageSquare className="h-4 w-4 text-gray-500" />
                   <h3 className="text-sm font-semibold text-gray-900">Voicemail Strategy</h3>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 mb-1">Handling Method</p>
-                    <p className="text-sm font-medium text-gray-900">
-                      {formatVoicemailStrategy(settings.voicemailStrategy || 'leave_message')}
-                    </p>
-                  </div>
-                  
-                  {settings.voicemailStrategy === 'leave_message' && settings.voicemailMessage && (
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 mb-1">Voicemail Message</p>
-                      <div className="bg-white border border-gray-200 rounded p-3">
-                        <p className="text-sm text-gray-700 leading-relaxed">
-                          {settings.voicemailMessage}
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                <div>
+                  <p className="text-xs font-medium text-gray-500 mb-1">Handling Method</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {formatVoicemailStrategy(settings.voicemailStrategy || 'leave_message')}
+                  </p>
                 </div>
+                
+                {settings.voicemailStrategy === 'leave_message' && settings.voicemailMessage && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 mb-1">Voicemail Message</p>
+                    <div className="bg-white border border-gray-200 rounded p-3">
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        {settings.voicemailMessage}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <Separator />
-
               {/* Pacing & Limits */}
-              <div>
+              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
                 <div className="flex items-center gap-2 mb-3">
                   <Settings2 className="h-4 w-4 text-gray-500" />
                   <h3 className="text-sm font-semibold text-gray-900">Pacing & Limits</h3>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 mb-1">Daily Limit</p>
-                      <p className="text-sm font-medium text-gray-900">
-                        {settings.maxCallsPerDay} contacts/day
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 mb-1">Hourly Throttle</p>
-                      <p className="text-sm font-medium text-gray-900">
-                        {settings.maxCallsPerHour} contacts/hour
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 mb-1">Concurrent Calls</p>
-                      <p className="text-sm font-medium text-gray-900">
-                        {settings.maxConcurrentCalls} concurrent
-                      </p>
-                    </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 mb-1">Daily Limit</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {settings.maxCallsPerDay} contacts/day
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 mb-1">Hourly Throttle</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {settings.maxCallsPerHour} contacts/hour
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 mb-1">Concurrent Calls</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {settings.maxConcurrentCalls} concurrent
+                    </p>
                   </div>
                 </div>
               </div>

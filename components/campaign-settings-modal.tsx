@@ -310,7 +310,7 @@ export function CampaignSettingsModal({
                     </div>
                   </div>
                   
-                  <div>
+                  {/* <div>
                     <p className="text-xs font-medium text-gray-500 mb-1">SMS Switch on 2nd Attempt</p>
                     <Badge className={`text-xs ${
                       settings.smsSwitchOnSecondAttempt 
@@ -319,7 +319,7 @@ export function CampaignSettingsModal({
                     }`}>
                       {settings.smsSwitchOnSecondAttempt ? 'Enabled' : 'Disabled'}
                     </Badge>
-                  </div>
+                  </div> */}
                 </div>
               </div>
 

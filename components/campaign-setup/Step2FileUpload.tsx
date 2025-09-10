@@ -13,7 +13,7 @@ import { Upload, Database, Cloud, Download, AlertCircle, CheckCircle, Loader2 } 
 import { CampaignData, ValidationErrors } from '@/types/campaign-setup'
 import { getRequiredKeysForUseCase, downloadSampleFile } from '@/utils/campaign-setup-utils'
 import { ParsedCustomerData, ParseResult } from '@/lib/file-parser'
-import { CampaignTypesResponse } from '@/lib/campaign-api'
+import { CampaignTypesResponse, fetchCampaignLeadsCount } from '@/lib/campaign-api'
 import CSVMappingStep from '@/components/csv-mapping/CSVMappingStep'
 
 interface Step2FileUploadProps {
@@ -52,7 +52,15 @@ interface Step2FileUploadProps {
   leadAgeDays: number
   setLeadAgeDays: (days: number) => void
   
-
+  // URL Parameters
+  urlParams: {
+    enterprise_id: string | null
+    team_id: string | null
+    auth_key: string | null
+    tab: string | null
+    callDetailsTab: string | null
+    selectedCall: string | null
+  }
   
   // CSV mapping
   showCSVMappingStep: boolean
@@ -111,6 +119,9 @@ export default function Step2FileUpload({
   setEnableRecurringLeads,
   leadAgeDays,
   setLeadAgeDays,
+  
+  // URL Parameters
+  urlParams,
   
   // CSV mapping
   showCSVMappingStep,
@@ -318,10 +329,42 @@ export default function Step2FileUpload({
                                 <div className="grid grid-cols-2 gap-3">
                                   <DatePicker
                                     value={vinSolutionsStartDate}
-                                      onChange={(value) => {
+                                      onChange={async (value) => {
                                         setVinSolutionsStartDate(value)
                                         if (errors.vinSolutionsDateRange && value) {
                                           setErrors(prev => ({ ...prev, vinSolutionsDateRange: false }))
+                                        }
+                                        
+                                        // Fetch lead count if both dates are selected
+                                        if (value && vinSolutionsEndDate && urlParams.enterprise_id && urlParams.team_id) {
+                                          try {
+                                            const startDateTime = vinSolutionsStartTime 
+                                              ? new Date(`${value}T${vinSolutionsStartTime}:00`)
+                                              : new Date(`${value}T00:00:00`);
+                                            
+                                            const endDateTime = vinSolutionsEndTime 
+                                              ? new Date(`${vinSolutionsEndDate}T${vinSolutionsEndTime}:00`)
+                                              : new Date(`${vinSolutionsEndDate}T23:59:59`);
+                                            
+                                            const response = await fetchCampaignLeadsCount(
+                                              urlParams.enterprise_id,
+                                              urlParams.team_id,
+                                              {
+                                                startDate: startDateTime.toISOString(),
+                                                endDate: endDateTime.toISOString()
+                                              },
+                                              urlParams.auth_key || undefined
+                                            );
+                                            
+                                            if (response) {
+                                              setCampaignData(prev => ({
+                                                ...prev,
+                                                totalRecords: response.count
+                                              }));
+                                            }
+                                          } catch (error) {
+                                            console.error('Error fetching lead count:', error);
+                                          }
                                         }
                                       }}
                                     placeholder="Select start date"
@@ -331,10 +374,39 @@ export default function Step2FileUpload({
                                   />
                                   <TimePicker
                                     value={vinSolutionsStartTime}
-                                      onChange={(value) => {
+                                      onChange={async (value) => {
                                         setVinSolutionsStartTime(value)
                                         if (errors.vinSolutionsDateRange && value) {
                                           setErrors(prev => ({ ...prev, vinSolutionsDateRange: false }))
+                                        }
+                                        
+                                        // Fetch lead count if both dates are selected
+                                        if (vinSolutionsStartDate && vinSolutionsEndDate && urlParams.enterprise_id && urlParams.team_id) {
+                                          try {
+                                            const startDateTime = new Date(`${vinSolutionsStartDate}T${value}:00`);
+                                            const endDateTime = vinSolutionsEndTime 
+                                              ? new Date(`${vinSolutionsEndDate}T${vinSolutionsEndTime}:00`)
+                                              : new Date(`${vinSolutionsEndDate}T23:59:59`);
+                                            
+                                            const response = await fetchCampaignLeadsCount(
+                                              urlParams.enterprise_id,
+                                              urlParams.team_id,
+                                              {
+                                                startDate: startDateTime.toISOString(),
+                                                endDate: endDateTime.toISOString()
+                                              },
+                                              urlParams.auth_key || undefined
+                                            );
+                                            
+                                            if (response) {
+                                              setCampaignData(prev => ({
+                                                ...prev,
+                                                totalRecords: response.count
+                                              }));
+                                            }
+                                          } catch (error) {
+                                            console.error('Error fetching lead count:', error);
+                                          }
                                         }
                                       }}
                                     placeholder="Select start time"
@@ -351,10 +423,42 @@ export default function Step2FileUpload({
                                 <div className="grid grid-cols-2 gap-3">
                                   <DatePicker
                                     value={vinSolutionsEndDate}
-                                      onChange={(value) => {
+                                      onChange={async (value) => {
                                         setVinSolutionsEndDate(value)
                                         if (errors.vinSolutionsDateRange && value) {
                                           setErrors(prev => ({ ...prev, vinSolutionsDateRange: false }))
+                                        }
+                                        
+                                        // Fetch lead count if both dates are selected
+                                        if (vinSolutionsStartDate && value && urlParams.enterprise_id && urlParams.team_id) {
+                                          try {
+                                            const startDateTime = vinSolutionsStartTime 
+                                              ? new Date(`${vinSolutionsStartDate}T${vinSolutionsStartTime}:00`)
+                                              : new Date(`${vinSolutionsStartDate}T00:00:00`);
+                                            
+                                            const endDateTime = vinSolutionsEndTime 
+                                              ? new Date(`${value}T${vinSolutionsEndTime}:00`)
+                                              : new Date(`${value}T23:59:59`);
+                                            
+                                            const response = await fetchCampaignLeadsCount(
+                                              urlParams.enterprise_id,
+                                              urlParams.team_id,
+                                              {
+                                                startDate: startDateTime.toISOString(),
+                                                endDate: endDateTime.toISOString()
+                                              },
+                                              urlParams.auth_key || undefined
+                                            );
+                                            
+                                            if (response) {
+                                              setCampaignData(prev => ({
+                                                ...prev,
+                                                totalRecords: response.count
+                                              }));
+                                            }
+                                          } catch (error) {
+                                            console.error('Error fetching lead count:', error);
+                                          }
                                         }
                                       }}
                                     placeholder="Select end date"
@@ -364,10 +468,40 @@ export default function Step2FileUpload({
                                   />
                                   <TimePicker
                                     value={vinSolutionsEndTime}
-                                      onChange={(value) => {
+                                      onChange={async (value) => {
                                         setVinSolutionsEndTime(value)
                                         if (errors.vinSolutionsDateRange && value) {
                                           setErrors(prev => ({ ...prev, vinSolutionsDateRange: false }))
+                                        }
+                                        
+                                        // Fetch lead count if both dates are selected
+                                        if (vinSolutionsStartDate && vinSolutionsEndDate && urlParams.enterprise_id && urlParams.team_id) {
+                                          try {
+                                            const startDateTime = vinSolutionsStartTime 
+                                              ? new Date(`${vinSolutionsStartDate}T${vinSolutionsStartTime}:00`)
+                                              : new Date(`${vinSolutionsStartDate}T00:00:00`);
+                                            
+                                            const endDateTime = new Date(`${vinSolutionsEndDate}T${value}:00`);
+                                            
+                                            const response = await fetchCampaignLeadsCount(
+                                              urlParams.enterprise_id,
+                                              urlParams.team_id,
+                                              {
+                                                startDate: startDateTime.toISOString(),
+                                                endDate: endDateTime.toISOString()
+                                              },
+                                              urlParams.auth_key || undefined
+                                            );
+                                            
+                                            if (response) {
+                                              setCampaignData(prev => ({
+                                                ...prev,
+                                                totalRecords: response.count
+                                              }));
+                                            }
+                                          } catch (error) {
+                                            console.error('Error fetching lead count:', error);
+                                          }
                                         }
                                       }}
                                     placeholder="Select end time"

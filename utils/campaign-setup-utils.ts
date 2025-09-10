@@ -150,47 +150,6 @@ export const getDisplayColumns = (
   return []
 }
 
-// Google Drive utility functions
-export const validateGoogleDriveLink = (url: string): boolean => {
-  // Check if it's a valid Google Drive share link
-  const googleDriveRegex = /^https:\/\/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)\/(view|edit)(\?[^#]*)?(\#.*)?$/
-  const googleDriveOpenRegex = /^https:\/\/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)$/
-  const googleSheetsRegex = /^https:\/\/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/
-  
-  return googleDriveRegex.test(url) || googleDriveOpenRegex.test(url) || googleSheetsRegex.test(url)
-}
-
-export const convertToDirectDownloadLink = (shareUrl: string): string => {
-  // Extract file ID from various Google Drive URL formats
-  let fileId = ''
-  
-  // Format: https://drive.google.com/file/d/FILE_ID/view
-  const driveMatch = shareUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)\//)
-  if (driveMatch) {
-    fileId = driveMatch[1]
-  }
-  
-  // Format: https://drive.google.com/open?id=FILE_ID
-  const openMatch = shareUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/)
-  if (openMatch) {
-    fileId = openMatch[1]
-  }
-  
-  // Format: https://docs.google.com/spreadsheets/d/FILE_ID/
-  const sheetsMatch = shareUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/)
-  if (sheetsMatch) {
-    fileId = sheetsMatch[1]
-    // For Google Sheets, export as CSV
-    return `https://docs.google.com/spreadsheets/d/${fileId}/export?format=csv`
-  }
-  
-  if (fileId) {
-    // Convert to direct download link
-    return `https://drive.google.com/uc?export=download&id=${fileId}`
-  }
-  
-  return shareUrl // Return original if can't parse
-}
 
 // Sample file download utility - dynamically determines template based on use case
 export const downloadSampleFile = (subUseCase: string, useCase: string, campaignTypes?: CampaignTypesResponse | null) => {

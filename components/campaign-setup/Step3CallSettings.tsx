@@ -118,10 +118,10 @@ export default function Step3CallSettings({
                 <p className="text-[14px] font-medium text-[#666666] mb-1">Estimated Time</p>
                 <p className="text-[16px] font-bold text-[#1A1A1A]">{getEstimatedTimeInMinutes(campaignData.totalRecords)}</p>
               </div>
-              <div className="col-span-2">
+              {/* <div className="col-span-2">
                 <p className="text-[14px] font-medium text-[#666666] mb-1">File</p>
                 <p className="text-[16px] font-bold text-[#1A1A1A]">{campaignData.fileName}</p>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>
@@ -474,16 +474,7 @@ export default function Step3CallSettings({
                         ))}
                       </div>
                       
-                      {/* Summary */}
-                      {/* <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <p className="text-[13px] text-[#1A1A1A] font-medium mb-1">Campaign Schedule Summary:</p>
-                        <p className="text-[12px] text-[#6B7280]">
-                          {campaignData.dailyTimeSlots.length === 1 
-                            ? `Campaign will run from ${campaignData.dailyTimeSlots[0]?.startTime || "09:00"} to ${campaignData.dailyTimeSlots[0]?.endTime || "17:00"} each day`
-                            : `Campaign will run in ${campaignData.dailyTimeSlots.length} time slots: ${campaignData.dailyTimeSlots.map(slot => `${slot.startTime}-${slot.endTime}`).join(', ')} each day`
-                          }
-                        </p>
-                      </div> */}
+                      
                     </div>
                   </div>
                 </div>
@@ -499,56 +490,7 @@ export default function Step3CallSettings({
             <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Configure how your AI agent handles different call scenarios and retry logic</p>
           </div>
           <div className="p-6">
-            {/* Retry Scenarios */}
-            {/* <div className="mb-10">
-              <h4 className={`text-[16px] font-semibold mb-4 ${
-                errors.retryScenarios ? 'text-red-600' : 'text-[#1A1A1A]'
-              }`}>
-                Retry Scenarios <span className="text-red-500">*</span>
-              </h4>
-              {errors.retryScenarios && (
-                <p className="text-[12px] text-red-600 flex items-center mb-3">
-                  <AlertCircle className="h-3 w-3 mr-1" />
-                  Please select at least one retry scenario
-                </p>
-              )}
-              
-              <div className="flex flex-wrap gap-3">
-                <div 
-                  className={`px-3 py-2 rounded-full border cursor-pointer transition-all ${
-                    campaignData.busySignalRetry 
-                      ? 'border-[#4600F2] bg-[#4600F2]/10 text-[#4600F2]' 
-                      : 'border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#D1D5DB]'
-                  }`}
-                  onClick={() => setCampaignData(prev => ({ ...prev, busySignalRetry: !prev.busySignalRetry }))}
-                >
-                  <span className={`text-[14px] ${campaignData.busySignalRetry ? 'font-bold' : 'font-medium'}`}>Busy signals</span>
-                </div>
-                
-                <div 
-                  className={`px-3 py-2 rounded-full border cursor-pointer transition-all ${
-                    campaignData.noAnswerRetry 
-                      ? 'border-[#4600F2] bg-[#4600F2]/10 text-[#4600F2]' 
-                      : 'border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#D1D5DB]'
-                  }`}
-                  onClick={() => setCampaignData(prev => ({ ...prev, noAnswerRetry: !prev.noAnswerRetry }))}
-                >
-                  <span className={`text-[14px] ${campaignData.noAnswerRetry ? 'font-bold' : 'font-medium'}`}>No answer</span>
-                </div>
-                
-                <div 
-                  className={`px-3 py-2 rounded-full border cursor-pointer transition-all ${
-                    campaignData.busyCustomerRetry 
-                      ? 'border-[#4600F2] bg-[#4600F2]/10 text-[#4600F2]' 
-                      : 'border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#D1D5DB]'
-                  }`}
-                  onClick={() => setCampaignData(prev => ({ ...prev, busyCustomerRetry: !prev.busyCustomerRetry }))}
-                >
-                  <span className={`text-[14px] ${campaignData.busyCustomerRetry ? 'font-bold' : 'font-medium'}`}>Customer says busy</span>
-                </div>
-              </div>
-            </div> */}
-
+            
             {/* Retry Settings */}
             <div className="space-y-4 lg:col-span-2">
               <h4 className={`text-[16px] font-semibold ${
@@ -597,6 +539,8 @@ export default function Step3CallSettings({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="10">2 minutes</SelectItem>
+                      <SelectItem value="15">5 minutes</SelectItem>
                       <SelectItem value="30">30 minutes</SelectItem>
                       <SelectItem value="60">1 hour</SelectItem>
                       <SelectItem value="120">2 hours</SelectItem>
@@ -609,7 +553,7 @@ export default function Step3CallSettings({
               </div>
             </div>
 
-            {/* SMS Switch Option */}
+            {/* SMS Switch Option
             <div className="space-y-4 lg:col-span-2 mt-6 pt-6 border-t border-[#E5E7EB]">
               <div className="flex items-center space-x-3">
                 <Checkbox
@@ -629,7 +573,7 @@ export default function Step3CallSettings({
                   </p>
                 </div>
               </div>
-            </div>
+            </div> */}
           </div>
         </div>
 

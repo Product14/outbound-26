@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Search, Download, Phone, CheckCircle, Clock, AlertCircle, BarChart3, Plus, Loader2, X, Copy, Check, CalendarIcon } from 'lucide-react'
+import { Search, Download, Phone, CheckCircle, Clock, AlertCircle, BarChart3, Plus, Loader2, X, Copy, Check, CalendarIcon, Settings } from 'lucide-react'
 import Link from "next/link"
 import { fetchCampaignList, fetchCampaignTypes, type CampaignListItem, type CampaignTypesResponse } from '@/lib/campaign-api'
 import { fetchAgentList, type Agent } from '@/lib/agent-api'
@@ -20,6 +20,7 @@ import { toast } from 'sonner'
 import { getShortEstimatedTime } from '@/lib/time-utils'
 import { formatUseCaseLabel } from '@/utils/campaign-setup-utils'
 import { CampaignListShimmer } from "@/components/ui/campaign-shimmer"
+import { CampaignSettingsModal } from "@/components/campaign-settings-modal"
 import { cn } from '@/lib/utils'
 
 // Map API campaign type to display format
@@ -119,6 +120,10 @@ export default function CampaignResults() {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('sales')
   const [campaignTypesData, setCampaignTypesData] = useState<CampaignTypesResponse | null>(null)
+  
+  // Settings modal state
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false)
+  const [selectedCampaignForSettings, setSelectedCampaignForSettings] = useState<CampaignListItem | null>(null)
         
   // Get URL parameters or use defaults for local testing
   const urlParams = extractUrlParams();
@@ -300,6 +305,19 @@ export default function CampaignResults() {
       console.error('Failed to copy:', error)
       toast.error('Failed to copy Campaign ID')
     }
+  }
+
+  // Handle settings modal
+  const handleOpenSettings = (campaign: CampaignListItem, event: React.MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setSelectedCampaignForSettings(campaign)
+    setSettingsModalOpen(true)
+  }
+
+  const handleCloseSettings = () => {
+    setSettingsModalOpen(false)
+    setSelectedCampaignForSettings(null)
   }
 
   const formatDate = (dateString: string) => {
@@ -567,7 +585,17 @@ export default function CampaignResults() {
               const campaignType = mapCampaignType(campaign.campaignType)
               
               return (
-                <Card key={campaign.campaignId} className="group hover:scale-105 transition-all duration-200 cursor-pointer overflow-hidden h-full border" style={{borderRadius: '16px'}}>
+                <Card key={campaign.campaignId} className="group hover:scale-105 transition-all duration-200 cursor-pointer overflow-hidden h-full border relative" style={{borderRadius: '16px'}}>
+                  {/* Settings Icon */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => handleOpenSettings(campaign, e)}
+                    className="absolute top-3 right-3 h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-gray-100 z-10"
+                  >
+                    <Settings className="h-4 w-4 text-gray-600" />
+                  </Button>
+                  
                   <Link href={buildUrlWithParams(`/results/${campaign.campaignId}`)}>
                     <CardContent className="p-4 sm:p-6 h-full flex flex-col">
                       <div className="flex flex-col sm:flex-row sm:items-start gap-3 mb-4">
@@ -740,6 +768,18 @@ export default function CampaignResults() {
         )}
       </div>
       <Toaster />
+
+      {/* Campaign Settings Modal */}
+      {selectedCampaignForSettings && (
+        <CampaignSettingsModal
+          isOpen={settingsModalOpen}
+          onClose={handleCloseSettings}
+          campaignId={selectedCampaignForSettings.campaignId}
+          campaignName={selectedCampaignForSettings.name}
+          campaignType={selectedCampaignForSettings.campaignType}
+          campaignUseCase={selectedCampaignForSettings.campaignUseCase}
+        />
+      )}
     </div>
   )
 }

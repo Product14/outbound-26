@@ -37,8 +37,6 @@ interface Step2FileUploadProps {
   setSelectedUploadOption: (option: string) => void
   crmSelection: string
   setCrmSelection: (selection: string) => void
-  googleDriveLink: string
-  setGoogleDriveLink: (link: string) => void
   
   // VinSolutions state
   vinSolutionsStartDate: string
@@ -54,11 +52,7 @@ interface Step2FileUploadProps {
   leadAgeDays: number
   setLeadAgeDays: (days: number) => void
   
-  // Google Drive state
-  isGoogleDriveLoading: boolean
-  googleDriveData: ParsedCustomerData[]
-  googleDriveComplete: boolean
-  googleDriveErrors: string[]
+
   
   // CSV mapping
   showCSVMappingStep: boolean
@@ -76,7 +70,6 @@ interface Step2FileUploadProps {
   
   // Handlers
   handleFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void
-  fetchGoogleDriveData: (shareUrl: string) => void
   handleCSVMappingComplete: (mappedData: any[], keyMapping: Record<string, string>) => Promise<void>
   handleSkipCSVMapping: () => Promise<void>
   getDisplayColumns: () => string[]
@@ -103,8 +96,7 @@ export default function Step2FileUpload({
   setSelectedUploadOption,
   crmSelection,
   setCrmSelection,
-  googleDriveLink,
-  setGoogleDriveLink,
+
   
   // VinSolutions state
   vinSolutionsStartDate,
@@ -119,12 +111,6 @@ export default function Step2FileUpload({
   setEnableRecurringLeads,
   leadAgeDays,
   setLeadAgeDays,
-  
-  // Google Drive state
-  isGoogleDriveLoading,
-  googleDriveData,
-  googleDriveComplete,
-  googleDriveErrors,
   
   // CSV mapping
   showCSVMappingStep,
@@ -142,7 +128,6 @@ export default function Step2FileUpload({
   
   // Handlers
   handleFileUpload,
-  fetchGoogleDriveData,
   handleCSVMappingComplete,
   handleSkipCSVMapping,
   getDisplayColumns
@@ -219,7 +204,7 @@ export default function Step2FileUpload({
                   if (selectedUploadOption !== 'crm') {
                     setCrmSelection('')
                   }
-                  setGoogleDriveLink('')
+                 
                   // Reset CSV mapping completion when switching methods
                   setCsvMappingComplete(false)
                   // Clear file upload error when method is selected
@@ -461,7 +446,7 @@ export default function Step2FileUpload({
                 </div>
               </div>
 
-              {/* Option 2: Google Drive Link - DISABLED */}
+             
 
               {/* Option 3: Upload CSV */}
               <div 
@@ -473,7 +458,7 @@ export default function Step2FileUpload({
                 onClick={() => {
                   setSelectedUploadOption('upload')
                   setCrmSelection('')
-                  setGoogleDriveLink('')
+                 
                   // Reset CSV mapping completion when switching methods
                   setCsvMappingComplete(false)
                   // Clear file upload error when method is selected

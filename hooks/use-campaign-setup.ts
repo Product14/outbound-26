@@ -63,17 +63,17 @@ const initialCampaignData: CampaignData = {
     emailQuote: false,
     textFinanceLink: false,
   },
-  handoffSettings: {
-    target: 'round_robin',
-    businessHoursStart: '09:00',
-    businessHoursEnd: '17:00',
-  },
-  escalationTriggers: {
-    leadRequestsPerson: false,
-    complexFinancing: false,
-    pricingNegotiation: false,
-    technicalQuestions: false,
-  }
+  // handoffSettings: {
+  //   target: 'round_robin',
+  //   businessHoursStart: '09:00',
+  //   businessHoursEnd: '17:00',
+  // },
+  // escalationTriggers: {
+  //   leadRequestsPerson: false,
+  //   complexFinancing: false,
+  //   pricingNegotiation: false,
+  //   technicalQuestions: false,
+  // }
 }
 
 const initialErrors: ValidationErrors = {
@@ -91,7 +91,6 @@ const initialErrors: ValidationErrors = {
   handoffBusinessHoursStart: false,
   handoffBusinessHoursEnd: false,
   crmSelection: false,
-  googleDriveLink: false,
   vinSolutionsDateRange: false,
   leadAgeDays: false,
   communicationChannels: false,
@@ -132,7 +131,6 @@ export function useCampaignSetup() {
   // Sales upload options state
   const [selectedUploadOption, setSelectedUploadOption] = useState<string>('')
   const [crmSelection, setCrmSelection] = useState<string>('')
-  const [googleDriveLink, setGoogleDriveLink] = useState<string>('')
   
   // VinSolutions state
   const [vinSolutionsStartDate, setVinSolutionsStartDate] = useState<string>('')
@@ -142,11 +140,6 @@ export function useCampaignSetup() {
   const [enableRecurringLeads, setEnableRecurringLeads] = useState<boolean>(false)
   const [leadAgeDays, setLeadAgeDays] = useState<number>(10)
   
-  // Google Drive state
-  const [isGoogleDriveLoading, setIsGoogleDriveLoading] = useState<boolean>(false)
-  const [googleDriveData, setGoogleDriveData] = useState<ParsedCustomerData[]>([])
-  const [googleDriveComplete, setGoogleDriveComplete] = useState<boolean>(false)
-  const [googleDriveErrors, setGoogleDriveErrors] = useState<string[]>([])
   
   // Agent state
   const [availableAgents, setAvailableAgents] = useState<Agent[]>([])
@@ -265,8 +258,6 @@ export function useCampaignSetup() {
     setSelectedUploadOption,
     crmSelection,
     setCrmSelection,
-    googleDriveLink,
-    setGoogleDriveLink,
     
     // VinSolutions state
     vinSolutionsStartDate,
@@ -282,15 +273,6 @@ export function useCampaignSetup() {
     leadAgeDays,
     setLeadAgeDays,
     
-    // Google Drive state
-    isGoogleDriveLoading,
-    setIsGoogleDriveLoading,
-    googleDriveData,
-    setGoogleDriveData,
-    googleDriveComplete,
-    setGoogleDriveComplete,
-    googleDriveErrors,
-    setGoogleDriveErrors,
     
     // Agent state
     availableAgents,

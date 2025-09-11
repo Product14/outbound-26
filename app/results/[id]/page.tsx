@@ -8,30 +8,26 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { AlertCircle, Loader2, CheckCircle, Download, ArrowLeft } from 'lucide-react'
 import Link from "next/link"
-import { fetchCampaignDetails, fetchCampaignTypes, type CampaignDetailResponse } from '@/lib/campaign-api'
+import { fetchCampaignDetails, fetchCampaignTypes, fetchCampaignConversationData, type CampaignDetailResponse } from '@/lib/campaign-api'
 import { fetchAgentList, type Agent } from '@/lib/agent-api'
 import { calculateAndFormatEstimatedTime, getShortEstimatedTime } from '@/lib/time-utils'
 import { generateCallStatus, generateCallTime, generateCallDuration, calculateCampaignStats } from '@/lib/call-status-utils'
 import { buildUrlWithParams, extractUrlParams } from '@/lib/url-utils'
-import { useAgents } from '@/hooks/use-agents'
 
 // Import our new components
 import { CampaignHeader } from '@/components/campaign/campaign-header'
 import { LiveCallsTab } from '@/components/campaign/live-calls-tab'
 import { AnalyticsTab } from '@/components/campaign/analytics-tab'
+import { TabsNavigation } from '@/components/ui/tabs-navigation'
 import { BlankCallDrawer } from '@/components/blank-call-drawer'
 import { CampaignPageShimmer } from '@/components/ui/campaign-shimmer'
 import { FunnelChart } from '@/components/ui/funnel-chart'
 import AppointmentFunnel from '@/components/ui/appointment-funnel'
 import { getCampaignFunnelData, calculateFunnelMetrics, getAppointmentFunnelData } from '@/lib/funnel-utils'
-import { calculateCampaignMetrics, calculateMockCampaignMetrics } from '@/lib/metrics-utils'
+import { calculateCampaignMetricsFromAPI, type CampaignAnalyticsResponse, type CampaignCompletedResponse } from '@/lib/metrics-utils'
 import { MetricsGrid } from '@/components/ui/metrics-grid'
-import { generateMockCampaignCalls } from '@/lib/mock-campaign-data'
 import type { CallRecord } from '@/types/call-record'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { ChevronDown, ChevronRight } from "lucide-react"
 import { PerformanceTimeChart } from '@/components/charts/PerformanceTimeChart'
-import { generateTopPerformingVehicles, generateTopPerformingServices, generatePerformanceTimeData } from '@/lib/call-status-utils'
 
 // Map API campaign type to display format using dynamic data
 const mapCampaignType = (campaignType: string, campaignTypes?: any | null): string => {
@@ -80,6 +76,7 @@ export default function CampaignDetail() {
   const [campaignData, setCampaignData] = useState<CampaignDetailResponse | null>(null)
   const [campaignTypes, setCampaignTypes] = useState<any | null>(null)
   const [campaignAgent, setCampaignAgent] = useState<Agent | null>(null)
+  const [conversationData, setConversationData] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingAgent, setIsLoadingAgent] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -90,13 +87,19 @@ export default function CampaignDetail() {
   const [callDetailsTab, setCallDetailsTab] = useState('highlights')
   const [callTimer, setCallTimer] = useState(0)
   const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState(["all"])
+  const [connectionFilter, setConnectionFilter] = useState(["all"])
+  const [showFilters, setShowFilters] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const audioRef = useRef<any>(null)
   const [isClosing, setIsClosing] = useState(false)
   const lastCloseTimeRef = useRef<number>(0)
   const lastCallSelectRef = useRef<number>(0)
-  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false)
+  
+  // Analytics data state
+  const [analyticsData, setAnalyticsData] = useState<CampaignAnalyticsResponse | null>(null)
+  const [completedCallsData, setCompletedCallsData] = useState<CampaignCompletedResponse | null>(null)
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false)
 
   // Campaign type detection
   const mappedCampaignType = campaignData?.campaign?.campaignType 
@@ -105,100 +108,82 @@ export default function CampaignDetail() {
   const isSalesCampaign = mappedCampaignType === 'Sales'
   const isServiceCampaign = mappedCampaignType === 'Service'
 
-  // Generate comprehensive mock call data based on campaign type (memoized to prevent regeneration)
-  const mockCalls: CallRecord[] = useMemo(() => {
-    return campaignData?.campaign ? 
-      generateMockCampaignCalls(
-        Math.max(50, campaignData.campaign.totalCallPlaced || 100), 
-        isSalesCampaign ? 'sales' : 'service'
-      ) : 
-      generateMockCampaignCalls(100, 'sales')
-  }, [campaignData?.campaign?.totalCallPlaced, isSalesCampaign])
+  // Fetch analytics and completed calls data
+  useEffect(() => {
+    const fetchAnalyticsData = async () => {
+      if (!campaignId) return
 
-  // Keep a few sample calls for agent extraction (this would come from API in real implementation)
-  const sampleCalls: CallRecord[] = [
-    {
-      call_id: "1",
-      dealership_id: "dealership-001",
-      started_at: new Date().toISOString(),
-      ended_at: new Date().toISOString(),
-      direction: "outbound",
-      domain: "sales",
-      campaign_id: "campaign-001",
-      customer: { name: "Andrew Ray", phone: "+1-(919)-369-0815", email: null },
-      vehicle: { vin: null, stock_id: null, year: 2023, make: "Toyota", model: "Camry", trim: null, delivery_type: null },
-      primary_intent: "sales_inquiry",
-      intents: [],
-      outcome: "Test Drive Scheduled",
-      sentiment: { label: "positive", score: 0.8 },
-      appointment: { type: "test_drive", starts_at: null, ends_at: null, location: null, advisor: null, status: null },
-      follow_up: { needed: false, reason: null, assignee: null, due_at: null },
-      ai_score: 8.5,
-      containment: true,
-      summary: "Customer scheduled test drive appointment",
-      notes: "Test drive scheduled for 2023 Toyota Camry",
-      metrics: { duration_sec: 180, hold_sec: 0, silence_sec: 0 },
-      recording_url: null,
-      transcript_url: null,
-      tags: [],
-      agentInfo: { agentName: "Kylie", agentType: "AI Agent" }
-    },
-    {
-      call_id: "2", 
-      dealership_id: "dealership-001",
-      started_at: new Date().toISOString(),
-      ended_at: new Date().toISOString(),
-      direction: "outbound",
-      domain: "sales", 
-      campaign_id: "campaign-001",
-      customer: { name: "Sarah Johnson", phone: "+1-(555)-123-4567", email: null },
-      vehicle: { vin: null, stock_id: null, year: 2022, make: "Honda", model: "Civic", trim: null, delivery_type: null },
-      primary_intent: "vehicle_inquiry",
-      intents: [],
-      outcome: "Appointment for Purchase Discussion Scheduled",
-      sentiment: { label: "neutral", score: 0.6 },
-      appointment: { type: "test_drive", starts_at: null, ends_at: null, location: null, advisor: null, status: null },
-      follow_up: { needed: false, reason: null, assignee: null, due_at: null },
-      ai_score: 7.2,
-      containment: true,
-      summary: "Customer scheduled sales consultation appointment",
-      notes: "Purchase discussion scheduled for Honda Civic",
-      metrics: { duration_sec: 240, hold_sec: 0, silence_sec: 0 },
-      recording_url: null,
-      transcript_url: null,
-      tags: [],
-      agentInfo: { agentName: "Marcus", agentType: "AI Agent" }
-    },
-    {
-      call_id: "3",
-      dealership_id: "dealership-001", 
-      started_at: new Date().toISOString(),
-      ended_at: new Date().toISOString(),
-      direction: "outbound",
-      domain: "sales",
-      campaign_id: "campaign-001",
-      customer: { name: "Mike Davis", phone: "+1-(555)-987-6543", email: null },
-      vehicle: { vin: null, stock_id: null, year: 2024, make: "Ford", model: "F-150", trim: null, delivery_type: null },
-      primary_intent: "sales_inquiry",
-      intents: [],
-      outcome: "Test Drive Scheduled", 
-      sentiment: { label: "positive", score: 0.9 },
-      appointment: { type: "test_drive", starts_at: null, ends_at: null, location: null, advisor: null, status: null },
-      follow_up: { needed: true, reason: "Follow up after test drive", assignee: "Mia", due_at: null },
-      ai_score: 9.1,
-      containment: true,
-      summary: "Customer scheduled test drive",
-      notes: "Test drive scheduled for Ford F-150",
-      metrics: { duration_sec: 300, hold_sec: 0, silence_sec: 0 },
-      recording_url: null,
-      transcript_url: null,
-      tags: [],
-      agentConfig: { agentName: "Mia" }
+      setIsLoadingAnalytics(true)
+      
+      try {
+        // Fetch analytics data
+        const analyticsUrl = `/api/fetch-campaign-analytics?campaignId=${campaignId}${urlParams.auth_key ? `&auth_key=${encodeURIComponent(urlParams.auth_key)}` : ''}`
+        const analyticsResponse = await fetch(analyticsUrl)
+        if (analyticsResponse.ok) {
+          const analytics = await analyticsResponse.json()
+          console.log('Analytics API Response:', analytics)
+          console.log('Top Performing Vehicles:', analytics?.topPerformingVehicles)
+          setAnalyticsData(analytics)
+        } else {
+          console.error('Analytics API Error:', analyticsResponse.status, analyticsResponse.statusText)
+        }
+
+        // Fetch completed calls data for additional metrics
+        const completedCallsResponse = await fetch(`/api/fetch-campaign-completed-calls?campaignId=${campaignId}`)
+        if (completedCallsResponse.ok) {
+          const completedCalls = await completedCallsResponse.json()
+          setCompletedCallsData(completedCalls)
+        }
+      } catch (error) {
+        console.error('Error fetching analytics data:', error)
+      } finally {
+        setIsLoadingAnalytics(false)
+      }
     }
-  ]
 
-  // Extract agents from call data
-  const { agents: deployedAgents, loading: agentsLoading } = useAgents({ calls: sampleCalls, loading: false })
+    fetchAnalyticsData()
+  }, [campaignId])
+
+
+  // Extract agents from real API data instead of mock calls
+  const deployedAgents = useMemo(() => {
+    const agents = []
+    
+    // Add agent from completed calls data if available
+    if (completedCallsData?.agentName) {
+      agents.push({
+        id: completedCallsData.agentName.toLowerCase().replace(/\s+/g, '-'),
+        name: completedCallsData.agentName,
+        agentName: completedCallsData.agentName,
+        type: 'voice',
+        status: 'active'
+      })
+    }
+    
+    // Add campaign agent if different and available
+    if (campaignAgent && campaignAgent.name !== completedCallsData?.agentName) {
+      agents.push({
+        id: campaignAgent.id,
+        name: campaignAgent.name,
+        agentName: (campaignAgent as any).agentName || campaignAgent.name,
+        type: campaignAgent.type || 'voice',
+        status: (campaignAgent as any).status || 'active'
+      })
+    }
+    
+    // If no agents from API, check conversation data for agent mapping
+    if (agents.length === 0 && conversationData?.teamAgentMappingId && campaignAgent) {
+      agents.push({
+        id: campaignAgent.id,
+        name: campaignAgent.name,
+        agentName: (campaignAgent as any).agentName || campaignAgent.name,
+        type: campaignAgent.type || 'voice',
+        status: (campaignAgent as any).status || 'active'
+      })
+    }
+    
+    return agents
+  }, [completedCallsData, campaignAgent, conversationData])
 
   // Calculate statistics
   const serviceStats = isServiceCampaign && campaignData?.campaign ? 
@@ -206,10 +191,23 @@ export default function CampaignDetail() {
   const calculatedStats = isSalesCampaign && campaignData?.campaign ? 
     calculateCampaignStats(campaignData.campaign.totalCallPlaced) : null
 
-  // Calculate campaign metrics for the new metrics grid using comprehensive mock data (memoized)
+  // Calculate campaign metrics using real API data (memoized)
   const campaignMetrics = useMemo(() => {
-    return calculateCampaignMetrics(mockCalls)
-  }, [mockCalls])
+    if (analyticsData || completedCallsData) {
+      return calculateCampaignMetricsFromAPI(analyticsData, completedCallsData)
+    }
+    // Return empty metrics if no API data available
+    return {
+      totalCallsMade: { count: 0 },
+      totalCustomersContacted: { count: 0 },
+      totalAppointmentsSet: { count: 0 },
+      answerRate: { percentage: 0 },
+      voicemailPercentage: { percentage: 0 },
+      avgCallDuration: { duration: '0:00' },
+      callFailedPercentage: { percentage: 0 },
+      percentageOfFollowups: { percentage: 0 }
+    }
+  }, [analyticsData, completedCallsData])
 
   // Utility functions
   const formatDate = (dateString: string) => {
@@ -545,7 +543,7 @@ export default function CampaignDetail() {
           // Fetch campaign details with fallback
           let campaignResponse
           try {
-            campaignResponse = await fetchCampaignDetails(campaignId)
+            campaignResponse = await fetchCampaignDetails(campaignId, urlParams.auth_key || undefined)
           } catch (campaignError) {
             console.warn('Failed to fetch campaign details, using mock data:', campaignError)
             // Provide fallback campaign data with proper dates
@@ -627,72 +625,18 @@ export default function CampaignDetail() {
          
           setCampaignData(campaignResponse)
           setCampaignTypes(typesResponse)
+
+          // Fetch conversation data for real campaign name
+          try {
+            const conversationResponse = await fetchCampaignConversationData(campaignId, urlParams.auth_key || undefined)
+            setConversationData(conversationResponse)
+            console.log('Conversation data fetched:', conversationResponse)
+          } catch (conversationError) {
+            console.warn('Failed to fetch conversation data:', conversationError)
+          }
         } catch (apiError) {
-          console.warn('API failed, using mock data:', apiError)
-          
-          // Fallback to mock data for development
-          // Determine if this should be a service campaign based on URL params or campaign ID
-          const urlParams = new URLSearchParams(window.location.search)
-          const isServiceContext = urlParams.get('tab') === 'service' || 
-                                 campaignId.includes('recall') || 
-                                 campaignId.includes('service')
-          
-          const mockCampaignData = {
-            success: true,
-            campaign: {
-              _id: campaignId,
-              campaignId: campaignId,
-              name: isServiceContext ? "Q4 Service Reminder Campaign" : "Q4 Vehicle Sales Campaign",
-              campaignType: isServiceContext ? "recall" : "sales",
-              campaignUseCase: isServiceContext ? "service" : "sales",
-              teamAgentMappingId: "agent123",
-              enterpriseId: "enterprise123",
-              teamId: "team123",
-              status: "active",
-              startDate: new Date().toISOString(),
-              completedDate: "",
-              campaignCustomerCreationStatus: "completed",
-              totalCustomers: 1000,
-              totalCustomersLeadCreated: 1000,
-              totalCustomersLeadFailed: 0,
-              totalCallPlaced: 750,
-              appointmentScheduled: 85,
-              answerRate: 65,
-              __v: 0
-            },
-            callDetails: []
-          }
-          
-          const mockTypesData = {
-            success: true,
-            data: [
-              {
-                _id: "type1",
-                campaignFor: "Sales",
-                campaignTypes: [
-                  { name: "sales", description: "Sales Campaign", isActive: true, requiredKeys: [] }
-                ],
-                isActive: true,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                __v: 0
-              },
-              {
-                _id: "type2", 
-                campaignFor: "Service",
-                campaignTypes: [
-                  { name: "recall", description: "Recall Campaign", isActive: true, requiredKeys: [] }
-                ],
-                isActive: true,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                __v: 0
-              }
-            ]
-          }
-          
-          setCampaignData(mockCampaignData)
-          setCampaignTypes(mockTypesData)
+          console.error('Failed to fetch campaign details:', apiError)
+          setError('Failed to load campaign details. Please check your connection and try again.')
         }
       } catch (error) {
         console.error('Error in fetchData:', error)
@@ -735,28 +679,7 @@ export default function CampaignDetail() {
           setCampaignAgent(agent)
         } catch (error) {
           console.warn('Failed to fetch agent details, using fallback:', error)
-          // Provide fallback agent data
-          setCampaignAgent({
-            id: "fallback-agent-001",
-            enterpriseId: "fallback-enterprise",
-            teamId: "fallback-team",
-            agentId: "ai-agent-001",
-            name: "AI Agent",
-            description: "Default AI Assistant",
-            imageUrl: "/placeholder-user.jpg",
-            type: "ai",
-            agentCallType: "outbound",
-            colorTheme: "#4600F2",
-            available: true,
-            order: 1,
-            squadId: "default-squad",
-            faqs: [],
-            totalCalls: 0,
-            lastCallDate: null,
-            age: 1,
-            city: "Virtual",
-            languageName: "English"
-          })
+          
         } finally {
           setIsLoadingAgent(false)
         }
@@ -815,6 +738,8 @@ export default function CampaignDetail() {
     <div className="min-h-screen" style={{ backgroundColor: 'hsl(var(--background))' }}>
       <CampaignHeader
         campaignData={campaignData}
+        conversationData={conversationData}
+        campaignId={campaignId}
         isSalesCampaign={isSalesCampaign}
         isServiceCampaign={isServiceCampaign}
         isCallDetailsOpen={isCallDetailsOpen}
@@ -827,210 +752,251 @@ export default function CampaignDetail() {
         onToggleCampaignStatus={toggleCampaignStatus}
       />
       
-      <div className="px-12 py-8 bg-[#F4F5F8] min-h-screen">
-        {/* Analytics Section - Collapsible */}
-        {(isSalesCampaign || isServiceCampaign) && (
-          <div className="mb-8">
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-              <Collapsible open={isAnalyticsOpen} onOpenChange={setIsAnalyticsOpen}>
-                <CollapsibleTrigger className="flex items-center gap-3 w-full p-4 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center gap-2">
-                    {isAnalyticsOpen ? (
-                      <ChevronDown className="h-5 w-5 text-gray-600" />
-                    ) : (
-                      <ChevronRight className="h-5 w-5 text-gray-600" />
-                    )}
-                    <h2 className="text-[18px] font-semibold text-gray-900">Analytics</h2>
-                  </div>
-                </CollapsibleTrigger>
-                
-                {/* Always visible: All Analytics Components */}
-                <div className="px-4 pb-4 space-y-6">
-                  {/* First Row: Funnel Chart and Metrics Section */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Funnel Chart */}
-                    <div className="lg:col-span-1">
-                      <div className="bg-gray-50 rounded-xl p-4 h-full">
-                        <div className="mb-4">
-                          <h3 className="text-sm font-semibold text-gray-900">
-                            {isSalesCampaign ? 'Sales Campaign Funnel' : 'Service Campaign Funnel'}
-                          </h3>
-                        </div>
-                        <div className="h-52">
-                          <AppointmentFunnel
-                            data={getAppointmentFunnelData(
-                              campaignData,
-                              isSalesCampaign ? 'sales' : 'service'
-                            )}
-                            cardBackgroundColor={isSalesCampaign ? '#DBEAFE' : '#DCFCE7'}
-                            graphColor={isSalesCampaign ? '#3B82F6' : '#22C55E'}
-                            conversionChipColor={isSalesCampaign ? '#93C5FD' : '#86EFAC'}
-                          />
-                        </div>
-                      </div>
-                    </div>
+      {/* Tabs Navigation */}
+      <TabsNavigation
+        defaultActiveTab={activeTab}
+        onTabChange={handleTabChange}
+        showSearch={true}
+        showFilters={true}
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        statusFilter={statusFilter}
+        setStatusFilter={setStatusFilter}
+        onToggleFilters={() => setShowFilters(!showFilters)}
+      />
+      
+      {/* Content Area with Tabs for Sales and Service Campaigns */}
+      {(isSalesCampaign || isServiceCampaign) ? (
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+          {/* Live Calls Tab */}
+          <TabsContent value="live-calls" className="mt-0">
+            <LiveCallsTab
+              isCallDetailsOpen={isCallDetailsOpen}
+              onCallSelect={handleCallSelect}
+              searchTerm={searchTerm}
+              statusFilter={statusFilter}
+              connectionFilter={connectionFilter}
+              onPauseCampaign={() => setCampaignRunning(!campaignRunning)}
+              campaignRunning={campaignRunning}
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+              onToggleFilters={() => setShowFilters(!showFilters)}
+              showFilters={showFilters}
+              campaignId={campaignId}
+            />
+          </TabsContent>
 
-                    {/* Metrics Grid */}
-                    <div className="lg:col-span-1">
-                      <div className="bg-gray-50 rounded-xl p-4 h-full">
-                        <div className="mb-4">
-                          <h3 className="text-sm font-semibold text-gray-900">
-                            Campaign Metrics
-                          </h3>
-                        </div>
-                        <MetricsGrid metrics={campaignMetrics} />
+          {/* Analytics Tab */}
+          <TabsContent value="analytics" className="mt-0">
+              <div className="space-y-6">
+                {/* Analytics Content */}
+                <div className="bg-white shadow-sm p-6">
+                {/* First Row: Funnel Chart - Full width on screens < 1400px */}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+                  {/* Funnel Chart */}
+                  <div className="xl:col-span-1">
+                    <div className="bg-gray-50 rounded-xl p-4 h-full">
+                      <div className="mb-4">
+                        <h3 className="text-sm font-semibold text-gray-900">
+                          {isSalesCampaign ? 'Sales Campaign Funnel' : 'Service Campaign Funnel'}
+                        </h3>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Second Row: Collapsible Performance Charts */}
-                  <CollapsibleContent>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Performance Time Chart */}
-                      <div className="lg:col-span-1">
-                        <PerformanceTimeChart 
-                          data={generatePerformanceTimeData()} 
-                          title="Best Time"
+                      <div className="h-52">
+                        <AppointmentFunnel
+                          data={getAppointmentFunnelData(
+                            campaignData,
+                            isSalesCampaign ? 'sales' : 'service'
+                          )}
+                          cardBackgroundColor={isSalesCampaign ? '#DBEAFE' : '#DCFCE7'}
+                          graphColor={isSalesCampaign ? '#3B82F6' : '#22C55E'}
+                          conversionChipColor={isSalesCampaign ? '#93C5FD' : '#86EFAC'}
                         />
                       </div>
+                    </div>
+                  </div>
 
-                      {/* Top Performing Vehicles - Only show for sales campaigns */}
-                      {isSalesCampaign && (
-                        <div className="lg:col-span-1">
-                          <div className="bg-gray-50 rounded-xl p-4 h-[340px] flex flex-col">
-                            <div className="mb-4">
-                              <h3 className="text-sm font-semibold text-gray-900">
-                                Top Performing Vehicles
-                              </h3>
+                  {/* Metrics Grid */}
+                  <div className="xl:col-span-1">
+                    <div className="bg-gray-50 rounded-xl p-4 h-full">
+                      <div className="mb-4">
+                        <h3 className="text-sm font-semibold text-gray-900">
+                          Campaign Metrics
+                        </h3>
+                      </div>
+                      <MetricsGrid metrics={campaignMetrics} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Second Row: Performance Charts */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Performance Time Chart */}
+                  <div className="md:col-span-1">
+                    <PerformanceTimeChart 
+                      data={analyticsData?.performanceByTime && analyticsData.performanceByTime.length > 0 
+                        ? analyticsData.performanceByTime.map(item => ({
+                            hour: item.hour,
+                            calls: item.totalCalls,
+                            appointments: item.successfulCalls,
+                            successRate: item.successRate
+                          }))
+                        : []
+                      } 
+                      title="Best Time"
+                    />
+                  </div>
+
+                  {/* Top Performing Vehicles - Only show for sales campaigns */}
+                  {isSalesCampaign && (
+                    <div className="md:col-span-1">
+                      <div className="bg-gray-50 rounded-xl p-4 h-[340px] flex flex-col">
+                        <div className="mb-4">
+                          <h3 className="text-sm font-semibold text-gray-900">
+                            Top Performing Vehicles
+                          </h3>
+                        </div>
+                        <div className="space-y-2 overflow-y-auto flex-1 pr-2">
+                          {/* Debug: Show API data status */}
+                          {process.env.NODE_ENV === 'development' && (
+                            <div className="text-xs text-gray-500 mb-2 p-2 bg-yellow-50 rounded">
+                              Debug: Analytics Data - {analyticsData ? 'Available' : 'Not Available'} | 
+                              Campaign Type - {analyticsData?.campaignType || 'Unknown'} |
+                              Has topPerformingVehicles - {analyticsData && 'topPerformingVehicles' in analyticsData ? `Yes (${analyticsData.topPerformingVehicles.length} items)` : 'No'} |
+                              Has topPerformingServices - {analyticsData && 'topPerformingServices' in analyticsData ? `Yes (${(analyticsData as any).topPerformingServices.length} items)` : 'No'} |
+                              Loading - {isLoadingAnalytics ? 'Yes' : 'No'} |
+                              Campaign ID - {campaignId}
                             </div>
-                            <div className="space-y-2 overflow-y-auto flex-1 pr-2">
-                              {generateTopPerformingVehicles(campaignMetrics.totalAppointmentsSet.count).map((item: any, index: number) => (
-                                <div key={item.vehicle} className="flex items-center justify-between p-2 border border-[#E5E7EB] rounded-[8px]">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 bg-[#F0F4FF] rounded-full flex items-center justify-center text-[#4600F2] font-bold text-xs">
-                                      {index + 1}
+                          )}
+                          {isLoadingAnalytics && (
+                            <div className="flex items-center justify-center py-4">
+                              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                              <span className="ml-2 text-gray-500">Loading analytics...</span>
+                            </div>
+                          )}
+                          {analyticsData ? (
+                            // Check if it's a Sales campaign with topPerformingVehicles
+                            'topPerformingVehicles' in analyticsData ? (
+                              analyticsData.topPerformingVehicles.length > 0 ? (
+                                analyticsData.topPerformingVehicles.map((vehicle, index) => (
+                                  <div key={vehicle.vehicleName} className="flex items-center justify-between p-2 border border-[#E5E7EB] rounded-[8px]">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-6 h-6 bg-[#F0F4FF] rounded-full flex items-center justify-center text-[#4600F2] font-bold text-xs">
+                                        {index + 1}
+                                      </div>
+                                      <span className="font-medium text-[#1A1A1A]">
+                                        {vehicle.vehicleName}
+                                      </span>
                                     </div>
-                                    <span className="font-medium text-[#1A1A1A]">
-                                      {item.vehicle}
-                                    </span>
+                                    <div className="text-right">
+                                      <div className="text-[16px] font-bold text-[#1A1A1A]">{vehicle.appointmentsCount}</div>
+                                      <div className="text-xs text-[#6B7280]">
+                                        {vehicle.conversionRate}%
+                                      </div>
+                                    </div>
                                   </div>
-                                  <div className="text-right">
-                                    <div className="text-[16px] font-bold text-[#1A1A1A]">{item.appointments}</div>
-                                    <div className="text-xs text-[#6B7280]">
-                                      {item.percentage}%
-                                    </div>
+                                ))
+                              ) : (
+                                <div className="flex items-center justify-center py-8 text-center">
+                                  <div className="text-gray-500">
+                                    <div className="text-sm font-medium">No vehicle data available</div>
+                                    <div className="text-xs mt-1">No vehicles have been processed yet</div>
                                   </div>
                                 </div>
-                              ))}
+                              )
+                            ) : (
+                              // Service campaigns don't have vehicle data, show appropriate message
+                              <div className="flex items-center justify-center py-8 text-center">
+                                <div className="text-gray-500">
+                                  <div className="text-sm font-medium">No vehicle data available</div>
+                                  <div className="text-xs mt-1">This service campaign doesn't track vehicle performance</div>
+                                </div>
+                              </div>
+                            )
+                          ) : (
+                            // Show empty state when no real vehicle data is available
+                            <div className="flex items-center justify-center py-8 text-center">
+                              <div className="text-gray-500">
+                                <div className="text-sm font-medium">No vehicle data available</div>
+                                <div className="text-xs mt-1">Data will appear once appointments are scheduled</div>
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </div>
-                  </CollapsibleContent>
+                  )}
                 </div>
-              </Collapsible>
-            </div>
-          </div>
-        )}
-
-        {/* Content Area with Tabs for Sales and Service Campaigns */}
-        {(isSalesCampaign || isServiceCampaign) ? (
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            {/* Live Calls Tab */}
-            <TabsContent value="live-calls" className="mt-0">
-              <LiveCallsTab
-                isCallDetailsOpen={isCallDetailsOpen}
-                onCallSelect={handleCallSelect}
-                searchTerm={searchTerm}
-                statusFilter={statusFilter}
-                onPauseCampaign={() => setCampaignRunning(!campaignRunning)}
-                campaignRunning={campaignRunning}
-                activeTab={activeTab}
-                onTabChange={handleTabChange}
-              />
-            </TabsContent>
-
-            {/* Analytics Tab - Commented out for now */}
-            {/* <TabsContent value="analytics" className="mt-0">
-              <AnalyticsTab
-                isServiceCampaign={isServiceCampaign}
-                campaignData={campaignData}
-                serviceStats={serviceStats}
-                calculatedStats={calculatedStats}
-                activeTab={activeTab}
-                onTabChange={handleTabChange}
-              />
-            </TabsContent> */}
-          </Tabs>
-        ) : (
-          // Non-Sales/Service campaigns - show simple completion message
-          <Card>
-            <CardContent className="p-12 text-center">
-              <div className="w-20 h-20 mx-auto mb-6 bg-green-100 rounded-full flex items-center justify-center">
-                <CheckCircle className="h-10 w-10 text-green-600" />
               </div>
-              <h2 className="text-xl font-semibold mb-2">Campaign Complete</h2>
-              <p className="text-muted-foreground mb-6">
-                This {mappedCampaignType.toLowerCase()} campaign has finished running. 
-                {campaignData?.campaign?.totalCallPlaced || 0} calls were made with {campaignData?.campaign?.appointmentScheduled || 0} appointments scheduled.
-              </p>
-              <div className="flex justify-center gap-4">
-                <Button variant="outline" onClick={() => router.push('/results')}>
-                  Back to Campaigns
-                    </Button>
-                <Button>
-                  <Download className="w-4 h-4 mr-2" />
-                  Export Results
-                              </Button>
-                            </div>
-          </CardContent>
-        </Card>
-        )}
-
-        {/* Custom Modal Implementation */}
-        {isCallDetailsOpen && selectedCall && (
-          <div className="fixed inset-0 z-50">
-            {/* Overlay */}
-            <div 
-              className="fixed inset-0 bg-black/20 backdrop-blur-sm"
-              onClick={(e) => {
-                console.log('🔍 Custom overlay clicked')
-                e.preventDefault()
-                e.stopPropagation()
-                handleCallDetailsClose()
-              }}
-              onWheel={(e) => e.preventDefault()}
-              onTouchMove={(e) => e.preventDefault()}
-            />
-            
-            {/* Modal Content */}
-            <div 
-              className="fixed top-0 right-0 h-full w-full sm:max-w-2xl bg-white shadow-2xl transform transition-all duration-300 ease-out overflow-hidden"
-              style={{ maxWidth: '48rem' }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <BlankCallDrawer
-                call={selectedCall}
-                open={isCallDetailsOpen}
-                onClose={handleCallDetailsClose}
-                onPlayStateChange={handlePlayStateChange}
-                isPlaying={isPlaying}
-                audioRef={audioRef}
-                autoStartPlayback={false}
-                getAgentDetails={getAgentDetails}
-                getCallSummary={getCallSummary}
-                getVehicleInfo={getVehicleInfo}
-                getNextAction={getNextAction}
-                getPotentialRevenue={getPotentialRevenue}
-                formatRevenue={formatRevenue}
-                getTimeAgo={getTimeAgo}
-                getCallTitle={getCallTitle}
-              />
             </div>
+          </TabsContent>
+        </Tabs>
+      ) : (
+        // Non-Sales/Service campaigns - show simple completion message
+        <Card>
+          <CardContent className="p-12 text-center">
+            <div className="w-20 h-20 mx-auto mb-6 bg-green-100 rounded-full flex items-center justify-center">
+              <CheckCircle className="h-10 w-10 text-green-600" />
+            </div>
+            <h2 className="text-xl font-semibold mb-2">Campaign Complete</h2>
+            <p className="text-muted-foreground mb-6">
+              This {mappedCampaignType.toLowerCase()} campaign has finished running. 
+              {campaignData?.campaign?.totalCallPlaced || 0} calls were made with {campaignData?.campaign?.appointmentScheduled || 0} appointments scheduled.
+            </p>
+            <div className="flex justify-center gap-4">
+              <Button variant="outline" onClick={() => router.push('/results')}>
+                Back to Campaigns
+                  </Button>
+              <Button>
+                <Download className="w-4 h-4 mr-2" />
+                Export Results
+                            </Button>
+                          </div>
+        </CardContent>
+      </Card>
+      )}
+
+      {/* Custom Modal Implementation */}
+      {isCallDetailsOpen && selectedCall && (
+        <div className="fixed inset-0 z-50">
+          {/* Overlay */}
+          <div 
+            className="fixed inset-0 bg-black/20 backdrop-blur-sm"
+            onClick={(e) => {
+              console.log('🔍 Custom overlay clicked')
+              e.preventDefault()
+              e.stopPropagation()
+              handleCallDetailsClose()
+            }}
+            onWheel={(e) => e.preventDefault()}
+            onTouchMove={(e) => e.preventDefault()}
+          />
+          
+          {/* Modal Content */}
+          <div 
+            className="fixed top-0 right-0 h-full w-full sm:max-w-2xl bg-white shadow-2xl transform transition-all duration-300 ease-out overflow-hidden"
+            style={{ maxWidth: '48rem' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <BlankCallDrawer
+              call={selectedCall}
+              open={isCallDetailsOpen}
+              onClose={handleCallDetailsClose}
+              onPlayStateChange={handlePlayStateChange}
+              isPlaying={isPlaying}
+              audioRef={audioRef}
+              autoStartPlayback={false}
+              getAgentDetails={getAgentDetails}
+              getCallSummary={getCallSummary}
+              getVehicleInfo={getVehicleInfo}
+              getNextAction={getNextAction}
+              getPotentialRevenue={getPotentialRevenue}
+              formatRevenue={formatRevenue}
+              getTimeAgo={getTimeAgo}
+              getCallTitle={getCallTitle}
+            />
           </div>
-        )}
-      </div>
+        </div>
+      )}
       
       <Toaster />
     </div>  

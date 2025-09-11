@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Phone, Calendar, TrendingUp, RefreshCw, CheckCircle, Timer, Target } from 'lucide-react'
 import { PerformanceTimeChart } from '@/components/charts/PerformanceTimeChart'
-import { generateTopPerformingVehicles, generateTopPerformingServices, generatePerformanceTimeData } from '@/lib/call-status-utils'
 import type { CampaignDetailResponse } from '@/lib/campaign-api'
+import type { CampaignAnalyticsResponse } from '@/lib/metrics-utils'
 
 interface AnalyticsTabProps {
   isServiceCampaign: boolean
@@ -14,6 +14,7 @@ interface AnalyticsTabProps {
   calculatedStats: any
   activeTab: string
   onTabChange: (tab: string) => void
+  analyticsData?: CampaignAnalyticsResponse | null
 }
 
 export function AnalyticsTab({
@@ -22,9 +23,24 @@ export function AnalyticsTab({
   serviceStats,
   calculatedStats,
   activeTab,
-  onTabChange
+  onTabChange,
+  analyticsData
 }: AnalyticsTabProps) {
   if (!campaignData) return null
+
+  // Function to get top performing vehicles from API data only
+  const getTopPerformingVehicles = () => {
+    if (analyticsData?.topPerformingVehicles && analyticsData.topPerformingVehicles.length > 0) {
+      // Use real API data
+      return analyticsData.topPerformingVehicles.map((vehicle, index) => ({
+        vehicle: vehicle.vehicleName,
+        appointments: vehicle.appointmentsCount,
+        percentage: vehicle.conversionRate
+      }))
+    }
+    // Return empty array if no real data available
+    return []
+  }
 
   if (isServiceCampaign) {
     return (
@@ -62,7 +78,7 @@ export function AnalyticsTab({
             <CardContent className="pt-0">
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#F0F4FF] rounded-[8px] flex-shrink-0">
+                  <div className="p-2 bg-[#F0F4FF] rounded-[8px] flex-shrink-0 hidden min-[1100px]:block">
                     <Phone className="h-5 w-5 text-[#4600F2]" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -74,7 +90,7 @@ export function AnalyticsTab({
                 </div>
                 
                 <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0">
+                  <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0 hidden min-[1100px]:block">
                     <Calendar className="h-5 w-5 text-[#22C55E]" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -86,7 +102,7 @@ export function AnalyticsTab({
                 </div>
                 
                 <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#FEFCE8] rounded-[8px] flex-shrink-0">
+                  <div className="p-2 bg-[#FEFCE8] rounded-[8px] flex-shrink-0 hidden min-[1100px]:block">
                     <TrendingUp className="h-5 w-5 text-[#F59E0B]" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -97,20 +113,9 @@ export function AnalyticsTab({
                   </div>
                 </div>
                 
-                <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#EFF6FF] rounded-[8px] flex-shrink-0">
-                    <RefreshCw className="h-5 w-5 text-[#3B82F6]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Follow-ups Requested</h3>
-                    <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
-                      {serviceStats?.followUpRequested ?? 0}
-                    </p>
-                  </div>
-                </div>
                 
                 <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0">
+                  <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0 hidden min-[1100px]:block">
                     <CheckCircle className="h-5 w-5 text-[#22C55E]" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -122,7 +127,7 @@ export function AnalyticsTab({
                 </div>
                 
                 <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#FDF2F8] rounded-[8px] flex-shrink-0">
+                  <div className="p-2 bg-[#FDF2F8] rounded-[8px] flex-shrink-0 hidden min-[1100px]:block">
                     <Timer className="h-5 w-5 text-[#EC4899]" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -152,7 +157,7 @@ export function AnalyticsTab({
                     <div className="bg-gradient-to-r from-[#E0E7FF] to-[#C7D2FE] text-[#3730A3] p-4 rounded-[12px] shadow-sm border border-[#C7D2FE]">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <Phone className="h-5 w-5" />
+                          <Phone className="h-5 w-5 hidden min-[1100px]:block" />
                           <span className="font-semibold">Customer contact initiated</span>
                         </div>
                         <div className="text-[20px] font-bold">{serviceStats?.serviceCallsMade ?? campaignData?.campaign.totalCallPlaced ?? 0}</div>
@@ -165,7 +170,7 @@ export function AnalyticsTab({
                     <div className="bg-gradient-to-r from-[#D1FAE5] to-[#A7F3D0] text-[#065F46] p-4 rounded-[12px] shadow-sm border border-[#A7F3D0]" style={{width: '85%'}}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <CheckCircle className="h-5 w-5" />
+                          <CheckCircle className="h-5 w-5 hidden min-[1100px]:block" />
                           <span className="font-semibold">Contacted successfully</span>
                         </div>
                         <div className="text-[20px] font-bold">{serviceStats?.callsAnswered ?? Math.round((campaignData?.campaign.totalCallPlaced ?? 0) * 0.6)}</div>
@@ -174,24 +179,24 @@ export function AnalyticsTab({
                   </div>
                   
                   {/* Followups requested */}
-                  <div>
+                  {/* <div>
                     <div className="bg-gradient-to-r from-[#FBBF24] to-[#F59E0B] text-[#92400E] p-4 rounded-[12px] shadow-sm border border-[#F59E0B]" style={{width: '70%'}}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <RefreshCw className="h-5 w-5" />
+                          <RefreshCw className="h-5 w-5 hidden min-[1100px]:block" />
                           <span className="font-semibold">Followups requested</span>
                         </div>
                         <div className="text-[20px] font-bold">{serviceStats?.followUpRequested ?? 0}</div>
                       </div>
                     </div>
-                  </div>
+                  </div> */}
                   
                   {/* Appointments scheduled */}
                   <div>
                     <div className="bg-gradient-to-r from-[#FEF3C7] to-[#FDE68A] text-[#92400E] p-4 rounded-[12px] shadow-sm border border-[#FDE68A]" style={{width: '55%'}}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <Calendar className="h-5 w-5" />
+                          <Calendar className="h-5 w-5 hidden min-[1100px]:block" />
                           <span className="font-semibold">Appointments scheduled</span>
                         </div>
                         <div className="text-[20px] font-bold">{serviceStats?.serviceAppointmentCount ?? campaignData?.campaign.appointmentScheduled ?? 0}</div>
@@ -220,7 +225,15 @@ export function AnalyticsTab({
         {/* 3. Best Performance Time and Top Performing Services */}
         <div className="grid grid-cols-2 gap-6">
           <PerformanceTimeChart 
-            data={generatePerformanceTimeData()} 
+            data={analyticsData?.performanceByTime && analyticsData.performanceByTime.length > 0 
+              ? analyticsData.performanceByTime.map(item => ({
+                  hour: item.hour,
+                  calls: item.totalCalls,
+                  appointments: item.successfulCalls,
+                  successRate: item.successRate
+                }))
+              : []
+            } 
             title="Best Campaign Performance Time"
           />
 
@@ -232,62 +245,34 @@ export function AnalyticsTab({
             </CardHeader>
             <CardContent className="pt-0">
               <div className="space-y-3">
-                {generateTopPerformingServices(serviceStats?.serviceAppointmentCount ?? campaignData?.campaign.appointmentScheduled ?? 0).map((service: any, index: number) => (
-                  <div key={service.service} className="flex items-center justify-between p-3 border border-[#E5E7EB] rounded-[8px]">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-[#F0F4FF] rounded-full flex items-center justify-center text-[#4600F2] font-bold text-sm">
-                        {index + 1}
+                {(analyticsData?.topPerformingServices || []).length > 0 ? (
+                  (analyticsData?.topPerformingServices || []).slice(0, 5).map((service: any, index: number) => (
+                    <div key={service.service} className="flex items-center justify-between p-3 border border-[#E5E7EB] rounded-[8px]">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-[#F0F4FF] rounded-full flex items-center justify-center text-[#4600F2] font-bold text-sm">
+                          {index + 1}
+                        </div>
+                        <span className="font-medium text-[#1A1A1A]">{service.service}</span>
                       </div>
-                      <span className="font-medium text-[#1A1A1A]">{service.service}</span>
+                      <div className="text-right">
+                        <div className="text-[16px] font-bold text-[#1A1A1A]">{service.appointments}</div>
+                        <div className="text-xs text-[#6B7280]">appointments</div>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-[16px] font-bold text-[#1A1A1A]">{service.appointments}</div>
-                      <div className="text-xs text-[#6B7280]">appointments</div>
+                  ))
+                ) : (
+                  <div className="flex items-center justify-center py-8 text-gray-500">
+                    <div className="text-center">
+                      <p className="text-sm">No service data available</p>
+                      <p className="text-xs mt-1">Data will appear once services are completed</p>
                     </div>
                   </div>
-                ))}
+                )}
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* 4. Follow-up Metrics (Service) */}
-        <Card className="border-0 bg-white rounded-[16px]">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">
-              Follow-up Metrics (Service)
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                <div className="p-2 bg-[#EFF6FF] rounded-[8px] flex-shrink-0">
-                  <RefreshCw className="h-5 w-5 text-[#3B82F6]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Total Follow-ups Requested (Service)</h3>
-                  <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
-                    {serviceStats?.followUpRequested ?? 0}
-                  </p>
-                  <p className="text-[#6B7280] text-xs mt-1">Number of follow-up requests made for service-related calls</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0">
-                  <Target className="h-5 w-5 text-[#22C55E]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Follow-up Success Rate (Service)</h3>
-                  <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
-                    {serviceStats?.followUpSuccessRate ?? 0}%
-                  </p>
-                  <p className="text-[#6B7280] text-xs mt-1">Percentage of follow-up calls that resulted in confirmed service appointments</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     )
   } else {
@@ -327,7 +312,7 @@ export function AnalyticsTab({
             <CardContent className="pt-0">
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#F0F4FF] rounded-[8px] flex-shrink-0">
+                  <div className="p-2 bg-[#F0F4FF] rounded-[8px] flex-shrink-0 hidden min-[1100px]:block">
                     <Phone className="h-5 w-5 text-[#4600F2]" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -339,7 +324,7 @@ export function AnalyticsTab({
                 </div>
                 
                 <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0">
+                  <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0 hidden min-[1100px]:block">
                     <Calendar className="h-5 w-5 text-[#22C55E]" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -351,7 +336,7 @@ export function AnalyticsTab({
                 </div>
                 
                 <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#FEFCE8] rounded-[8px] flex-shrink-0">
+                  <div className="p-2 bg-[#FEFCE8] rounded-[8px] flex-shrink-0 hidden min-[1100px]:block">
                     <TrendingUp className="h-5 w-5 text-[#F59E0B]" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -362,20 +347,9 @@ export function AnalyticsTab({
                   </div>
                 </div>
                 
-                <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#EFF6FF] rounded-[8px] flex-shrink-0">
-                    <RefreshCw className="h-5 w-5 text-[#3B82F6]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Follow-ups Requested</h3>
-                    <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
-                      {calculatedStats?.followUpRequested ?? 0}
-                    </p>
-                  </div>
-                </div>
                 
                 <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0">
+                  <div className="p-2 bg-[#F0FDF4] rounded-[8px] flex-shrink-0 hidden min-[1100px]:block">
                     <CheckCircle className="h-5 w-5 text-[#22C55E]" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -387,7 +361,7 @@ export function AnalyticsTab({
                 </div>
                 
                 <div className="flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                  <div className="p-2 bg-[#FDF2F8] rounded-[8px] flex-shrink-0">
+                  <div className="p-2 bg-[#FDF2F8] rounded-[8px] flex-shrink-0 hidden min-[1100px]:block">
                     <Timer className="h-5 w-5 text-[#EC4899]" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -417,7 +391,7 @@ export function AnalyticsTab({
                     <div className="bg-gradient-to-r from-[#E0E7FF] to-[#C7D2FE] text-[#3730A3] p-4 rounded-[12px] shadow-sm border border-[#C7D2FE]">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <Phone className="h-5 w-5" />
+                          <Phone className="h-5 w-5 hidden min-[1100px]:block" />
                           <span className="font-semibold">Customer contact initiated</span>
                         </div>
                         <div className="text-[20px] font-bold">{calculatedStats?.callsMade ?? campaignData?.campaign.totalCallPlaced ?? 0}</div>
@@ -430,7 +404,7 @@ export function AnalyticsTab({
                     <div className="bg-gradient-to-r from-[#D1FAE5] to-[#A7F3D0] text-[#065F46] p-4 rounded-[12px] shadow-sm border border-[#A7F3D0]" style={{width: '85%'}}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <CheckCircle className="h-5 w-5" />
+                          <CheckCircle className="h-5 w-5 hidden min-[1100px]:block" />
                           <span className="font-semibold">Contacted successfully</span>
                         </div>
                         <div className="text-[20px] font-bold">{calculatedStats?.callsAnswered ?? Math.round((campaignData?.campaign.totalCallPlaced ?? 0) * 0.6)}</div>
@@ -439,24 +413,24 @@ export function AnalyticsTab({
                   </div>
                   
                   {/* Followups requested */}
-                  <div>
+                  {/* <div>
                     <div className="bg-gradient-to-r from-[#DBEAFE] to-[#BFDBFE] text-[#1E3A8A] p-4 rounded-[12px] shadow-sm border border-[#BFDBFE]" style={{width: '70%'}}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <RefreshCw className="h-5 w-5" />
+                          <RefreshCw className="h-5 w-5 hidden min-[1100px]:block" />
                           <span className="font-semibold">Followups requested</span>
                         </div>
                         <div className="text-[20px] font-bold">{calculatedStats?.followUpRequested ?? 0}</div>
                       </div>
                     </div>
-                  </div>
+                  </div> */}
                   
                   {/* Appointments scheduled */}
                   <div>
                     <div className="bg-gradient-to-r from-[#FEF3C7] to-[#FDE68A] text-[#92400E] p-4 rounded-[12px] shadow-sm border border-[#FDE68A]" style={{width: '55%'}}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <Calendar className="h-5 w-5" />
+                          <Calendar className="h-5 w-5 hidden min-[1100px]:block" />
                           <span className="font-semibold">Appointments scheduled</span>
                         </div>
                         <div className="text-[20px] font-bold">{calculatedStats?.appointmentCount ?? campaignData?.campaign.appointmentScheduled ?? 0}</div>
@@ -472,7 +446,15 @@ export function AnalyticsTab({
         {/* 3. Best Campaign Performance Time and Top Performing Vehicles */}
         <div className="grid grid-cols-2 gap-6">
           <PerformanceTimeChart 
-            data={generatePerformanceTimeData()} 
+            data={analyticsData?.performanceByTime && analyticsData.performanceByTime.length > 0 
+              ? analyticsData.performanceByTime.map(item => ({
+                  hour: item.hour,
+                  calls: item.totalCalls,
+                  appointments: item.successfulCalls,
+                  successRate: item.successRate
+                }))
+              : []
+            } 
             title="Best Campaign Performance Time"
           />
 
@@ -484,20 +466,29 @@ export function AnalyticsTab({
             </CardHeader>
             <CardContent className="pt-0 flex-1 overflow-hidden">
               <div className="space-y-2 overflow-y-auto h-full pr-2">
-                {generateTopPerformingVehicles(calculatedStats?.appointmentCount ?? campaignData?.campaign.appointmentScheduled ?? 0).map((vehicle, index) => (
-                  <div key={vehicle.vehicle} className="flex items-center justify-between p-2 border border-[#E5E7EB] rounded-[8px]">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 bg-[#F0F4FF] rounded-full flex items-center justify-center text-[#4600F2] font-bold text-xs">
-                        {index + 1}
+                {getTopPerformingVehicles().length > 0 ? (
+                  getTopPerformingVehicles().map((vehicle, index) => (
+                    <div key={vehicle.vehicle} className="flex items-center justify-between p-2 border border-[#E5E7EB] rounded-[8px]">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 bg-[#F0F4FF] rounded-full flex items-center justify-center text-[#4600F2] font-bold text-xs">
+                          {index + 1}
+                        </div>
+                        <span className="font-medium text-[#1A1A1A]">{vehicle.vehicle}</span>
                       </div>
-                      <span className="font-medium text-[#1A1A1A]">{vehicle.vehicle}</span>
+                      <div className="text-right">
+                        <div className="text-[16px] font-bold text-[#1A1A1A]">{vehicle.appointments}</div>
+                        <div className="text-xs text-[#6B7280]">{vehicle.percentage}%</div>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-[16px] font-bold text-[#1A1A1A]">{vehicle.appointments}</div>
-                      <div className="text-xs text-[#6B7280]">{vehicle.percentage}%</div>
+                  ))
+                ) : (
+                  <div className="flex items-center justify-center py-8 text-gray-500 h-full">
+                    <div className="text-center">
+                      <p className="text-sm">No vehicle data available</p>
+                      <p className="text-xs mt-1">Data will appear once appointments are scheduled</p>
                     </div>
                   </div>
-                ))}
+                )}
               </div>
             </CardContent>
           </Card>

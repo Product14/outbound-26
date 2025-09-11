@@ -65,7 +65,7 @@ export function BlankCallDrawer({
   
   // Fetch detailed call data when drawer opens - temporarily disabled for testing
   // const { callDetails, loading: detailsLoading, error: detailsError, retry } = useCallDetails(open && call ? call.call_id : null)
-  const callDetails = null
+  const callDetails: any = null
   const detailsLoading = false
   const detailsError = null
   const retry = () => {}
@@ -112,7 +112,7 @@ export function BlankCallDrawer({
     if (!normalizedTranscript.length || !scrollContainerRef.current) return
 
     // Find the transcript entry that corresponds to the target time
-    let targetEntryIndex = normalizedTranscript.findIndex((entry, index) => {
+    let targetEntryIndex = normalizedTranscript.findIndex((entry: any, index: number) => {
       if (!entry.timestamp) return false
 
       const nextEntry = normalizedTranscript[index + 1]
@@ -472,13 +472,13 @@ export function BlankCallDrawer({
     try {
       // Priority 1: Use API callDetails.messages (same as main call cards)
       if (callDetails?.callDetails?.messages && callDetails.callDetails.messages.length > 0) {
-        const validMessages = callDetails.callDetails.messages.filter(msg => 
+        const validMessages = callDetails.callDetails.messages.filter((msg: any) => 
           msg.message && msg.message.trim().length > 0
         )
         
         if (validMessages.length === 0) return []
         
-        return validMessages.map((msg, index) => ({
+        return validMessages.map((msg: any, index: number) => ({
           speaker: msg.role === 'bot' ? 'Agent' : 'Customer',
           text: msg.message,
           timestamp: Math.round(msg.secondsFromStart || (msg.time ? msg.time / 1000 : index * 10)),
@@ -487,13 +487,13 @@ export function BlankCallDrawer({
       }
       // Priority 2: Use API callDetails.formattedMessages
       else if (callDetails?.callDetails?.formattedMessages && callDetails.callDetails.formattedMessages.length > 0) {
-        const validMessages = callDetails.callDetails.formattedMessages.filter(msg => 
+        const validMessages = callDetails.callDetails.formattedMessages.filter((msg: any) => 
           msg.content && msg.content.trim().length > 0
         )
         
         if (validMessages.length === 0) return []
         
-        return validMessages.map((msg, index) => ({
+        return validMessages.map((msg: any, index: number) => ({
           speaker: msg.role === 'bot' ? 'Agent' : 'Customer',
           text: msg.content,
           timestamp: Math.round(msg.secondsFromStart || (msg.time ? msg.time / 1000 : index * 10)),
@@ -780,7 +780,7 @@ export function BlankCallDrawer({
     // Priority 1: Use API reports -> summary array when available
     if (callDetails?.report?.summary && callDetails.report.summary.length > 0) {
       // Add all summary items from the API
-      callDetails.report.summary.forEach((summaryItem, index) => {
+      callDetails.report.summary.forEach((summaryItem: any, index: number) => {
         if (summaryItem && summaryItem.trim() !== '') {
           highlights.push(summaryItem.trim())
         }
@@ -1345,11 +1345,11 @@ export function BlankCallDrawer({
                       </div>
                     </div>
                     
-                    {callDetails.report.overview.overall.aiResponseQuality.whatAiDidBetter?.filter(item => item && item.trim().length > 0).length > 0 && (
+                    {callDetails.report.overview.overall.aiResponseQuality.whatAiDidBetter?.filter((item: any) => item && item.trim().length > 0).length > 0 && (
                       <div className="border-l-4 border-green-500 bg-green-500/5 rounded-r-lg p-4 mb-4">
                         <div className="text-xs font-semibold text-green-600 uppercase tracking-wide mb-2">What AI Did Well</div>
                         <ul className="space-y-1">
-                          {callDetails.report.overview.overall.aiResponseQuality.whatAiDidBetter.filter(item => item && item.trim().length > 0).map((item, index) => (
+                          {callDetails.report.overview.overall.aiResponseQuality.whatAiDidBetter.filter((item: any) => item && item.trim().length > 0).map((item: any, index: number) => (
                             <li key={index} className="text-sm text-gray-900 flex items-start gap-2">
                               <span className="text-green-600 mt-0">•</span>
                               <span>{item}</span>
@@ -1359,11 +1359,11 @@ export function BlankCallDrawer({
                       </div>
                     )}
                     
-                    {callDetails.report.overview.overall.aiResponseQuality.whatAiCouldHaveDoneBetter?.filter(item => item && item.trim().length > 0).length > 0 && (
+                    {callDetails.report.overview.overall.aiResponseQuality.whatAiCouldHaveDoneBetter?.filter((item: any) => item && item.trim().length > 0).length > 0 && (
                       <div className="border-l-4 border-amber-500 bg-amber-500/5 rounded-r-lg p-4">
                         <div className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">Areas for Improvement</div>
                         <ul className="space-y-1">
-                          {callDetails.report.overview.overall.aiResponseQuality.whatAiCouldHaveDoneBetter.filter(item => item && item.trim().length > 0).map((item, index) => (
+                          {callDetails.report.overview.overall.aiResponseQuality.whatAiCouldHaveDoneBetter.filter((item: any) => item && item.trim().length > 0).map((item: any, index: number) => (
                             <li key={index} className="text-sm text-gray-900 flex items-start gap-2">
                               <span className="text-amber-600 mt-0">•</span>
                               <span>{item}</span>
@@ -1421,7 +1421,7 @@ export function BlankCallDrawer({
                   
                   {/* Transcript Cards */}
                   <div className="space-y-4">
-                    {normalizedTranscript.map((entry, index) => {
+                    {normalizedTranscript.map((entry: any, index: number) => {
                       const isCurrentlyPlaying = isPlaying && 
                         entry.timestamp && 
                         currentPlaybackTime >= entry.timestamp && 

@@ -1,5 +1,72 @@
 import type { CallRecord } from '@/types/call-record'
 
+// API Response types for analytics
+export interface CampaignAnalyticsResponse {
+  campaignId: string
+  campaignType: string
+  campaignName: string
+  overview: {
+    totalLeads: number
+    totalLeadsCalled: number
+    totalCallsMade: number
+    totalAppointments: number
+    callbacksRequested: number
+    callsAnswered: number
+    avgCallDuration: string
+  }
+  performanceByTime: Array<{
+    hour: string
+    totalCalls: number
+    successfulCalls: number
+    successRate: number
+  }>
+  topPerformingVehicles: Array<{
+    vehicleName: string
+    appointmentsCount: number
+    conversionRate: number
+  }>
+}
+
+// Interface for completed calls data (to calculate call failed %)
+export interface CompletedTask {
+  outboundTaskId: string
+  status: string
+  leadId: string
+  leadName: string
+  phoneNumber: string
+  email: string
+  vehicleName: string
+  vehicleIdentificationNumber: {
+    vin: string
+    stock: string
+    registration: string
+  }
+  serviceName: string
+  retryCount: number
+  errorReason: string
+  completedAt: string
+  outcome: string
+  actionItems: string[]
+  queryResolved: string
+  callbackRequested: boolean
+  customerSentimentScore: number
+  aiSentimentScore: string
+}
+
+export interface CampaignCompletedResponse {
+  campaignId: string
+  campaignName: string
+  campaignType: string
+  status: string
+  totalLeads: number
+  agentName: string
+  enterpriseId: string
+  teamId: string
+  totalCompletedCalls: number
+  completedTasks: CompletedTask[]
+  lastUpdated: string
+}
+
 export interface CampaignMetrics {
   totalCallsMade: {
     count: number
@@ -145,5 +212,80 @@ export function calculateMockCampaignMetrics(totalCalls: number, campaignType: '
     avgCallDuration: { duration: avgCallDuration },
     callFailedPercentage: { percentage: Math.round(callFailedRate) },
     percentageOfFollowups: { percentage: Math.round(followupRate) }
+  }
+}
+
+/**
+ * Calculate campaign metrics from real API analytics data
+ */
+export function calculateCampaignMetricsFromAPI(
+  analyticsData: CampaignAnalyticsResponse | null, 
+  completedCallsData: CampaignCompletedResponse | null
+): CampaignMetrics {
+  if (!analyticsData) {
+    return {
+      totalCallsMade: { count: 0 },
+      totalCustomersContacted: { count: 0 },
+      totalAppointmentsSet: { count: 0 },
+      answerRate: { percentage: 0 },
+      voicemailPercentage: { percentage: 0 },
+      avgCallDuration: { duration: '0:00' },
+      callFailedPercentage: { percentage: 0 },
+      percentageOfFollowups: { percentage: 0 }
+    }
+  }
+
+  const overview = analyticsData.overview
+
+  // Total Calls Made = totalLeads from analytics API
+  const totalCallsMade = overview.totalLeads || 0
+
+  // Total Contacted = show "--" since not available in API
+  const totalCustomersContacted = 0 // Will show as "--"
+
+  // Total Appointments = totalAppointments from analytics API
+  const totalAppointments = overview.totalAppointments || 0
+
+  // Answer Rate = callsAnswered from analytics API
+  const callsAnswered = overview.callsAnswered || 0
+  const answerRate = totalCallsMade > 0 ? Math.round((callsAnswered / totalCallsMade) * 100) : 0
+
+  // Voice Mail % = calculate from completed calls data
+  let voicemailPercentage = 0
+  if (completedCallsData?.completedTasks) {
+    const voicemailCalls = completedCallsData.completedTasks.filter(task => 
+      task.errorReason === 'customer-voicemail' || 
+      task.errorReason === 'voicemail'
+    ).length
+    const totalCompletedCalls = completedCallsData.completedTasks.length
+    voicemailPercentage = totalCompletedCalls > 0 ? Math.round((voicemailCalls / totalCompletedCalls) * 100) : 0
+  }
+
+  // Avg. Call Duration = avgCallDuration from analytics API
+  const avgCallDuration = overview.avgCallDuration || '0:00'
+
+  // Call failed % = calculate from completed calls data where status is CALL_FAILED
+  let callFailedPercentage = 0
+  if (completedCallsData?.completedTasks) {
+    const failedCalls = completedCallsData.completedTasks.filter(task => 
+      task.status === 'CALL_FAILED'
+    ).length
+    const totalCompletedCalls = completedCallsData.completedTasks.length
+    callFailedPercentage = totalCompletedCalls > 0 ? Math.round((failedCalls / totalCompletedCalls) * 100) : 0
+  }
+
+  // % of followups = callbacksRequested from analytics API
+  const callbacksRequested = overview.callbacksRequested || 0
+  const percentageOfFollowups = totalCallsMade > 0 ? Math.round((callbacksRequested / totalCallsMade) * 100) : 0
+
+  return {
+    totalCallsMade: { count: totalCallsMade },
+    totalCustomersContacted: { count: totalCustomersContacted }, // Will show as "--"
+    totalAppointmentsSet: { count: totalAppointments },
+    answerRate: { percentage: answerRate },
+    voicemailPercentage: { percentage: voicemailPercentage },
+    avgCallDuration: { duration: avgCallDuration },
+    callFailedPercentage: { percentage: callFailedPercentage },
+    percentageOfFollowups: { percentage: percentageOfFollowups }
   }
 }

@@ -76,13 +76,19 @@ const AreaGraph: React.FC<AreaGraphProps> = ({
 const ConversionChip: React.FC<{
   value: string;
   index: number;
+  totalStages: number;
   color?: string;
-}> = ({ value, index, color = '#B3ABF8' }) => {
+}> = ({ value, index, totalStages, color = '#B3ABF8' }) => {
+  // Calculate position dynamically based on number of stages
+  // Position chips between stages: for 3 stages, chips go at 33.33% and 66.66%
+  const stageWidth = 100 / totalStages;
+  const leftPosition = stageWidth * (index + 1);
+  
   return (
     <div
       className="absolute top-[50%] flex translate-y-[50%] items-center justify-center rounded-2xl bg-white p-2 text-xs font-semibold"
       style={{
-        left: `${25 + index * 25}%`,
+        left: `${leftPosition}%`,
         transform: 'translateX(-50%)',
         boxShadow: `0px 0px 82.11px 0px ${color}`,
       }}
@@ -113,21 +119,25 @@ const FunnelShimmer: React.FC<{ cardCount?: number }> = ({ cardCount = 4 }) => {
             </div>
           ))}
         {/* Shimmer conversion chips */}
-        {Array(3)
+        {Array(cardCount - 1)
           .fill(0)
-          .map((_, index) => (
-            <div
-              key={`shimmer-chip-${index}`}
-              className="absolute top-[50%] flex translate-y-[50%] items-center justify-center rounded-2xl bg-white p-2 animate-pulse"
-              style={{
-                left: `${25 + index * 25}%`,
-                transform: 'translateX(-50%)',
-                boxShadow: '0px 0px 82.11px 0px #B3ABF8',
-              }}
-            >
-              <div className="h-3 w-8 bg-gray-200 rounded"></div>
-            </div>
-          ))}
+          .map((_, index) => {
+            const stageWidth = 100 / cardCount;
+            const leftPosition = stageWidth * (index + 1);
+            return (
+              <div
+                key={`shimmer-chip-${index}`}
+                className="absolute top-[50%] flex translate-y-[50%] items-center justify-center rounded-2xl bg-white p-2 animate-pulse"
+                style={{
+                  left: `${leftPosition}%`,
+                  transform: 'translateX(-50%)',
+                  boxShadow: '0px 0px 82.11px 0px #B3ABF8',
+                }}
+              >
+                <div className="h-3 w-8 bg-gray-200 rounded"></div>
+              </div>
+            )
+          })}
       </div>
     </div>
   );
@@ -206,6 +216,7 @@ const AppointmentFunnel: React.FC<AppointmentFunnelProps> = ({
             key={`conversion-${index}`}
             value={rate}
             index={index}
+            totalStages={stagesData.length}
             color={conversionChipColor}
           />
         ))}

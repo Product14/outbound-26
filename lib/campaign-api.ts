@@ -754,6 +754,57 @@ export interface CampaignLeadsCountResponse {
   count: number;
 }
 
+// Campaign Conversation Data Interface (from the new API)
+export interface CampaignConversationData {
+  _id: string;
+  campaignId: string;
+  __v: number;
+  callLimits: {
+    dailyContactLimit: number;
+    hourlyThrottle: number;
+    maxConcurrentCalls: number;
+  };
+  campaignCustomerCreationStatus: string;
+  campaignStatus: string;
+  campaignType: string;
+  campaignUseCase: string;
+  communicationChannel: string;
+  completedDate: string;
+  complianceSettings: string[];
+  createdAt: string;
+  dataPreparationTime: string | null;
+  endDate: string;
+  enterpriseId: string;
+  escalationTriggers: string[];
+  handoffSettings: {
+    targerType: string; // Note: API has typo "targerType" instead of "targetType"
+    targetPhone: string[];
+  };
+  importSource: string;
+  name: string;
+  retryLogic: {
+    maxAttempts: number;
+    retryDelay: number;
+    smsSwitchover: boolean;
+  };
+  scheduledTime: Array<{
+    start: string;
+    end: string;
+  }>;
+  startDate: string;
+  status: string;
+  teamAgentMappingId: string;
+  teamId: string;
+  totalCustomers: number;
+  totalCustomersLeadCreated: number;
+  totalCustomersLeadFailed: number;
+  updatedAt: string;
+  voicemailConfig: {
+    method: string;
+    voicemailMessage: string;
+  };
+}
+
 export async function fetchCampaignLeadsCount(
   enterpriseId: string,
   teamId: string,
@@ -838,6 +889,48 @@ export async function processKeyMapping(requiredKeys: string[], availableKeys: s
     return await response.json();
   } catch (error) {
     console.error('Error processing key mapping:', error);
+    throw error;
+  }
+}
+
+export async function fetchCampaignConversationData(
+  campaignId: string,
+  authKey?: string
+): Promise<CampaignConversationData> {
+  try {
+    const params = new URLSearchParams();
+    params.append('campaignId', campaignId);
+    
+    // Add auth_key parameter if provided
+    if (authKey) {
+      params.append('auth_key', authKey);
+    }
+
+    const response = await fetch(`/api/fetch-campaign-conversation?${params.toString()}`);
+
+    if (!response.ok) {
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage += ` - ${errorData.error || errorData.message || 'Unknown error'}`;
+      } catch {
+        // If response is not JSON, try to get text
+        try {
+          const errorText = await response.text();
+          if (errorText) {
+            errorMessage += ` - ${errorText}`;
+          }
+        } catch {
+          // If all else fails, just use the status
+        }
+      }
+      throw new Error(errorMessage);
+    }
+
+    const data: CampaignConversationData = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching campaign conversation data:', error);
     throw error;
   }
 }

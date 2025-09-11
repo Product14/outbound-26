@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { ArrowLeft, ChevronDown, Square, Calendar, Play } from 'lucide-react'
+import { ArrowLeft, Info, Square, Calendar, Play } from 'lucide-react'
 import { buildUrlWithParams } from '@/lib/url-utils'
 import { formatTimeRange } from '@/lib/time-utils'
 import type { CampaignDetailResponse } from '@/lib/campaign-api'
@@ -14,6 +14,8 @@ import type { Agent as DeployedAgent } from '@/hooks/use-agents'
 
 interface CampaignHeaderProps {
   campaignData: CampaignDetailResponse | null
+  conversationData?: any
+  campaignId?: string
   isSalesCampaign: boolean
   isServiceCampaign: boolean
   isCallDetailsOpen: boolean
@@ -28,6 +30,8 @@ interface CampaignHeaderProps {
 
 export function CampaignHeader({
   campaignData,
+  conversationData,
+  campaignId,
   isSalesCampaign,
   isServiceCampaign,
   isCallDetailsOpen,
@@ -122,20 +126,22 @@ export function CampaignHeader({
 
   // Transform deployedAgents to include avatar URLs
   const agentsWithAvatars = deployedAgents.map(agent => ({
-    name: agent.name,
-    imageUrl: '/placeholder-user.jpg' // In real implementation, this would come from agent data
+    name: agent.agentName || agent.name, // Use agentName if available, fallback to name
+    imageUrl: (agent as any).imageUrl || '/placeholder-user.jpg' // Use real image URL if available
   }))
 
-  // Calculate campaign completion metrics
-  const totalCalls = 1000 // Total calls to be made in the campaign
-  const callsMade = 850 // Number of calls already made (from dummy data)
-  const completionPercentage = Math.round((callsMade / totalCalls) * 100)
+  // Calculate campaign completion metrics from real API data
+  const totalCalls = conversationData?.totalCustomers || campaignData?.campaign?.totalCustomers || 0
+  const callsMade = conversationData?.totalCustomersLeadCreated || 0
+  const completionPercentage = totalCalls > 0 ? Math.round((callsMade / totalCalls) * 100) : 0
   
-  // Calculate remaining time (mock calculation)
+  // Calculate remaining time based on real data
   const remainingCalls = totalCalls - callsMade
-  const callsPerHour = 150 // estimated calls per hour
-  const remainingHours = Math.ceil(remainingCalls / callsPerHour)
-  const remainingTime = remainingHours > 1 ? `${remainingHours}hr remaining` : `${remainingHours * 60}min remaining`
+  const callsPerHour = conversationData?.callLimits?.hourlyThrottle || 50 // Use real hourly throttle from API
+  const remainingHours = remainingCalls > 0 && callsPerHour > 0 ? Math.ceil(remainingCalls / callsPerHour) : 0
+  const remainingTime = remainingHours > 1 ? `${remainingHours}hr remaining` : 
+                       remainingHours === 1 ? `${remainingHours}hr remaining` :
+                       remainingCalls > 0 ? `${Math.ceil(remainingCalls / (callsPerHour / 60))}min remaining` : 'Completed'
 
   return (
     <div className={`
@@ -173,20 +179,35 @@ export function CampaignHeader({
                   ${isCompact ? 'text-lg leading-6' : 'text-2xl leading-8'}
                 `}>
                   {
-                    // If campaign name looks like a UUID, show a fallback name
-                    campaignData?.campaign?.name && 
-                    !campaignData.campaign.name.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+                    // Use real campaign name from conversation data if available
+                    conversationData?.name || 
+                    // Fallback to campaign data name if it's not a UUID
+                    (campaignData?.campaign?.name && 
+                     !campaignData.campaign.name.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
                       ? campaignData.campaign.name 
-                      : isSalesCampaign ? 'Q4 Vehicle Sales Campaign' : 'Q4 Service Reminder Campaign'
+                      : 'Campaign')
                   }
                 </h1>
-                <button className={`
-                  flex items-center justify-center w-[30px] h-[30px] rounded-full hover:bg-gray-50 
-                  transition-all duration-300 ease-out overflow-hidden
-                  ${isCompact ? 'opacity-0 max-w-0 max-h-0' : 'opacity-100 max-w-[30px] max-h-[30px]'}
+                <div className={`
+                  relative group flex items-center justify-center w-[30px] h-[30px] rounded-full hover:bg-gray-50 
+                  transition-all duration-300 ease-out cursor-help
+                  ${isCompact ? 'opacity-0 max-w-0 max-h-0 overflow-hidden' : 'opacity-100 max-w-[30px] max-h-[30px]'}
                 `}>
-                  <ChevronDown className="h-5 w-5 text-gray-600" />
-                </button>
+                  <Info className="h-5 w-5 text-gray-400" />
+                  {/* Tooltip */}
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-black text-white text-sm rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap z-[9999] shadow-xl border border-gray-700">
+                    Campaign ID: {(() => {
+                      const id = campaignData?.campaign?.campaignId || campaignData?.campaign?._id || campaignId || 'Loading...'
+                      console.log('Tooltip Campaign ID:', id, {
+                        fromCampaignData: campaignData?.campaign?.campaignId,
+                        fromId: campaignData?.campaign?._id,
+                        fromParams: campaignId,
+                        campaignData: campaignData
+                      })
+                      return id
+                    })()}
+                  </div>
+                </div>
               </div>
               <Badge className={`px-2 py-0.5 text-xs font-medium flex items-center gap-2 ${
                 campaignRunning 
@@ -243,7 +264,18 @@ export function CampaignHeader({
                   Scheduled for:
                 </div>
                 <div className="text-sm font-medium text-gray-900">
-                  {campaignData?.campaign?.startDate ? (
+                  {conversationData?.startDate ? (
+                    (() => {
+                      const startDate = new Date(conversationData.startDate)
+                      const endDate = conversationData.endDate 
+                        ? new Date(conversationData.endDate)
+                        : conversationData.completedDate
+                        ? new Date(conversationData.completedDate)
+                        : new Date(startDate.getTime() + 3 * 60 * 60 * 1000) // Default to 3 hours later
+                      
+                      return formatTimeRange(startDate, endDate)
+                    })()
+                  ) : campaignData?.campaign?.startDate ? (
                     (() => {
                       const startDate = new Date(campaignData.campaign.startDate)
                       const endDate = campaignData.campaign.completedDate 
@@ -265,7 +297,11 @@ export function CampaignHeader({
                 </div>
                 <Badge className="bg-green-50 text-green-600 border-green-100 px-2 py-1 text-xs font-semibold italic flex items-center gap-2 hover:bg-green-50 hover:text-green-600 hover:border-green-100 cursor-default">
                   <Calendar className="h-4 w-4" />
-                  Appointment Reminder
+                  {conversationData?.campaignUseCase ? (
+                    conversationData.campaignUseCase.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (str: string) => str.toUpperCase())
+                  ) : (
+                    isSalesCampaign ? 'Sales Campaign' : 'Service Campaign'
+                  )}
                 </Badge>
               </div>
               
@@ -275,7 +311,16 @@ export function CampaignHeader({
                   Created on:
                 </div>
                 <span className="text-sm font-medium text-gray-900">
-                  {campaignData?.campaign?.createdAt ? (
+                  {conversationData?.createdAt ? (
+                    new Date(conversationData.createdAt).toLocaleDateString('en-US', {
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    })
+                  ) : campaignData?.campaign?.createdAt ? (
                     new Date(campaignData.campaign.createdAt).toLocaleDateString('en-US', {
                       month: 'long',
                       day: 'numeric',
@@ -291,7 +336,7 @@ export function CampaignHeader({
               </div>
               
               {/* Agents Deployed column */}
-              <div className="flex flex-col">
+              <div className="flex flex-col max-w-48">
                 <div className="text-sm font-medium text-gray-600 mb-2">
                   Agents Deployed:
                 </div>
@@ -331,7 +376,7 @@ export function CampaignHeader({
                         {agentsWithAvatars.length > 2 && (
                           <div className="relative group">
                             <span className="text-sm font-medium text-gray-500 cursor-help">
-                              +{agentsWithAvatars.length - 2} more
+                              +{agentsWithAvatars.length - 2}
                             </span>
                             {/* Tooltip */}
                             <div className="absolute right-0 top-6 px-2 py-1 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">

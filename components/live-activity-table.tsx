@@ -7,9 +7,49 @@ import { CircularProgress } from "@/components/ui/circular-progress"
 import { AIScoreBreakdown } from "@/components/ai-score-breakdown"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Phone, Search, Play, Pause, ArrowUpDown, User, Clock, CheckCircle, X, AlertTriangle, Car, Calendar, ChevronLeft, ChevronRight, PhoneCall, Users, PhoneOff, Voicemail, PhoneMissed, Ban, Timer } from "lucide-react"
+import { Phone, Search, Play, Pause, ArrowUpDown, User, Clock, CheckCircle, X, AlertTriangle, Car, Calendar, ChevronLeft, ChevronRight, PhoneCall, Users, PhoneOff, Voicemail, PhoneMissed, Ban, Timer, Loader2 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import type { CallRecord as AICallRecord } from "@/types/call-record"
+
+// API Response types
+interface CompletedTask {
+  outboundTaskId: string
+  status: string
+  leadId: string
+  leadName: string
+  phoneNumber: string
+  email: string
+  vehicleName: string
+  vehicleIdentificationNumber: {
+    vin: string
+    stock: string
+    registration: string
+  }
+  serviceName: string
+  retryCount: number
+  errorReason: string
+  completedAt: string
+  outcome: string
+  actionItems: string[]
+  queryResolved: string
+  callbackRequested: boolean
+  customerSentimentScore: number
+  aiSentimentScore: string
+}
+
+interface CampaignCompletedResponse {
+  campaignId: string
+  campaignName: string
+  campaignType: string
+  status: string
+  totalLeads: number
+  agentName: string
+  enterpriseId: string
+  teamId: string
+  totalCompletedCalls: number
+  completedTasks: CompletedTask[]
+  lastUpdated: string
+}
 
 interface CallRecord {
   id: string
@@ -45,12 +85,13 @@ interface LiveActivityTableProps {
   isCallDetailsOpen?: boolean
   onCallSelect?: (call: CallRecord) => void
   searchTerm?: string
-  statusFilter?: string
-  connectionFilter?: string
+  statusFilter?: string[]
+  connectionFilter?: string[]
   outcomeFilter?: string
   priorityFilter?: string
   agentFilter?: string
   callReasonFilter?: string
+  campaignId?: string
   onFilteredCountChange?: (count: number) => void
 }
 
@@ -58,12 +99,13 @@ export function LiveActivityTable({
   isCallDetailsOpen = false, 
   onCallSelect, 
   searchTerm = "", 
-  statusFilter = "all",
-  connectionFilter = "all",
+  statusFilter = ["all"],
+  connectionFilter = ["all"],
   outcomeFilter = "all",
   priorityFilter = "all",
   agentFilter = "all",
   callReasonFilter = "all",
+  campaignId,
   onFilteredCountChange
 }: LiveActivityTableProps) {
   const [sortField, setSortField] = useState<keyof CallRecord>("timestamp")
@@ -84,285 +126,216 @@ export function LiveActivityTable({
     return () => clearTimeout(timeout)
   }, [isCallDetailsOpen])
 
-  // Sample data with automotive-specific scenarios
-  const [callRecords] = useState<CallRecord[]>([
-    {
-      id: "1",
-      customer: {
-        name: "Andrew Ray",
-        avatar: "/placeholder-user.jpg",
-        phone: "+1-(919)-369-0815"
-      },
-      timestamp: {
-        date: "Jul 18, 2025",
-        time: "4:24 PM",
-        duration: "3min 2sec"
-      },
-      callStatus: "completed",
-      connectionStatus: "connected",
-      outcome: "service_appointment",
-      callReason: "service_reminder",
-      vehicleInfo: {
-        make: "Toyota",
-        model: "Camry",
-        year: 2021
-      },
-      priority: "high",
-      agent: {
-        name: "Kylie",
-        avatar: "/placeholder-user.jpg"
-      },
-      qualityScore: 9.8
-    },
-    {
-      id: "2",
-      customer: {
-        name: "Sarah Mitchell",
-        avatar: "/placeholder-user.jpg",
-        phone: "+1-(702)-601-2853"
-      },
-      timestamp: {
-        date: "Jul 18, 2025",
-        time: "4:20 PM",
-        duration: "2min 6sec"
-      },
-      callStatus: "completed",
-      connectionStatus: "connected",
-      outcome: "test_drive",
-      callReason: "new_model_announcement",
-      vehicleInfo: {
-        make: "Honda",
-        model: "Accord",
-        year: 2024
-      },
-      priority: "medium",
-      agent: {
-        name: "Kylie",
-        avatar: "/placeholder-user.jpg"
-      },
-      qualityScore: 8.5
-    },
-    {
-      id: "3",
-      customer: {
-        name: "Dave Thompson",
-        avatar: "/placeholder-user.jpg",
-        phone: "+1-(919)-369-0815"
-      },
-      timestamp: {
-        date: "Jul 18, 2025",
-        time: "4:16 PM",
-        duration: "3min 53sec"
-      },
-      callStatus: "call_again",
-      callAgainIn: 2,
-      connectionStatus: "voice_mail",
-      outcome: "callback",
-      callReason: "maintenance_due",
-      vehicleInfo: {
-        make: "Volkswagen",
-        model: "Passat",
-        year: 2018
-      },
-      priority: "medium",
-      agent: {
-        name: "Kylie",
-        avatar: "/placeholder-user.jpg"
-      },
-      qualityScore: 6.2
-    },
-    {
-      id: "4",
-      customer: {
-        name: "David Jones",
-        avatar: "/placeholder-user.jpg",
-        phone: "+1-(919)-369-0815"
-      },
-      timestamp: {
-        date: "Jul 18, 2025",
-        time: "4:22 PM",
-        duration: "3min 41sec"
-      },
-      callStatus: "completed",
-      connectionStatus: "connected",
-      outcome: "service_appointment",
-      callReason: "recall_notice",
-      vehicleInfo: {
-        make: "Chevrolet",
-        model: "Tahoe",
-        year: 2020
-      },
-      priority: "high",
-      agent: {
-        name: "Kylie",
-        avatar: "/placeholder-user.jpg"
-      },
-      qualityScore: 9.1
-    },
-    {
-      id: "5",
-      customer: {
-        name: "Michael Torres",
-        avatar: "/placeholder-user.jpg",
-        phone: "+1-(702)-501-5303"
-      },
-      timestamp: {
-        date: "Jul 18, 2025",
-        time: "4:18 PM",
-        duration: "4min 11sec"
-      },
-      callStatus: "live",
-      connectionStatus: "live",
-      outcome: "no_outcome",
-      callReason: "customer_inquiry_follow_up",
-      vehicleInfo: {
-        make: "Audi",
-        model: "A4",
-        year: 2023
-      },
-      priority: "medium",
-      agent: {
-        name: "Kylie",
-        avatar: "/placeholder-user.jpg"
-      },
-      qualityScore: 7.8
-    },
-    {
-      id: "6",
-      customer: {
-        name: "Robert Johnson",
-        avatar: "/placeholder-user.jpg",
-        phone: "+1-(555)-123-4567"
-      },
-      timestamp: {
-        date: "Jul 18, 2025",
-        time: "4:10 PM",
-        duration: "0min 0sec"
-      },
-      callStatus: "queue",
-      connectionStatus: "queue",
-      outcome: "no_outcome",
-      callReason: "recall_notice",
-      vehicleInfo: {
-        make: "Ford",
-        model: "F-150",
-        year: 2020
-      },
-      priority: "high",
-      agent: {
-        name: "Kylie",
-        avatar: "/placeholder-user.jpg"
-      },
-      qualityScore: 0
-    },
-    {
-      id: "7",
-      customer: {
-        name: "Lisa Chen",
-        avatar: "/placeholder-user.jpg",
-        phone: "+1-(408)-555-9876"
-      },
-      timestamp: {
-        date: "Jul 18, 2025",
-        time: "3:55 PM",
-        duration: "1min 45sec"
-      },
-      callStatus: "completed",
-      connectionStatus: "voice_mail",
-      outcome: "callback",
-      callReason: "warranty_expiring",
-      vehicleInfo: {
-        make: "BMW",
-        model: "X3",
-        year: 2019
-      },
-      priority: "medium",
-      agent: {
-        name: "Marcus",
-        avatar: "/placeholder-user.jpg"
-      },
-      qualityScore: 7.2
-    },
-    {
-      id: "8",
-      customer: {
-        name: "James Wilson",
-        avatar: "/placeholder-user.jpg",
-        phone: "+1-(214)-555-3456"
-      },
-      timestamp: {
-        date: "Jul 18, 2025",
-        time: "3:42 PM",
-        duration: "4min 20sec"
-      },
-      callStatus: "completed",
-      connectionStatus: "connected",
-      outcome: "trade_in_quote",
-      callReason: "trade_in_opportunity",
-      vehicleInfo: {
-        make: "Chevrolet",
-        model: "Silverado",
-        year: 2018
-      },
-      priority: "high",
-      agent: {
-        name: "Alex",
-        avatar: "/placeholder-user.jpg"
-      },
-      qualityScore: 9.1
-    },
-    {
-      id: "9",
-      customer: {
-        name: "Maria Rodriguez",
-        avatar: "/placeholder-user.jpg",
-        phone: "+1-(305)-555-7890"
-      },
-      timestamp: {
-        date: "Jul 18, 2025",
-        time: "3:30 PM",
-        duration: "1min 12sec"
-      },
-      callStatus: "completed",
-      connectionStatus: "connected",
-      outcome: "not_interested",
-      callReason: "sales_follow_up",
-      priority: "low",
-      agent: {
-        name: "Emma",
-        avatar: "/placeholder-user.jpg"
-      },
-      qualityScore: 5.8
-    },
-    {
-      id: "10",
-      customer: {
-        name: "Kevin Park",
-        avatar: "/placeholder-user.jpg",
-        phone: "+1-(206)-555-2468"
-      },
-      timestamp: {
-        date: "Jul 18, 2025",
-        time: "3:25 PM",
-        duration: "0min 15sec"
-      },
-      callStatus: "abandoned",
-      connectionStatus: "busy",
-      outcome: "no_outcome",
-      callReason: "maintenance_due",
-      vehicleInfo: {
-        make: "Nissan",
-        model: "Altima",
-        year: 2022
-      },
-      priority: "low",
-      agent: {
-        name: "Kylie",
-        avatar: "/placeholder-user.jpg"
-      },
-      qualityScore: 2.1
+  // State for API data
+  const [callRecords, setCallRecords] = useState<CallRecord[]>([])
+  const [isLoadingCalls, setIsLoadingCalls] = useState(false)
+  const [callsError, setCallsError] = useState<string | null>(null)
+
+  // Function to transform API data to CallRecord format
+  const transformApiDataToCallRecords = (apiData: CampaignCompletedResponse): CallRecord[] => {
+    return apiData.completedTasks.map((task) => {
+      // Parse date and time from completedAt
+      const completedDate = new Date(task.completedAt)
+      const dateStr = completedDate.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      })
+      const timeStr = completedDate.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      })
+
+      // Map connection status from API status and error reason
+      let connectionStatus: CallRecord['connectionStatus'] = 'not_connected'
+      
+      // Handle the actual status values from API
+      switch (task.status) {
+        case 'CALL_COMPLETED':
+          // For completed calls, check error reason to determine connection quality
+          switch (task.errorReason) {
+            case 'customer-ended-call':
+            case 'agent-ended-call':
+            case null:
+            case undefined:
+            case '':
+              connectionStatus = 'connected'
+              break
+            case 'customer-busy':
+              connectionStatus = 'busy'
+              break
+            case 'customer-voicemail':
+            case 'voicemail':
+              connectionStatus = 'voice_mail'
+              break
+            case 'customer-no-answer':
+            case 'no-answer':
+              connectionStatus = 'not_connected'
+              break
+            case 'customer-do-not-call':
+            case 'do-not-call':
+              connectionStatus = 'do_not_call'
+              break
+            default:
+              connectionStatus = 'connected'
+          }
+          break
+          
+        case 'CALL_FAILED':
+          // For failed calls, check error reason for more specific status
+          switch (task.errorReason) {
+            case 'customer-ended-call':
+            case 'agent-ended-call':
+              // Call connected but ended (still successful connection)
+              connectionStatus = 'connected'
+              break
+            case 'customer-busy':
+              connectionStatus = 'busy'
+              break
+            case 'customer-voicemail':
+            case 'voicemail':
+              connectionStatus = 'voice_mail'
+              break
+            case 'customer-no-answer':
+            case 'no-answer':
+              connectionStatus = 'not_connected'
+              break
+            case 'customer-do-not-call':
+            case 'do-not-call':
+              connectionStatus = 'do_not_call'
+              break
+            case 'call-failed':
+            case 'technical-error':
+              connectionStatus = 'call_failed'
+              break
+            default:
+              // Default for CALL_FAILED status
+              connectionStatus = 'call_failed'
+          }
+          break
+          
+        case 'IN_PROGRESS':
+        case 'CALLING':
+          connectionStatus = 'live'
+          break
+          
+        case 'QUEUED':
+        case 'PENDING':
+          connectionStatus = 'queue'
+          break
+          
+        case 'FAILED':
+          connectionStatus = 'call_failed'
+          break
+          
+        default:
+          connectionStatus = 'not_connected'
+      }
+
+      // Map outcome from API outcome
+      let outcome: CallRecord['outcome'] = 'no_outcome'
+      
+      switch (task.outcome?.toLowerCase()) {
+        case 'success':
+          // For successful calls, we could check actionItems or other fields to determine specific outcome
+          // For now, defaulting to service_appointment for successful calls
+          outcome = 'service_appointment'
+          break
+        case 'failed':
+          // For failed calls, determine outcome based on error reason
+          if (task.errorReason === 'customer-ended-call' || task.errorReason === 'agent-ended-call') {
+            // Call connected but ended - could still have achieved something
+            outcome = 'no_outcome'
+          } else {
+            outcome = 'no_outcome'
+          }
+          break
+        case 'callback':
+        case 'callback_requested':
+          outcome = 'callback'
+          break
+        case 'not_interested':
+        case 'not-interested':
+          outcome = 'not_interested'
+          break
+        case 'wrong_number':
+        case 'wrong-number':
+          outcome = 'wrong_number'
+          break
+        case 'information_provided':
+        case 'information-provided':
+          outcome = 'information_provided'
+          break
+        case 'test_drive':
+        case 'test-drive':
+          outcome = 'test_drive'
+          break
+        case 'trade_in_quote':
+        case 'trade-in-quote':
+          outcome = 'trade_in_quote'
+          break
+        default:
+          outcome = 'no_outcome'
+      }
+
+      return {
+        id: task.outboundTaskId,
+        customer: {
+          name: task.leadName,
+          phone: task.phoneNumber,
+          avatar: "/placeholder-user.jpg"
+        },
+        timestamp: {
+          date: dateStr,
+          time: timeStr,
+          duration: "--" // Duration not provided in API
+        },
+        callStatus: "completed" as const,
+        connectionStatus,
+        outcome,
+        callReason: "service_reminder" as const, // Default since not provided in API
+        priority: "medium" as const, // Default since not provided in API
+        agent: {
+          name: apiData.agentName,
+          avatar: "/placeholder-user.jpg"
+        },
+        qualityScore: parseFloat(task.aiSentimentScore) || 0
+      }
+    })
+  }
+
+  // Fetch campaign completed calls data
+  useEffect(() => {
+    const fetchCampaignCalls = async () => {
+      if (!campaignId) return
+
+      setIsLoadingCalls(true)
+      setCallsError(null)
+      
+      try {
+        const response = await fetch(`/api/fetch-campaign-completed-calls?campaignId=${campaignId}`)
+        if (!response.ok) {
+          throw new Error('Failed to fetch campaign calls')
+        }
+        
+        const apiData: CampaignCompletedResponse = await response.json()
+        const transformedData = transformApiDataToCallRecords(apiData)
+        setCallRecords(transformedData)
+      } catch (error) {
+        console.error('Error fetching campaign calls:', error)
+        setCallsError(error instanceof Error ? error.message : 'Failed to fetch calls')
+        setCallRecords([]) // Set empty array on error
+      } finally {
+        setIsLoadingCalls(false)
+      }
     }
-  ])
+
+    fetchCampaignCalls()
+  }, [campaignId])
+
+  // Component uses callRecords state which is populated from API data
+  // Mock data removed - component now only uses real API data
 
   const filteredCalls = callRecords
     .filter(call => {
@@ -373,8 +346,8 @@ export function LiveActivityTable({
                            call.callReason.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            (call.vehicleInfo && `${call.vehicleInfo.year} ${call.vehicleInfo.make} ${call.vehicleInfo.model}`.toLowerCase().includes(searchTerm.toLowerCase()))
       
-      const matchesStatus = statusFilter === "all" || call.callStatus === statusFilter
-      const matchesConnection = connectionFilter === "all" || call.connectionStatus === connectionFilter
+      const matchesStatus = statusFilter.includes("all") || statusFilter.includes(call.callStatus)
+      const matchesConnection = connectionFilter.includes("all") || connectionFilter.includes(call.connectionStatus)
       const matchesOutcome = outcomeFilter === "all" || call.outcome === outcomeFilter
       const matchesPriority = priorityFilter === "all" || call.priority === priorityFilter
       const matchesAgent = agentFilter === "all" || call.agent.name === agentFilter
@@ -697,30 +670,55 @@ export function LiveActivityTable({
     )
   }
 
+  // Show loading state
+  if (isLoadingCalls) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+          <span className="ml-2 text-gray-500">Loading calls...</span>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (callsError) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="flex items-center justify-center py-12">
+          <AlertTriangle className="w-8 h-8 text-red-400" />
+          <span className="ml-2 text-red-500">Error loading calls: {callsError}</span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <Table>
+      <div className="overflow-x-auto">
+        <Table className="min-w-[1100px]">
             <TableHeader>
               <TableRow className="bg-gray-50">
-                <TableHead className="font-semibold text-gray-900 cursor-pointer" onClick={() => handleSort("customer")}>
+                <TableHead className="font-semibold text-gray-900 cursor-pointer whitespace-nowrap min-w-[250px]" onClick={() => handleSort("customer")}>
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4" />
                     Customer Details
                     <ArrowUpDown className="w-3 h-3" />
                   </div>
                 </TableHead>
-                <TableHead className="font-semibold text-gray-900">Connection Status</TableHead>
-                <TableHead className="font-semibold text-gray-900 cursor-pointer" onClick={() => handleSort("timestamp")}>
+                <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[140px]">Connection Status</TableHead>
+                <TableHead className="font-semibold text-gray-900 cursor-pointer whitespace-nowrap min-w-[160px]" onClick={() => handleSort("timestamp")}>
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4" />
                     Timestamp
                     <ArrowUpDown className="w-3 h-3" />
                   </div>
                 </TableHead>
-                <TableHead className="font-semibold text-gray-900">Duration</TableHead>
-                <TableHead className="font-semibold text-gray-900">Outcome</TableHead>
-                <TableHead className="font-semibold text-gray-900">Agent</TableHead>
-                <TableHead className="font-semibold text-gray-900 cursor-pointer" onClick={() => handleSort("qualityScore")}>
+                <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[120px]">Duration</TableHead>
+                <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[160px]">Outcome</TableHead>
+                <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[140px]">Agent</TableHead>
+                <TableHead className="font-semibold text-gray-900 cursor-pointer whitespace-nowrap min-w-[160px]" onClick={() => handleSort("qualityScore")}>
                   <div className="flex items-center gap-2">
                     Quality Score
                     <ArrowUpDown className="w-3 h-3" />
@@ -756,7 +754,7 @@ export function LiveActivityTable({
                       </Avatar>
                       <div>
                         <div className="font-medium text-gray-900">{call.customer.name}</div>
-                        <div className="text-sm text-gray-500">{call.customer.phone}</div>
+                        <div className="text-sm text-gray-500 whitespace-nowrap">{call.customer.phone}</div>
                       </div>
                     </div>
                   </TableCell>
@@ -804,6 +802,7 @@ export function LiveActivityTable({
               ))}
             </TableBody>
           </Table>
+        </div>
       
       {filteredAndSortedCalls.length === 0 && (
         <div className="text-center py-12 px-6">

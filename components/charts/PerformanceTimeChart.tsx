@@ -27,6 +27,25 @@ const chartConfig = {
 }
 
 export function PerformanceTimeChart({ data, title = "Best Campaign Performance Time" }: PerformanceTimeChartProps) {
+  // Handle empty data case
+  if (!data || data.length === 0) {
+    return (
+      <div className="bg-gray-50 rounded-xl p-4 h-full">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-[#1A1A1A]">
+            {title}
+          </h3>
+        </div>
+        <div className="flex items-center justify-center h-48 text-gray-500">
+          <div className="text-center">
+            <p className="text-sm">No performance data available</p>
+            <p className="text-xs mt-1">Data will appear once calls are completed</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="bg-gray-50 rounded-xl p-4 h-full">
       <div className="mb-4">

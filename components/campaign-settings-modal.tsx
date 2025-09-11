@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Calendar, Clock, Phone, MessageSquare, Settings2, FileText, Zap, Users } from 'lucide-react'
-import { fetchCampaignDetails, type CampaignDetailResponse } from '@/lib/campaign-api'
+import { fetchCampaignDetails, type CampaignDetailResponse, fetchCampaignConversationData, type CampaignConversationData } from '@/lib/campaign-api'
 import { fetchAgentList, type Agent } from '@/lib/agent-api'
 import { extractUrlParams } from '@/lib/url-utils'
 import { formatUseCaseLabel } from '@/utils/campaign-setup-utils'
@@ -79,12 +79,8 @@ export function CampaignSettingsModal({
       setLoading(true)
       setError(null)
 
-      // Fetch campaign details
-      const campaignResponse = await fetchCampaignDetails(campaignId, urlParams.auth_key || undefined)
-      
-      if (!campaignResponse.success) {
-        throw new Error('Failed to fetch campaign details')
-      }
+      // Fetch campaign conversation data (the new API with all the details)
+      const conversationData = await fetchCampaignConversationData(campaignId, urlParams.auth_key || undefined)
 
       // Fetch agents to get agent details
       let agentData = null
@@ -98,36 +94,38 @@ export function CampaignSettingsModal({
             undefined,
             urlParams.auth_key || undefined
           )
-          // Find the agent for this campaign (assuming teamAgentMappingId maps to agent)
-          agentData = agents.length > 0 ? agents[0] : null
+          // Find the agent for this campaign using teamAgentMappingId
+          agentData = agents.find(agent => agent.id === conversationData.teamAgentMappingId) || agents[0] || null
           setAgent(agentData)
         } catch (agentError) {
           console.warn('Could not fetch agent details:', agentError)
         }
       }
 
-      // Map campaign data to our settings structure
-      const campaign = campaignResponse.campaign
-      const mappedSettings: CampaignSettings = {
-        name: campaign.name,
-        type: campaign.campaignType,
-        useCase: campaign.campaignUseCase,
-        status: campaign.status,
-        totalCustomers: campaign.totalCustomers,
-        agentName: agentData?.name,
-        agentImageUrl: agentData?.imageUrl,
+        // Map campaign conversation data to our settings structure
+        const mappedSettings: CampaignSettings = {
+          name: conversationData.name,
+          type: conversationData.campaignType,
+          useCase: conversationData.campaignUseCase,
+          status: conversationData.status === 'active' ? 'active' : conversationData.status,
+          totalCustomers: conversationData.totalCustomers,
+          agentName: agentData?.name,
+          agentImageUrl: agentData?.imageUrl,
         
-        // Default values since API doesn't return detailed settings
-        schedule: 'now', // Most campaigns start immediately
-        maxRetryAttempts: 3,
-        retryDelayMinutes: 60,
-        voicemailStrategy: 'leave_message',
-        voicemailMessage: 'Hi, this is [Company Name] calling about an important matter. Please call us back at your earliest convenience.',
-        smsSwitchOnSecondAttempt: false,
-        maxCallsPerDay: 110,
-        maxCallsPerHour: 10,
-        maxConcurrentCalls: 5,
-        timeSlots: [{ startTime: '09:00', endTime: '17:00' }]
+        // Use real data from the API
+        schedule: 'now', // Most campaigns start immediately - could be enhanced based on startDate
+        maxRetryAttempts: conversationData.retryLogic.maxAttempts,
+        retryDelayMinutes: conversationData.retryLogic.retryDelay,
+        voicemailStrategy: conversationData.voicemailConfig.method,
+        voicemailMessage: conversationData.voicemailConfig.voicemailMessage,
+        smsSwitchOnSecondAttempt: conversationData.retryLogic.smsSwitchover,
+        maxCallsPerDay: conversationData.callLimits.dailyContactLimit,
+        maxCallsPerHour: conversationData.callLimits.hourlyThrottle,
+        maxConcurrentCalls: conversationData.callLimits.maxConcurrentCalls,
+        timeSlots: conversationData.scheduledTime.map(slot => ({ 
+          startTime: slot.start, 
+          endTime: slot.end 
+        }))
       }
 
       setSettings(mappedSettings)
@@ -220,8 +218,9 @@ export function CampaignSettingsModal({
                   <div>
                     <p className="text-xs font-medium text-gray-500 mb-1">Status</p>
                     <Badge className={`text-xs ${
-                      settings.status === 'Running' ? 'bg-green-100 text-green-800 border-green-200' :
-                      settings.status === 'Completed' ? 'bg-gray-100 text-gray-800 border-gray-200' :
+                      settings.status === 'running' ? 'bg-green-100 text-green-800 border-green-200' :
+                      settings.status === 'completed' ? 'bg-gray-100 text-gray-800 border-gray-200' :
+                      settings.status === 'active' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
                       'bg-yellow-100 text-yellow-800 border-yellow-200'
                     }`}>
                       {settings.status}

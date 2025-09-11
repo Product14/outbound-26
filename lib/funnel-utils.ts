@@ -62,9 +62,9 @@ export function calculateFunnelMetrics(campaignData: CampaignDetailResponse | nu
   const callsCompleted = Math.round(connected * 0.89)
   
   // AI Converted: Booking-related outcomes (appointments, test drives, purchases)
-  // Make it more realistic - typically 15-30% of completed calls result in bookings - use fixed 22%
-  const conversionRate = 0.22
-  const aiConverted = Math.round(callsCompleted * conversionRate)
+  // Make it more realistic - typically 15-30% of connected calls result in bookings - use fixed 19.5%
+  const conversionRate = 0.195
+  const aiConverted = Math.round(connected * conversionRate)
   
   // Require Human: Follow-up required outcomes
   // Estimate 12-25% of connected calls require human follow-up - use fixed 18%
@@ -107,16 +107,9 @@ export function formatFunnelData(metrics: FunnelMetrics): FunnelData[] {
       additionalInfo: 'Customers who answered calls'
     },
     {
-      stage: 'Followups requested',
-      value: requireHuman,
-      percentage: connected > 0 ? Math.round((requireHuman / connected) * 100) : 0,
-      color: '#F59E0B', // Amber-500
-      additionalInfo: 'Customers requesting follow-up'
-    },
-    {
       stage: 'Appointments scheduled',
       value: aiConverted,
-      percentage: requireHuman > 0 ? Math.round((aiConverted / requireHuman) * 100) : 0,
+      percentage: connected > 0 ? Math.round((aiConverted / connected) * 100) : 0,
       color: '#22C55E', // Green-500
       additionalInfo: 'Successfully scheduled appointments'
     }
@@ -150,16 +143,9 @@ export function getCampaignFunnelData(
         additionalInfo: 'Service customers who answered'
       },
       {
-        stage: 'Followups requested',
-        value: metrics.requireHuman,
-        percentage: metrics.connected > 0 ? Math.round((metrics.requireHuman / metrics.connected) * 100) : 0,
-        color: '#F59E0B', // Amber-500
-        additionalInfo: 'Service customers requesting follow-up'
-      },
-      {
         stage: 'Appointments scheduled',
         value: metrics.aiConverted,
-        percentage: metrics.requireHuman > 0 ? Math.round((metrics.aiConverted / metrics.requireHuman) * 100) : 0,
+        percentage: metrics.connected > 0 ? Math.round((metrics.aiConverted / metrics.connected) * 100) : 0,
         color: '#4ADE80', // Green-400
         additionalInfo: 'Service appointments successfully scheduled'
       }
@@ -184,16 +170,9 @@ export function getCampaignFunnelData(
         additionalInfo: 'Sales prospects who answered'
       },
       {
-        stage: 'Followups requested',
-        value: metrics.requireHuman,
-        percentage: metrics.connected > 0 ? Math.round((metrics.requireHuman / metrics.connected) * 100) : 0,
-        color: '#F59E0B', // Amber-500
-        additionalInfo: 'Sales prospects requesting follow-up'
-      },
-      {
         stage: 'Appointments scheduled',
         value: metrics.aiConverted,
-        percentage: metrics.requireHuman > 0 ? Math.round((metrics.aiConverted / metrics.requireHuman) * 100) : 0,
+        percentage: metrics.connected > 0 ? Math.round((metrics.aiConverted / metrics.connected) * 100) : 0,
         color: '#3B82F6', // Blue-500
         additionalInfo: 'Sales appointments/test drives scheduled'
       }
@@ -217,7 +196,6 @@ export function getAppointmentFunnelData(
   const stages: AppointmentFunnelStage[] = [
     { name: 'Customer contact initiated', count: metrics.calls },
     { name: 'Contacted successfully', count: metrics.connected },
-    { name: 'Followups requested', count: metrics.requireHuman },
     { name: 'Appointments scheduled', count: metrics.aiConverted }
   ]
   

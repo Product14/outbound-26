@@ -13,7 +13,7 @@ export function MetricsGrid({ metrics, className }: MetricsGridProps) {
   return (
     <>
       {/* Desktop view - 4 columns */}
-      <div className={`hidden lg:grid lg:grid-cols-4 gap-4 auto-rows-fr ${className}`}>
+      <div className={`hidden md:grid md:grid-cols-4 gap-4 auto-rows-fr ${className}`}>
         {/* Row 1 */}
         <MetricCard
           title="Total Calls Made"
@@ -24,7 +24,7 @@ export function MetricsGrid({ metrics, className }: MetricsGridProps) {
         
         <MetricCard
           title="Total Contacted"
-          value={metrics.totalCustomersContacted.count.toLocaleString()}
+          value={metrics.totalCustomersContacted.count === 0 ? "--" : metrics.totalCustomersContacted.count.toLocaleString()}
           valueColor="text-green-600"
           icon={<Users className="h-4 w-4" />}
         />
@@ -73,8 +73,8 @@ export function MetricsGrid({ metrics, className }: MetricsGridProps) {
         />
       </div>
 
-      {/* Mobile/Tablet view - 2 columns with custom layout */}
-      <div className={`lg:hidden space-y-3 ${className}`}>
+      {/* Mobile view - 2 columns with custom layout */}
+      <div className={`md:hidden space-y-3 ${className}`}>
         {/* Row 1 - First 4 metrics in 2x2 grid */}
         <div className="grid grid-cols-2 gap-4">
           <MetricCard
@@ -86,7 +86,7 @@ export function MetricsGrid({ metrics, className }: MetricsGridProps) {
           
           <MetricCard
             title="Total Contacted"
-            value={metrics.totalCustomersContacted.count.toLocaleString()}
+            value={metrics.totalCustomersContacted.count === 0 ? "--" : metrics.totalCustomersContacted.count.toLocaleString()}
             valueColor="text-green-600"
             icon={<Users className="h-4 w-4" />}
           />

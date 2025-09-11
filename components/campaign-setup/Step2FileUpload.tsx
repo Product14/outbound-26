@@ -13,7 +13,7 @@ import { Upload, Database, Cloud, Download, AlertCircle, CheckCircle, Loader2 } 
 import { CampaignData, ValidationErrors } from '@/types/campaign-setup'
 import { getRequiredKeysForUseCase, downloadSampleFile } from '@/utils/campaign-setup-utils'
 import { ParsedCustomerData, ParseResult } from '@/lib/file-parser'
-import { CampaignTypesResponse, fetchCampaignLeadsCount } from '@/lib/campaign-api'
+import { CampaignTypesResponse, fetchCampaignLeadsCount, fetchCampaignLeadsData } from '@/lib/campaign-api'
 import CSVMappingStep from '@/components/csv-mapping/CSVMappingStep'
 
 interface Step2FileUploadProps {
@@ -144,6 +144,78 @@ export default function Step2FileUpload({
   getDisplayColumns
 }: Step2FileUploadProps) {
   const fileUploadRef = useRef<HTMLDivElement | null>(null)
+
+  // Function to handle CSV download
+  const handleDownloadCSV = async () => {
+    if (!campaignData.csvData?.downloadUrl) {
+      console.error('No CSV download URL available');
+      return;
+    }
+
+    try {
+      // Create a temporary link and trigger download
+      const link = document.createElement('a');
+      link.href = campaignData.csvData.downloadUrl;
+      link.download = campaignData.csvData.fileName || 'campaign-leads.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading CSV:', error);
+    }
+  };
+
+  // Enhanced function to fetch both count and CSV data
+  const fetchLeadsDataWithCSV = async (
+    startDateTime: Date,
+    endDateTime: Date
+  ) => {
+    if (!urlParams?.enterprise_id || !urlParams?.team_id) return;
+
+    try {
+      const response = await fetchCampaignLeadsData(
+        urlParams.enterprise_id,
+        urlParams.team_id,
+        {
+          startDate: startDateTime.toISOString(),
+          endDate: endDateTime.toISOString()
+        },
+        urlParams.auth_key || undefined
+      );
+      
+      if (response) {
+        setCampaignData(prev => ({
+          ...prev,
+          totalRecords: response.count,
+          csvData: response.csv
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching campaign leads data:', error);
+      // Fallback to count-only API
+      try {
+        const countResponse = await fetchCampaignLeadsCount(
+          urlParams.enterprise_id,
+          urlParams.team_id,
+          {
+            startDate: startDateTime.toISOString(),
+            endDate: endDateTime.toISOString()
+          },
+          urlParams.auth_key || undefined
+        );
+        
+        if (countResponse) {
+          setCampaignData(prev => ({
+            ...prev,
+            totalRecords: countResponse.count,
+            csvData: undefined // Clear CSV data if only count is available
+          }));
+        }
+      } catch (fallbackError) {
+        console.error('Error fetching campaign leads count:', fallbackError);
+      }
+    }
+  };
 
   const getRequiredFields = () => {
     return getRequiredKeysForUseCase(campaignData.subUseCase, selectedCategory, campaignTypes)
@@ -346,22 +418,7 @@ export default function Step2FileUpload({
                                               ? new Date(`${vinSolutionsEndDate}T${vinSolutionsEndTime}:00`)
                                               : new Date(`${vinSolutionsEndDate}T23:59:59`);
                                             
-                                            const response = await fetchCampaignLeadsCount(
-                                              urlParams?.enterprise_id || '',
-                                              urlParams?.team_id || '',
-                                              {
-                                                startDate: startDateTime.toISOString(),
-                                                endDate: endDateTime.toISOString()
-                                              },
-                                              urlParams?.auth_key || undefined
-                                            );
-                                            
-                                            if (response) {
-                                              setCampaignData(prev => ({
-                                                ...prev,
-                                                totalRecords: response.count
-                                              }));
-                                            }
+                                            await fetchLeadsDataWithCSV(startDateTime, endDateTime);
                                           } catch (error) {
                                             console.error('Error fetching lead count:', error);
                                           }
@@ -388,22 +445,7 @@ export default function Step2FileUpload({
                                               ? new Date(`${vinSolutionsEndDate}T${vinSolutionsEndTime}:00`)
                                               : new Date(`${vinSolutionsEndDate}T23:59:59`);
                                             
-                                            const response = await fetchCampaignLeadsCount(
-                                              urlParams?.enterprise_id || '',
-                                              urlParams?.team_id || '',
-                                              {
-                                                startDate: startDateTime.toISOString(),
-                                                endDate: endDateTime.toISOString()
-                                              },
-                                              urlParams?.auth_key || undefined
-                                            );
-                                            
-                                            if (response) {
-                                              setCampaignData(prev => ({
-                                                ...prev,
-                                                totalRecords: response.count
-                                              }));
-                                            }
+                                            await fetchLeadsDataWithCSV(startDateTime, endDateTime);
                                           } catch (error) {
                                             console.error('Error fetching lead count:', error);
                                           }
@@ -440,22 +482,7 @@ export default function Step2FileUpload({
                                               ? new Date(`${value}T${vinSolutionsEndTime}:00`)
                                               : new Date(`${value}T23:59:59`);
                                             
-                                            const response = await fetchCampaignLeadsCount(
-                                              urlParams?.enterprise_id || '',
-                                              urlParams?.team_id || '',
-                                              {
-                                                startDate: startDateTime.toISOString(),
-                                                endDate: endDateTime.toISOString()
-                                              },
-                                              urlParams?.auth_key || undefined
-                                            );
-                                            
-                                            if (response) {
-                                              setCampaignData(prev => ({
-                                                ...prev,
-                                                totalRecords: response.count
-                                              }));
-                                            }
+                                            await fetchLeadsDataWithCSV(startDateTime, endDateTime);
                                           } catch (error) {
                                             console.error('Error fetching lead count:', error);
                                           }
@@ -483,22 +510,7 @@ export default function Step2FileUpload({
                                             
                                             const endDateTime = new Date(`${vinSolutionsEndDate}T${value}:00`);
                                             
-                                            const response = await fetchCampaignLeadsCount(
-                                              urlParams?.enterprise_id || '',
-                                              urlParams?.team_id || '',
-                                              {
-                                                startDate: startDateTime.toISOString(),
-                                                endDate: endDateTime.toISOString()
-                                              },
-                                              urlParams?.auth_key || undefined
-                                            );
-                                            
-                                            if (response) {
-                                              setCampaignData(prev => ({
-                                                ...prev,
-                                                totalRecords: response.count
-                                              }));
-                                            }
+                                            await fetchLeadsDataWithCSV(startDateTime, endDateTime);
                                           } catch (error) {
                                             console.error('Error fetching lead count:', error);
                                           }
@@ -574,6 +586,36 @@ export default function Step2FileUpload({
                     )}
                   </div>
                         )}
+                      </div>
+                    )}
+
+                    {/* CRM Import Results - Show total records count and Download CSV button */}
+                    {selectedUploadOption === 'crm' && crmSelection && 
+                     !enableRecurringLeads && vinSolutionsStartDate && vinSolutionsEndDate && 
+                     vinSolutionsStartTime && vinSolutionsEndTime && campaignData.totalRecords > 0 && (
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="flex items-center">
+                            <Database className="h-5 w-5 text-blue-600 mr-3" />
+                            <div>
+                              <p className="text-sm font-medium text-blue-800">CRM Data Ready</p>
+                              <p className="text-xs text-blue-600 mt-1">
+                                Found {campaignData.totalRecords} leads for the selected date range
+                              </p>
+                            </div>
+                          </div>
+                          {campaignData.csvData?.downloadUrl && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="h-9 px-3 text-[12px] border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10 rounded-lg font-medium"
+                              onClick={handleDownloadCSV}
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              Download CSV
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>

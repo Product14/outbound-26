@@ -89,6 +89,12 @@ export interface CampaignData {
     endTime: string;
   };
   uploadedData?: any[];
+  
+  // CRM Import CSV data for download
+  csvData?: {
+    downloadUrl: string;
+    fileName: string;
+  };
 }
 
 export interface TimeSlot {

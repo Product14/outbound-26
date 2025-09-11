@@ -754,6 +754,14 @@ export interface CampaignLeadsCountResponse {
   count: number;
 }
 
+export interface CampaignLeadsDataResponse {
+  count: number;
+  csv: {
+    downloadUrl: string;
+    fileName: string;
+  };
+}
+
 // Campaign Conversation Data Interface (from the new API)
 export interface CampaignConversationData {
   _id: string;
@@ -860,6 +868,64 @@ export async function fetchCampaignLeadsCount(
     return await response.json();
   } catch (error) {
     console.error('Error fetching campaign leads count:', error);
+    throw error;
+  }
+}
+
+export async function fetchCampaignLeadsData(
+  enterpriseId: string,
+  teamId: string,
+  dateRange: {
+    startDate: string;
+    endDate: string;
+  },
+  authKey?: string
+): Promise<CampaignLeadsDataResponse> {
+  try {
+    const params = new URLSearchParams();
+    params.append('enterpriseId', enterpriseId);
+    params.append('teamId', teamId);
+    
+    // Add leadsFilterOptions with dateRange
+    const leadsFilterOptions = {
+      dateRange: {
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate
+      }
+    };
+    params.append('leadsFilterOptions', JSON.stringify(leadsFilterOptions));
+
+    // Add auth_key parameter if provided
+    if (authKey) {
+      params.append('auth_key', authKey);
+    }
+
+    const fullUrl = `/api/fetch-campaign-leads-data?${params.toString()}`;
+    
+    const response = await fetch(fullUrl);
+
+    if (!response.ok) {
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage += ` - ${errorData.error || errorData.message || 'Unknown error'}`;
+      } catch {
+        // If response is not JSON, try to get text
+        try {
+          const errorText = await response.text();
+          if (errorText) {
+            errorMessage += ` - ${errorText}`;
+          }
+        } catch {
+          // Ignore if we can't get error details
+        }
+      }
+      throw new Error(errorMessage);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching campaign leads data:', error);
     throw error;
   }
 }

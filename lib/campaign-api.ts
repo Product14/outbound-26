@@ -580,8 +580,15 @@ export function transformCampaignData(
   // Set scheduling information
   if (campaignData.schedule === 'scheduled' && campaignData.scheduledDate) {
     // For scheduled campaigns, convert local time to UTC for database storage
-    // Use provided time or default to 09:00 if not specified
-    const scheduledTime = campaignData.scheduledTime || '09:00';
+    // Use the first time slot's start time, or call window start time
+    let scheduledTime = '09:00'; // fallback only if no user selection found
+    if (campaignData.dailyTimeSlots && campaignData.dailyTimeSlots.length > 0) {
+      scheduledTime = campaignData.dailyTimeSlots[0].startTime;
+    } else if (campaignData.callWindowStart) {
+      scheduledTime = campaignData.callWindowStart;
+    } else if (campaignData.scheduledTime) {
+      scheduledTime = campaignData.scheduledTime;
+    }
     const localStartDateTime = new Date(`${campaignData.scheduledDate}T${scheduledTime}:00`);
     basePayload.startDate = localStartDateTime.toISOString();
     
@@ -596,18 +603,34 @@ export function transformCampaignData(
     }
     
     // Add scheduledTime for scheduled campaigns
-    basePayload.scheduledTime = campaignData.dailyTimeSlots && campaignData.dailyTimeSlots.length > 0 
-      ? convertTimeSlotsToApiFormat(campaignData.dailyTimeSlots)
-      : [{ start: "09:00", end: "17:00" }]; // Default time slot for scheduled campaigns
+    if (campaignData.dailyTimeSlots && campaignData.dailyTimeSlots.length > 0) {
+      // Use user-configured time slots
+      basePayload.scheduledTime = convertTimeSlotsToApiFormat(campaignData.dailyTimeSlots);
+    } else if (campaignData.callWindowStart && campaignData.callWindowEnd) {
+      // Use user-selected daily start/end times
+      basePayload.scheduledTime = [{ 
+        start: campaignData.callWindowStart, 
+        end: campaignData.callWindowEnd 
+      }];
+    }
+    // No fallback - if no time slots and no call window times are set, don't add scheduledTime
   } else {
     // For "Start Now" campaigns, send empty strings for start and end dates
     basePayload.startDate = "";
     basePayload.endDate = "";
     
-    // Add scheduledTime for "Start Now" campaigns when time slots are provided
+    // Add scheduledTime for "Start Now" campaigns
     if (campaignData.dailyTimeSlots && campaignData.dailyTimeSlots.length > 0) {
+      // Use user-configured time slots
       basePayload.scheduledTime = convertTimeSlotsToApiFormat(campaignData.dailyTimeSlots);
+    } else if (campaignData.callWindowStart && campaignData.callWindowEnd) {
+      // Use user-selected daily start/end times
+      basePayload.scheduledTime = [{ 
+        start: campaignData.callWindowStart, 
+        end: campaignData.callWindowEnd 
+      }];
     }
+    // No fallback - if no time slots and no call window times are set, don't add scheduledTime
   }
 
   return basePayload;

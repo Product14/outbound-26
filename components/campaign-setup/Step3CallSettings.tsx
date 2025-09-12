@@ -53,15 +53,23 @@ export default function Step3CallSettings({
       return
     }
 
+    // Use the first existing slot's times, or fallback to current call window times
+    const firstSlot = campaignData.dailyTimeSlots[0];
     const newSlot = {
       id: Date.now().toString(),
-      startTime: '09:00',
-      endTime: '17:00'
+      startTime: firstSlot?.startTime || campaignData.callWindowStart || '09:00',
+      endTime: firstSlot?.endTime || campaignData.callWindowEnd || '17:00'
     }
-    setCampaignData(prev => ({
-      ...prev,
-      dailyTimeSlots: [...prev.dailyTimeSlots, newSlot]
-    }))
+    setCampaignData(prev => {
+      const updatedSlots = [...prev.dailyTimeSlots, newSlot];
+      const firstSlot = updatedSlots[0];
+      return {
+        ...prev,
+        dailyTimeSlots: updatedSlots,
+        callWindowStart: firstSlot?.startTime || prev.callWindowStart,
+        callWindowEnd: firstSlot?.endTime || prev.callWindowEnd
+      };
+    })
   }
 
   return (
@@ -212,7 +220,9 @@ export default function Step3CallSettings({
                                       ...prev,
                                       dailyTimeSlots: updatedSlots,
                                       dailyStartTime: firstSlot?.startTime || prev.dailyStartTime,
-                                      dailyEndTime: firstSlot?.endTime || prev.dailyEndTime
+                                      dailyEndTime: firstSlot?.endTime || prev.dailyEndTime,
+                                      callWindowStart: firstSlot?.startTime || prev.callWindowStart,
+                                      callWindowEnd: firstSlot?.endTime || prev.callWindowEnd
                                     };
                                   });
                                 }}
@@ -238,7 +248,9 @@ export default function Step3CallSettings({
                                       ...prev,
                                       dailyTimeSlots: updatedSlots,
                                       dailyStartTime: firstSlot?.startTime || prev.dailyStartTime,
-                                      dailyEndTime: firstSlot?.endTime || prev.dailyEndTime
+                                      dailyEndTime: firstSlot?.endTime || prev.dailyEndTime,
+                                      callWindowStart: firstSlot?.startTime || prev.callWindowStart,
+                                      callWindowEnd: firstSlot?.endTime || prev.callWindowEnd
                                     };
                                   });
                                 }}
@@ -260,8 +272,10 @@ export default function Step3CallSettings({
                                     return {
                                       ...prev,
                                       dailyTimeSlots: updatedSlots,
-                                      dailyStartTime: firstSlot?.startTime || '09:00',
-                                      dailyEndTime: firstSlot?.endTime || '17:00'
+                                      dailyStartTime: firstSlot?.startTime ,
+                                      dailyEndTime: firstSlot?.endTime,
+                                      callWindowStart: firstSlot?.startTime || prev.callWindowStart,
+                                      callWindowEnd: firstSlot?.endTime || prev.callWindowEnd
                                     };
                                   });
                                 }}
@@ -412,7 +426,9 @@ export default function Step3CallSettings({
                                       ...prev,
                                       dailyTimeSlots: updatedSlots,
                                       dailyStartTime: firstSlot?.startTime || prev.dailyStartTime,
-                                      dailyEndTime: firstSlot?.endTime || prev.dailyEndTime
+                                      dailyEndTime: firstSlot?.endTime || prev.dailyEndTime,
+                                      callWindowStart: firstSlot?.startTime || prev.callWindowStart,
+                                      callWindowEnd: firstSlot?.endTime || prev.callWindowEnd
                                     };
                                   });
                                 }}
@@ -438,7 +454,9 @@ export default function Step3CallSettings({
                                       ...prev,
                                       dailyTimeSlots: updatedSlots,
                                       dailyStartTime: firstSlot?.startTime || prev.dailyStartTime,
-                                      dailyEndTime: firstSlot?.endTime || prev.dailyEndTime
+                                      dailyEndTime: firstSlot?.endTime || prev.dailyEndTime,
+                                      callWindowStart: firstSlot?.startTime || prev.callWindowStart,
+                                      callWindowEnd: firstSlot?.endTime || prev.callWindowEnd
                                     };
                                   });
                                 }}

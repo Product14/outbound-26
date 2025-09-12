@@ -13,7 +13,7 @@ import { Upload, Database, Cloud, Download, AlertCircle, CheckCircle, Loader2 } 
 import { CampaignData, ValidationErrors } from '@/types/campaign-setup'
 import { getRequiredKeysForUseCase, downloadSampleFile } from '@/utils/campaign-setup-utils'
 import { ParsedCustomerData, ParseResult } from '@/lib/file-parser'
-import { CampaignTypesResponse, fetchCampaignLeadsCount, fetchCampaignLeadsData } from '@/lib/campaign-api'
+import { CampaignTypesResponse, fetchCampaignLeadsCount, fetchCampaignLeadsData, fetchCampaignLeadsCountByRecurringAge, fetchCampaignLeadsDataByRecurringAge } from '@/lib/campaign-api'
 import CSVMappingStep from '@/components/csv-mapping/CSVMappingStep'
 
 interface Step2FileUploadProps {
@@ -217,6 +217,50 @@ export default function Step2FileUpload({
     }
   };
 
+  const fetchRecurringLeadsDataWithCSV = async (
+    recurringDays: number
+  ) => {
+    if (!urlParams?.enterprise_id || !urlParams?.team_id) return;
+
+    try {
+      const response = await fetchCampaignLeadsDataByRecurringAge(
+        urlParams.enterprise_id,
+        urlParams.team_id,
+        recurringDays,
+        urlParams.auth_key || undefined
+      );
+      
+      if (response) {
+        setCampaignData(prev => ({
+          ...prev,
+          totalRecords: response.count,
+          csvData: response.csv
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching recurring campaign leads data:', error);
+      // Fallback to count-only API
+      try {
+        const countResponse = await fetchCampaignLeadsCountByRecurringAge(
+          urlParams.enterprise_id,
+          urlParams.team_id,
+          recurringDays,
+          urlParams.auth_key || undefined
+        );
+        
+        if (countResponse) {
+          setCampaignData(prev => ({
+            ...prev,
+            totalRecords: countResponse.count,
+            csvData: undefined // Clear CSV data if only count is available
+          }));
+        }
+      } catch (fallbackError) {
+        console.error('Error fetching recurring campaign leads count:', fallbackError);
+      }
+    }
+  };
+
   const getRequiredFields = () => {
     return getRequiredKeysForUseCase(campaignData.subUseCase, selectedCategory, campaignTypes)
   }
@@ -353,6 +397,12 @@ export default function Step2FileUpload({
                                     if (errors.leadAgeDays) {
                                       setErrors(prev => ({ ...prev, leadAgeDays: false }))
                                     }
+                                    // Clear recurring leads data when switching to date range
+                                    setCampaignData(prev => ({
+                                      ...prev,
+                                      totalRecords: 0,
+                                      csvData: undefined
+                                    }))
                                   }}
                                 >
                                   <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
@@ -374,6 +424,12 @@ export default function Step2FileUpload({
                                     if (errors.vinSolutionsDateRange) {
                                       setErrors(prev => ({ ...prev, vinSolutionsDateRange: false }))
                                     }
+                                    // Clear date range data when switching to recurring leads
+                                    setCampaignData(prev => ({
+                                      ...prev,
+                                      totalRecords: 0,
+                                      csvData: undefined
+                                    }))
                                   }}
                                 >
                                   <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
@@ -544,11 +600,17 @@ export default function Step2FileUpload({
                                       min="1"
                                       max="365"
                                       value={leadAgeDays}
-                                      onChange={(e) => {
+                                      onChange={async (e) => {
                                         const inputValue = e.target.value
                                         // Allow empty input for better UX
                                         if (inputValue === '') {
                                           setLeadAgeDays(0)
+                                          // Clear campaign data when input is empty
+                                          setCampaignData(prev => ({
+                                            ...prev,
+                                            totalRecords: 0,
+                                            csvData: undefined
+                                          }))
                                           return
                                         }
                                         
@@ -561,6 +623,15 @@ export default function Step2FileUpload({
                                           // Clear error if value is now valid
                                           if (errors.leadAgeDays && clampedValue >= 1 && clampedValue <= 365) {
                                             setErrors(prev => ({ ...prev, leadAgeDays: false }))
+                                          }
+
+                                          // Fetch leads data if valid value and required params are available
+                                          if (clampedValue >= 1 && clampedValue <= 365 && urlParams?.enterprise_id && urlParams?.team_id) {
+                                            try {
+                                              await fetchRecurringLeadsDataWithCSV(clampedValue);
+                                            } catch (error) {
+                                              console.error('Error fetching recurring leads data:', error);
+                                            }
                                           }
                                         }
                                       }}
@@ -609,6 +680,35 @@ export default function Step2FileUpload({
                               variant="outline" 
                               size="sm" 
                               className="h-9 px-3 text-[12px] border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10 rounded-lg font-medium"
+                              onClick={handleDownloadCSV}
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              Download CSV
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Recurring Leads Import Results - Show total records count and Download CSV button */}
+                    {selectedUploadOption === 'crm' && crmSelection && 
+                     enableRecurringLeads && leadAgeDays > 0 && campaignData.totalRecords > 0 && (
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
+                          <div className="flex items-center">
+                            <Database className="h-5 w-5 text-green-600 mr-3" />
+                            <div>
+                              <p className="text-sm font-medium text-green-800">Recurring Leads Data Ready</p>
+                              <p className="text-xs text-green-600 mt-1">
+                                Found {campaignData.totalRecords} leads that are {leadAgeDays} days old
+                              </p>
+                            </div>
+                          </div>
+                          {campaignData.csvData?.downloadUrl && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="h-9 px-3 text-[12px] border-[#16A34A] text-[#16A34A] hover:bg-[#16A34A]/10 rounded-lg font-medium"
                               onClick={handleDownloadCSV}
                             >
                               <Download className="h-4 w-4 mr-2" />

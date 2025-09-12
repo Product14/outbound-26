@@ -949,6 +949,110 @@ export async function fetchCampaignLeadsData(
   }
 }
 
+export async function fetchCampaignLeadsCountByRecurringAge(
+  enterpriseId: string,
+  teamId: string,
+  recurringDays: number,
+  authKey?: string
+): Promise<CampaignLeadsCountResponse> {
+  try {
+    const params = new URLSearchParams();
+    params.append('enterpriseId', enterpriseId);
+    params.append('teamId', teamId);
+    
+    // Add leadsFilterOptions with recurringDays
+    const leadsFilterOptions = {
+      recurringDays: recurringDays
+    };
+    params.append('leadsFilterOptions', JSON.stringify(leadsFilterOptions));
+
+    // Add auth_key parameter if provided
+    if (authKey) {
+      params.append('auth_key', authKey);
+    }
+
+    const fullUrl = `${configs.base_url}conversation/campaign/campaign-leads-count?${params.toString()}`;
+    
+    const response = await fetch(fullUrl);
+
+    if (!response.ok) {
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage += ` - ${errorData.error || errorData.message || 'Unknown error'}`;
+      } catch {
+        // If response is not JSON, try to get text
+        try {
+          const errorText = await response.text();
+          if (errorText) {
+            errorMessage += ` - ${errorText}`;
+          }
+        } catch {
+          // Ignore if we can't get error details
+        }
+      }
+      throw new Error(errorMessage);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching campaign leads count by recurring age:', error);
+    throw error;
+  }
+}
+
+export async function fetchCampaignLeadsDataByRecurringAge(
+  enterpriseId: string,
+  teamId: string,
+  recurringDays: number,
+  authKey?: string
+): Promise<CampaignLeadsDataResponse> {
+  try {
+    const params = new URLSearchParams();
+    params.append('enterpriseId', enterpriseId);
+    params.append('teamId', teamId);
+    
+    // Add leadsFilterOptions with recurringDays
+    const leadsFilterOptions = {
+      recurringDays: recurringDays
+    };
+    params.append('leadsFilterOptions', JSON.stringify(leadsFilterOptions));
+
+    // Add auth_key parameter if provided
+    if (authKey) {
+      params.append('auth_key', authKey);
+    }
+
+    const fullUrl = `/api/fetch-campaign-leads-data?${params.toString()}`;
+    
+    const response = await fetch(fullUrl);
+
+    if (!response.ok) {
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage += ` - ${errorData.error || errorData.message || 'Unknown error'}`;
+      } catch {
+        // If response is not JSON, try to get text
+        try {
+          const errorText = await response.text();
+          if (errorText) {
+            errorMessage += ` - ${errorText}`;
+          }
+        } catch {
+          // Ignore if we can't get error details
+        }
+      }
+      throw new Error(errorMessage);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching campaign leads data by recurring age:', error);
+    throw error;
+  }
+}
+
 export async function processKeyMapping(requiredKeys: string[], availableKeys: string[], authKey?: string): Promise<KeyMappingResponse> {
   try {
     const payload: KeyMappingRequest = {

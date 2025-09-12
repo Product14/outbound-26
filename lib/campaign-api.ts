@@ -599,14 +599,9 @@ export function transformCampaignData(
       ? convertTimeSlotsToApiFormat(campaignData.dailyTimeSlots)
       : [{ start: "09:00", end: "17:00" }]; // Default time slot for scheduled campaigns
   } else {
-    // For "Start Now" campaigns, use current date/time
-    const now = new Date();
-    basePayload.startDate = now.toISOString();
-    
-    // End date 1 month from now for "Start Now" campaigns
-    const endDate = new Date(now);
-    endDate.setMonth(endDate.getMonth() + 1);
-    basePayload.endDate = endDate.toISOString();
+    // For "Start Now" campaigns, send empty strings for start and end dates
+    basePayload.startDate = "";
+    basePayload.endDate = "";
     
     // Add scheduledTime for "Start Now" campaigns when time slots are provided
     if (campaignData.dailyTimeSlots && campaignData.dailyTimeSlots.length > 0) {

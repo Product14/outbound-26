@@ -5,6 +5,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const campaignId = searchParams.get('campaignId')
+    const statusTypes = searchParams.get('statusTypes')
     
     if (!campaignId) {
       return NextResponse.json(
@@ -13,15 +14,18 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const response = await fetch(
-      `${configs.base_url}conversation/campaign/status/${campaignId}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    )
+    // Build the URL with optional status filters
+    let url = `${configs.base_url}conversation/campaign/status/${campaignId}`
+    if (statusTypes) {
+      url += `?statusTypes=${encodeURIComponent(statusTypes)}`
+    }
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)

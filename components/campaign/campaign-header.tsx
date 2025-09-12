@@ -280,28 +280,58 @@ export function CampaignHeader({
                   {analyticsData?.schedule ? (
                     (() => {
                       const startDate = new Date(analyticsData.schedule.startDate)
-                      const endDate = new Date(analyticsData.schedule.endDate)
-                      
+                      // Check if endDate is valid before using it
+                      const endDateStr = analyticsData.schedule.endDate
+                      if (!endDateStr || endDateStr === '' || new Date(endDateStr).toString() === 'Invalid Date') {
+                        // For "start now" campaigns without end date, just show start date
+                        return startDate.toLocaleDateString('en-US', {
+                          month: 'long',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          hour12: true
+                        })
+                      }
+                      const endDate = new Date(endDateStr)
                       return formatTimeRange(startDate, endDate)
                     })()
                   ) : conversationData?.startDate ? (
                     (() => {
                       const startDate = new Date(conversationData.startDate)
-                      const endDate = conversationData.endDate 
-                        ? new Date(conversationData.endDate)
-                        : conversationData.completedDate
-                        ? new Date(conversationData.completedDate)
-                        : new Date(startDate.getTime() + 3 * 60 * 60 * 1000) // Default to 3 hours later
-                      
+                      // Check if we have a valid end date
+                      const endDateStr = conversationData.endDate || conversationData.completedDate
+                      if (!endDateStr || endDateStr === '' || new Date(endDateStr).toString() === 'Invalid Date') {
+                        // For "start now" campaigns without end date, just show start date
+                        return startDate.toLocaleDateString('en-US', {
+                          month: 'long',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          hour12: true
+                        })
+                      }
+                      const endDate = new Date(endDateStr)
                       return formatTimeRange(startDate, endDate)
                     })()
                   ) : campaignData?.campaign?.startDate ? (
                     (() => {
                       const startDate = new Date(campaignData.campaign.startDate)
-                      const endDate = campaignData.campaign.completedDate 
-                        ? new Date(campaignData.campaign.completedDate)
-                        : new Date(startDate.getTime() + 3 * 60 * 60 * 1000) // Default to 3 hours later
-                      
+                      // Check if we have a valid end date
+                      const endDateStr = campaignData.campaign.completedDate
+                      if (!endDateStr || endDateStr === '' || new Date(endDateStr).toString() === 'Invalid Date') {
+                        // For "start now" campaigns without end date, just show start date
+                        return startDate.toLocaleDateString('en-US', {
+                          month: 'long',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          hour12: true
+                        })
+                      }
+                      const endDate = new Date(endDateStr)
                       return formatTimeRange(startDate, endDate)
                     })()
                   ) : (

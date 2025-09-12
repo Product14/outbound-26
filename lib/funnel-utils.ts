@@ -184,12 +184,48 @@ export function getCampaignFunnelData(
 }
 
 /**
- * Convert funnel metrics to AppointmentFunnel format
+ * Convert funnel metrics to AppointmentFunnel format using real API data
  */
 export function getAppointmentFunnelData(
   campaignData: CampaignDetailResponse | null,
-  campaignType: 'sales' | 'service' | 'other' = 'other'
+  campaignType: 'sales' | 'service' | 'other' = 'other',
+  analyticsData?: any // New parameter for real API data
 ): AppointmentFunnelData {
+  // If we have real analytics data, use it
+  if (analyticsData?.overview) {
+    const overview = analyticsData.overview
+    
+    // Use real API data with correct mappings:
+    // - totalCallsInitiated is Customer Contact Initiated
+    // - totalConnectedCalls is Contacted Successfully  
+    // - totalAppointments is Appointments Scheduled
+    const stages: AppointmentFunnelStage[] = [
+      { name: 'Customer contact initiated', count: overview.totalCallsInitiated || 0 },
+      { name: 'Contacted successfully', count: overview.totalConnectedCalls || 0 },
+      { name: 'Appointments scheduled', count: overview.totalAppointments || 0 }
+    ]
+    
+    // Calculate conversion rates between stages
+    const conversionRates: AppointmentFunnelConversionRate[] = []
+    
+    for (let i = 0; i < stages.length - 1; i++) {
+      const currentStage = stages[i]
+      const nextStage = stages[i + 1]
+      
+      const rate = currentStage.count > 0 
+        ? Math.round((nextStage.count / currentStage.count) * 100)
+        : 0
+      
+      conversionRates.push({ rate })
+    }
+    
+    return {
+      stages,
+      conversionRates
+    }
+  }
+  
+  // Fallback to old mock data if no analytics data available
   const metrics = calculateFunnelMetrics(campaignData)
   
   // Create stages based on campaign type - all use the new funnel structure

@@ -24,7 +24,7 @@ export function MetricsGrid({ metrics, className }: MetricsGridProps) {
         
         <MetricCard
           title="Total Contacted"
-          value={metrics.totalCustomersContacted.count === 0 ? "--" : metrics.totalCustomersContacted.count.toLocaleString()}
+          value={metrics.totalCustomersContacted.count.toLocaleString()}
           valueColor="text-green-600"
           icon={<Users className="h-4 w-4" />}
         />

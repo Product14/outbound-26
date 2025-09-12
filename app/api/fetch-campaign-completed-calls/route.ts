@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { configs } from '@/configs'
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
     }
 
     const response = await fetch(
-      `https://beta-api.spyne.xyz/conversation/campaign/completed/${campaignId}`,
+      `${configs.base_url}conversation/campaign/completed/${campaignId}`,
       {
         method: 'GET',
         headers: {

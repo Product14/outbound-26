@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -24,6 +24,7 @@ interface CampaignHeaderProps {
   campaignAgent: Agent | null
   isLoadingAgent: boolean
   deployedAgents?: DeployedAgent[]
+  analyticsData?: any // Add analytics data for real API data
   onTabChange: (tab: string) => void
   onToggleCampaignStatus: () => void
 }
@@ -40,6 +41,7 @@ export function CampaignHeader({
   campaignAgent,
   isLoadingAgent,
   deployedAgents = [],
+  analyticsData,
   onTabChange,
   onToggleCampaignStatus
 }: CampaignHeaderProps) {
@@ -124,11 +126,22 @@ export function CampaignHeader({
 
   if (!campaignData) return null
 
-  // Transform deployedAgents to include avatar URLs
-  const agentsWithAvatars = deployedAgents.map(agent => ({
-    name: agent.agentName || agent.name, // Use agentName if available, fallback to name
-    imageUrl: (agent as any).imageUrl || '/placeholder-user.jpg' // Use real image URL if available
-  }))
+  // Transform deployedAgents to include avatar URLs, prioritizing real API data
+  const agentsWithAvatars = React.useMemo(() => {
+    // If we have real agent data from analytics API, use that first
+    if (analyticsData?.agentName) {
+      return [{
+        name: analyticsData.agentName,
+        imageUrl: '/placeholder-user.jpg'
+      }]
+    }
+    
+    // Otherwise use deployed agents data
+    return deployedAgents.map(agent => ({
+      name: agent.agentName || agent.name, // Use agentName if available, fallback to name
+      imageUrl: (agent as any).imageUrl || '/placeholder-user.jpg' // Use real image URL if available
+    }))
+  }, [analyticsData?.agentName, deployedAgents])
 
   // Calculate campaign completion metrics from real API data
   const totalCalls = conversationData?.totalCustomers || campaignData?.campaign?.totalCustomers || 0
@@ -264,7 +277,14 @@ export function CampaignHeader({
                   Scheduled for:
                 </div>
                 <div className="text-sm font-medium text-gray-900">
-                  {conversationData?.startDate ? (
+                  {analyticsData?.schedule ? (
+                    (() => {
+                      const startDate = new Date(analyticsData.schedule.startDate)
+                      const endDate = new Date(analyticsData.schedule.endDate)
+                      
+                      return formatTimeRange(startDate, endDate)
+                    })()
+                  ) : conversationData?.startDate ? (
                     (() => {
                       const startDate = new Date(conversationData.startDate)
                       const endDate = conversationData.endDate 
@@ -297,7 +317,9 @@ export function CampaignHeader({
                 </div>
                 <Badge className="bg-green-50 text-green-600 border-green-100 px-2 py-1 text-xs font-semibold italic flex items-center gap-2 hover:bg-green-50 hover:text-green-600 hover:border-green-100 cursor-default">
                   <Calendar className="h-4 w-4" />
-                  {conversationData?.campaignUseCase ? (
+                  {analyticsData?.campaignType ? (
+                    analyticsData.campaignType
+                  ) : conversationData?.campaignUseCase ? (
                     conversationData.campaignUseCase.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (str: string) => str.toUpperCase())
                   ) : (
                     isSalesCampaign ? 'Sales Campaign' : 'Service Campaign'
@@ -311,7 +333,16 @@ export function CampaignHeader({
                   Created on:
                 </div>
                 <span className="text-sm font-medium text-gray-900">
-                  {conversationData?.createdAt ? (
+                  {analyticsData?.createdAt ? (
+                    new Date(analyticsData.createdAt).toLocaleDateString('en-US', {
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    })
+                  ) : conversationData?.createdAt ? (
                     new Date(conversationData.createdAt).toLocaleDateString('en-US', {
                       month: 'long',
                       day: 'numeric',
@@ -349,7 +380,7 @@ export function CampaignHeader({
                           <div key={index} className="flex items-center gap-2">
                             <Avatar className="w-6 h-6">
                               <AvatarFallback className="bg-purple-100 text-purple-600 text-xs font-medium">
-                                {agent.name.split(' ').map(word => word[0]).filter(Boolean).join('').toUpperCase()}
+                                {agent.name.split(' ').map((word: string) => word[0]).filter(Boolean).join('').toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
                             <span className="text-sm font-medium text-gray-900">
@@ -365,7 +396,7 @@ export function CampaignHeader({
                           <div key={index} className="flex items-center gap-1">
                             <Avatar className="w-6 h-6">
                               <AvatarFallback className="bg-purple-100 text-purple-600 text-xs font-medium">
-                                {agent.name.split(' ').map(word => word[0]).filter(Boolean).join('').toUpperCase()}
+                                {agent.name.split(' ').map((word: string) => word[0]).filter(Boolean).join('').toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
                             <span className="text-sm font-medium text-gray-900">

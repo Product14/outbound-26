@@ -748,6 +748,7 @@ export default function CampaignDetail() {
         campaignAgent={campaignAgent}
         isLoadingAgent={isLoadingAgent}
         deployedAgents={deployedAgents}
+        analyticsData={analyticsData}
         onTabChange={handleTabChange}
         onToggleCampaignStatus={toggleCampaignStatus}
       />
@@ -805,7 +806,8 @@ export default function CampaignDetail() {
                         <AppointmentFunnel
                           data={getAppointmentFunnelData(
                             campaignData,
-                            isSalesCampaign ? 'sales' : 'service'
+                            isSalesCampaign ? 'sales' : 'service',
+                            analyticsData // Pass real analytics data
                           )}
                           cardBackgroundColor={isSalesCampaign ? '#DBEAFE' : '#DCFCE7'}
                           graphColor={isSalesCampaign ? '#3B82F6' : '#22C55E'}
@@ -856,17 +858,7 @@ export default function CampaignDetail() {
                           </h3>
                         </div>
                         <div className="space-y-2 overflow-y-auto flex-1 pr-2">
-                          {/* Debug: Show API data status */}
-                          {process.env.NODE_ENV === 'development' && (
-                            <div className="text-xs text-gray-500 mb-2 p-2 bg-yellow-50 rounded">
-                              Debug: Analytics Data - {analyticsData ? 'Available' : 'Not Available'} | 
-                              Campaign Type - {analyticsData?.campaignType || 'Unknown'} |
-                              Has topPerformingVehicles - {analyticsData && 'topPerformingVehicles' in analyticsData ? `Yes (${analyticsData.topPerformingVehicles.length} items)` : 'No'} |
-                              Has topPerformingServices - {analyticsData && 'topPerformingServices' in analyticsData ? `Yes (${(analyticsData as any).topPerformingServices.length} items)` : 'No'} |
-                              Loading - {isLoadingAnalytics ? 'Yes' : 'No'} |
-                              Campaign ID - {campaignId}
-                            </div>
-                          )}
+                         
                           {isLoadingAnalytics && (
                             <div className="flex items-center justify-center py-4">
                               <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
@@ -876,7 +868,7 @@ export default function CampaignDetail() {
                           {analyticsData ? (
                             // Check if it's a Sales campaign with topPerformingVehicles
                             'topPerformingVehicles' in analyticsData ? (
-                              analyticsData.topPerformingVehicles.length > 0 ? (
+                              analyticsData.topPerformingVehicles && analyticsData.topPerformingVehicles.length > 0 ? (
                                 analyticsData.topPerformingVehicles.map((vehicle, index) => (
                                   <div key={vehicle.vehicleName} className="flex items-center justify-between p-2 border border-[#E5E7EB] rounded-[8px]">
                                     <div className="flex items-center gap-2">
@@ -899,7 +891,7 @@ export default function CampaignDetail() {
                                 <div className="flex items-center justify-center py-8 text-center">
                                   <div className="text-gray-500">
                                     <div className="text-sm font-medium">No vehicle data available</div>
-                                    <div className="text-xs mt-1">No vehicles have been processed yet</div>
+                                   
                                   </div>
                                 </div>
                               )
@@ -908,7 +900,6 @@ export default function CampaignDetail() {
                               <div className="flex items-center justify-center py-8 text-center">
                                 <div className="text-gray-500">
                                   <div className="text-sm font-medium">No vehicle data available</div>
-                                  <div className="text-xs mt-1">This service campaign doesn't track vehicle performance</div>
                                 </div>
                               </div>
                             )
@@ -917,7 +908,6 @@ export default function CampaignDetail() {
                             <div className="flex items-center justify-center py-8 text-center">
                               <div className="text-gray-500">
                                 <div className="text-sm font-medium">No vehicle data available</div>
-                                <div className="text-xs mt-1">Data will appear once appointments are scheduled</div>
                               </div>
                             </div>
                           )}

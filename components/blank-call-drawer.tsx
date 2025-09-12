@@ -590,16 +590,13 @@ export function BlankCallDrawer({
 
   // Auto-switch tabs based on top visible section
   React.useEffect(() => {
-    console.log('🔍 Tab Debug: Effect triggered - autoScrollDisabled:', autoScrollDisabled, 'programmaticScrollRef:', programmaticScrollRef.current)
     
     // Reset autoScrollDisabled when user starts scrolling naturally
     if (autoScrollDisabled && !programmaticScrollRef.current) {
-      console.log('🔍 Tab Debug: Resetting autoScrollDisabled due to natural scroll')
       setAutoScrollDisabled(false)
     }
     
     if (programmaticScrollRef.current) {
-      console.log('🔍 Tab Debug: Effect early return due to programmatic scroll')
       return
     }
 
@@ -607,7 +604,6 @@ export function BlankCallDrawer({
       // Get the scroll container
       const container = scrollContainerRef.current
       if (!container) {
-        console.log('🔍 Tab Debug: No container found')
         return
       }
 
@@ -625,7 +621,6 @@ export function BlankCallDrawer({
       const containerTop = containerRect.top
       const viewportTop = containerTop + 50 // Small padding from top of container
 
-      console.log('🔍 Tab Debug: Container top:', containerTop, 'Viewport top:', viewportTop)
 
       let activeSection: 'highlights' | 'customer' | 'summary' | 'appointment' | 'transcript' = 'highlights'
       let closestSection: 'highlights' | 'customer' | 'summary' | 'appointment' | 'transcript' = 'highlights'
@@ -641,39 +636,31 @@ export function BlankCallDrawer({
           // Calculate distance from section top to viewport top
           const distance = Math.abs(sectionTop - viewportTop)
           
-          console.log(`🔍 Tab Debug: ${tab} - Top: ${sectionTop}, Bottom: ${sectionBottom}, Distance: ${distance}`)
           
           // If this section is visible (not completely above viewport) and closer to top
           if (sectionTop <= viewportTop + 200 && distance < minDistance) {
             minDistance = distance
             closestSection = tab
-            console.log(`🔍 Tab Debug: New closest section: ${tab} (distance: ${distance})`)
           }
           
           // If section top is at or above viewport top, this should be the active section
           if (sectionTop <= viewportTop) {
             activeSection = tab
-            console.log(`🔍 Tab Debug: Section ${tab} is above viewport top, setting as active`)
           }
         } else {
-          console.log(`🔍 Tab Debug: ${tab} ref is null`)
         }
       })
 
       // Use the section that's closest to the top if no section is above viewport
       if (activeSection === 'highlights' && closestSection !== 'highlights') {
         activeSection = closestSection
-        console.log(`🔍 Tab Debug: Using closest section as fallback: ${activeSection}`)
       }
 
-      console.log(`🔍 Tab Debug: Final active section: ${activeSection}, Current tab: ${activeTab}`)
 
       // Only switch if we're not already on the target tab
       if (activeSection !== activeTab) {
-        console.log(`🔍 Tab Debug: Switching from ${activeTab} to ${activeSection}`)
         setActiveTab(activeSection)
       } else {
-        console.log(`🔍 Tab Debug: No change needed, staying on ${activeTab}`)
       }
     }
 
@@ -684,23 +671,17 @@ export function BlankCallDrawer({
     const container = scrollContainerRef.current
     if (container) {
       const handleScroll = () => {
-        console.log('🔍 Tab Debug: Scroll event triggered, programmaticScrollRef:', programmaticScrollRef.current)
         if (!programmaticScrollRef.current) {
-          console.log('🔍 Tab Debug: Calling updateActiveTab from scroll event')
           updateActiveTab()
         } else {
-          console.log('🔍 Tab Debug: Skipping updateActiveTab due to programmatic scroll')
         }
       }
 
       container.addEventListener('scroll', handleScroll, { passive: true })
-      console.log('🔍 Tab Debug: Scroll event listener added to container')
       return () => {
         container.removeEventListener('scroll', handleScroll)
-        console.log('🔍 Tab Debug: Scroll event listener removed')
       }
     } else {
-      console.log('🔍 Tab Debug: No container found for scroll listener')
     }
   }, [activeTab, autoScrollDisabled])
 
@@ -712,7 +693,6 @@ export function BlankCallDrawer({
     const handleScroll = () => {
       // If user is scrolling naturally (not programmatically), re-enable auto-scroll
       if (!programmaticScrollRef.current && autoScrollDisabled) {
-        console.log('🔍 Tab Debug: User scrolling naturally, re-enabling auto-scroll')
         setAutoScrollDisabled(false)
       }
     }

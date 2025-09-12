@@ -264,7 +264,6 @@ export function AnalyticsTab({
                   <div className="flex items-center justify-center py-8 text-gray-500">
                     <div className="text-center">
                       <p className="text-sm">No service data available</p>
-                      <p className="text-xs mt-1">Data will appear once services are completed</p>
                     </div>
                   </div>
                 )}
@@ -394,7 +393,7 @@ export function AnalyticsTab({
                           <Phone className="h-5 w-5 hidden min-[1100px]:block" />
                           <span className="font-semibold">Customer contact initiated</span>
                         </div>
-                        <div className="text-[20px] font-bold">{calculatedStats?.callsMade ?? campaignData?.campaign.totalCallPlaced ?? 0}</div>
+                        <div className="text-[20px] font-bold">{analyticsData?.overview?.totalCallsInitiated ?? calculatedStats?.callsMade ?? campaignData?.campaign.totalCallPlaced ?? 0}</div>
                       </div>
                     </div>
                   </div>
@@ -407,7 +406,7 @@ export function AnalyticsTab({
                           <CheckCircle className="h-5 w-5 hidden min-[1100px]:block" />
                           <span className="font-semibold">Contacted successfully</span>
                         </div>
-                        <div className="text-[20px] font-bold">{calculatedStats?.callsAnswered ?? Math.round((campaignData?.campaign.totalCallPlaced ?? 0) * 0.6)}</div>
+                        <div className="text-[20px] font-bold">{analyticsData?.overview?.totalConnectedCalls ?? calculatedStats?.callsAnswered ?? Math.round((campaignData?.campaign.totalCallPlaced ?? 0) * 0.6)}</div>
                       </div>
                     </div>
                   </div>
@@ -433,7 +432,7 @@ export function AnalyticsTab({
                           <Calendar className="h-5 w-5 hidden min-[1100px]:block" />
                           <span className="font-semibold">Appointments scheduled</span>
                         </div>
-                        <div className="text-[20px] font-bold">{calculatedStats?.appointmentCount ?? campaignData?.campaign.appointmentScheduled ?? 0}</div>
+                        <div className="text-[20px] font-bold">{analyticsData?.overview?.totalAppointments ?? calculatedStats?.appointmentCount ?? campaignData?.campaign.appointmentScheduled ?? 0}</div>
                       </div>
                     </div>
                   </div>

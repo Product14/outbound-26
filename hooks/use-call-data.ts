@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react'
 import type { CallRecord } from '@/types/call-record'
 import type { SpyneApiResponse } from '@/types/spyne-api'
 import { fetchCallRecords } from '@/lib/spyne-api'
-import { mockCallRecords } from '@/lib/mock-data'
 
 export interface UseCallDataReturn {
   calls: CallRecord[]
@@ -17,7 +16,6 @@ export interface UseCallDataReturn {
 export interface UseCallDataOptions {
   page?: number
   limit?: number
-  useMockData?: boolean
   enterpriseId?: string
   teamId?: string
   dateRange?: string
@@ -37,17 +35,6 @@ export function useCallData(options: UseCallDataOptions = {}): UseCallDataReturn
 
 
   const fetchData = useCallback(async (page = 1, append = false) => {
-
-    // If using mock data, return immediately
-    if (options.useMockData) {
-      setCalls(mockCallRecords)
-      setAnalytics(null)
-      setPagination(null)
-      setLoading(false)
-      setError(null)
-      return
-    }
-
     setLoading(true)
     setError(null)
 
@@ -93,7 +80,7 @@ export function useCallData(options: UseCallDataOptions = {}): UseCallDataReturn
     } finally {
       setLoading(false)
     }
-  }, [options.useMockData, options.limit, options.enterpriseId, options.teamId, options.dateRange, options.customStartDate, options.customEndDate, options.outcome, options.agentType])
+  }, [options.limit, options.enterpriseId, options.teamId, options.dateRange, options.customStartDate, options.customEndDate, options.outcome, options.agentType])
 
   const fetchPage = useCallback(async (page: number) => {
     // For pagination (not infinite scroll), always replace data

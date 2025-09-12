@@ -39,7 +39,6 @@ export function PerformanceTimeChart({ data, title = "Best Campaign Performance 
         <div className="flex items-center justify-center h-48 text-gray-500">
           <div className="text-center">
             <p className="text-sm">No performance data available</p>
-            <p className="text-xs mt-1">Data will appear once calls are completed</p>
           </div>
         </div>
       </div>

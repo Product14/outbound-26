@@ -578,10 +578,11 @@ export function transformCampaignData(
   }
 
   // Set scheduling information
-  if (campaignData.schedule === 'scheduled' && campaignData.scheduledDate && campaignData.scheduledTime) {
+  if (campaignData.schedule === 'scheduled' && campaignData.scheduledDate) {
     // For scheduled campaigns, convert local time to UTC for database storage
-    // Parse date/time as local time, then convert to UTC
-    const localStartDateTime = new Date(`${campaignData.scheduledDate}T${campaignData.scheduledTime}:00`);
+    // Use provided time or default to 09:00 if not specified
+    const scheduledTime = campaignData.scheduledTime || '09:00';
+    const localStartDateTime = new Date(`${campaignData.scheduledDate}T${scheduledTime}:00`);
     basePayload.startDate = localStartDateTime.toISOString();
     
     // Calculate end date based on provided end date or add 1 month as default

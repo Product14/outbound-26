@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     }
 
     const response = await fetch(
-      `${configs.base_url}conversation/campaign/completed/${campaignId}`,
+      `${configs.base_url}conversation/campaign/status/${campaignId}`,
       {
         method: 'GET',
         headers: {
@@ -31,9 +31,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data)
     
   } catch (error) {
-    console.error('Error fetching campaign completed calls:', error)
+    console.error('Error fetching campaign status:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch campaign completed calls' },
+      { error: 'Failed to fetch campaign status' },
       { status: 500 }
     )
   }

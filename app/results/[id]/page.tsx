@@ -128,11 +128,11 @@ export default function CampaignDetail() {
           console.error('Analytics API Error:', analyticsResponse.status, analyticsResponse.statusText)
         }
 
-        // Fetch completed calls data for additional metrics
-        const completedCallsResponse = await fetch(`/api/fetch-campaign-completed-calls?campaignId=${campaignId}`)
-        if (completedCallsResponse.ok) {
-          const completedCalls = await completedCallsResponse.json()
-          setCompletedCallsData(completedCalls)
+        // Fetch campaign status data for additional metrics
+        const campaignStatusResponse = await fetch(`/api/fetch-campaign-status?campaignId=${campaignId}`)
+        if (campaignStatusResponse.ok) {
+          const campaignStatus = await campaignStatusResponse.json()
+          setCompletedCallsData(campaignStatus)
         }
       } catch (error) {
         console.error('Error fetching analytics data:', error)

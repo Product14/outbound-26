@@ -11,33 +11,37 @@ import { Phone, Search, Play, Pause, ArrowUpDown, User, Clock, CheckCircle, X, A
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import type { CallRecord as AICallRecord } from "@/types/call-record"
 
-// API Response types
-interface CompletedTask {
+// API Response types for Campaign Status
+interface CampaignTask {
   outboundTaskId: string
   status: string
+  connectionStatus: string
   leadId: string
   leadName: string
   phoneNumber: string
   email: string
-  vehicleName: string
+  vehicleName?: string
   vehicleIdentificationNumber: {
     vin: string
-    stock: string
-    registration: string
   }
-  serviceName: string
+  serviceName?: string
+  isCallback: boolean
   retryCount: number
   errorReason: string
-  completedAt: string
-  outcome: string
-  actionItems: string[]
-  queryResolved: string
-  callbackRequested: boolean
-  customerSentimentScore: number
-  aiSentimentScore: string
+  statusUpdatedAt: string
+  isCallConnected: boolean
+  callAnswered?: boolean
+  actionItems?: string[]
+  queryResolved?: boolean
+  callbackRequested?: boolean
+  customerSentimentScore?: number
+  aiSentimentScore?: string
+  appointmentScheduled?: boolean
+  callDuration?: string
+  outcome?: string
 }
 
-interface CampaignCompletedResponse {
+interface CampaignStatusResponse {
   campaignId: string
   campaignName: string
   campaignType: string
@@ -46,9 +50,25 @@ interface CampaignCompletedResponse {
   agentName: string
   enterpriseId: string
   teamId: string
+  schedule: {
+    startTime: string
+    endTime: string
+    startDate: string
+    endDate: string
+  }
+  createdAt: string
+  totalLiveCalls: number
+  totalConnectedCalls: number
+  totalQueuedCalls: number
   totalCompletedCalls: number
-  completedTasks: CompletedTask[]
-  lastUpdated: string
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+  tasks: CampaignTask[]
+  instanceTime: string
 }
 
 interface CallRecord {
@@ -131,152 +151,122 @@ export function LiveActivityTable({
   const [isLoadingCalls, setIsLoadingCalls] = useState(false)
   const [callsError, setCallsError] = useState<string | null>(null)
 
-  // Function to transform API data to CallRecord format
-  const transformApiDataToCallRecords = (apiData: CampaignCompletedResponse): CallRecord[] => {
-    return apiData.completedTasks.map((task) => {
-      // Parse date and time from completedAt
-      const completedDate = new Date(task.completedAt)
-      const dateStr = completedDate.toLocaleDateString('en-US', { 
+  // Function to transform new API data to CallRecord format
+  const transformApiDataToCallRecords = (apiData: CampaignStatusResponse): CallRecord[] => {
+    return apiData.tasks.map((task) => {
+      // Parse date and time from statusUpdatedAt
+      const updatedDate = new Date(task.statusUpdatedAt)
+      const dateStr = updatedDate.toLocaleDateString('en-US', { 
         month: 'short', 
         day: 'numeric', 
         year: 'numeric' 
       })
-      const timeStr = completedDate.toLocaleTimeString('en-US', { 
+      const timeStr = updatedDate.toLocaleTimeString('en-US', { 
         hour: 'numeric', 
         minute: '2-digit',
         hour12: true 
       })
 
-      // Map connection status from API status and error reason
+      // Map connection status directly from API connectionStatus field
       let connectionStatus: CallRecord['connectionStatus'] = 'not_connected'
       
-      // Handle the actual status values from API
-      switch (task.status) {
-        case 'CALL_COMPLETED':
-          // For completed calls, check error reason to determine connection quality
-          switch (task.errorReason) {
-            case 'customer-ended-call':
-            case 'agent-ended-call':
-            case null:
-            case undefined:
-            case '':
-              connectionStatus = 'connected'
-              break
-            case 'customer-busy':
-              connectionStatus = 'busy'
-              break
-            case 'customer-voicemail':
-            case 'voicemail':
-              connectionStatus = 'voice_mail'
-              break
-            case 'customer-no-answer':
-            case 'no-answer':
-              connectionStatus = 'not_connected'
-              break
-            case 'customer-do-not-call':
-            case 'do-not-call':
-              connectionStatus = 'do_not_call'
-              break
-            default:
-              connectionStatus = 'connected'
-          }
+      switch (task.connectionStatus) {
+        case 'connected':
+          connectionStatus = 'connected'
           break
-          
-        case 'CALL_FAILED':
-          // For failed calls, check error reason for more specific status
-          switch (task.errorReason) {
-            case 'customer-ended-call':
-            case 'agent-ended-call':
-              // Call connected but ended (still successful connection)
-              connectionStatus = 'connected'
-              break
-            case 'customer-busy':
-              connectionStatus = 'busy'
-              break
-            case 'customer-voicemail':
-            case 'voicemail':
-              connectionStatus = 'voice_mail'
-              break
-            case 'customer-no-answer':
-            case 'no-answer':
-              connectionStatus = 'not_connected'
-              break
-            case 'customer-do-not-call':
-            case 'do-not-call':
-              connectionStatus = 'do_not_call'
-              break
-            case 'call-failed':
-            case 'technical-error':
-              connectionStatus = 'call_failed'
-              break
-            default:
-              // Default for CALL_FAILED status
-              connectionStatus = 'call_failed'
-          }
-          break
-          
-        case 'IN_PROGRESS':
-        case 'CALLING':
+        case 'live':
           connectionStatus = 'live'
           break
-          
-        case 'QUEUED':
-        case 'PENDING':
+        case 'queue':
           connectionStatus = 'queue'
           break
-          
-        case 'FAILED':
+        case 'not connected':
+          connectionStatus = 'not_connected'
+          break
+        case 'voice_mail':
+        case 'voicemail':
+          connectionStatus = 'voice_mail'
+          break
+        case 'call_failed':
           connectionStatus = 'call_failed'
           break
-          
+        case 'busy':
+          connectionStatus = 'busy'
+          break
+        case 'do_not_call':
+          connectionStatus = 'do_not_call'
+          break
         default:
           connectionStatus = 'not_connected'
       }
 
-      // Map outcome from API outcome
-      let outcome: CallRecord['outcome'] = 'no_outcome'
+      // Map call status based on API status
+      let callStatus: CallRecord['callStatus'] = 'completed'
       
-      switch (task.outcome?.toLowerCase()) {
-        case 'success':
-          // For successful calls, we could check actionItems or other fields to determine specific outcome
-          // For now, defaulting to service_appointment for successful calls
-          outcome = 'service_appointment'
+      switch (task.status) {
+        case 'CALL_CONNECTED':
+          callStatus = 'live'
           break
-        case 'failed':
-          // For failed calls, determine outcome based on error reason
-          if (task.errorReason === 'customer-ended-call' || task.errorReason === 'agent-ended-call') {
-            // Call connected but ended - could still have achieved something
-            outcome = 'no_outcome'
-          } else {
-            outcome = 'no_outcome'
-          }
+        case 'CALL_COMPLETED':
+          callStatus = 'completed'
           break
-        case 'callback':
-        case 'callback_requested':
-          outcome = 'callback'
+        case 'CALL_FAILED':
+          callStatus = 'abandoned'
           break
-        case 'not_interested':
-        case 'not-interested':
-          outcome = 'not_interested'
-          break
-        case 'wrong_number':
-        case 'wrong-number':
-          outcome = 'wrong_number'
-          break
-        case 'information_provided':
-        case 'information-provided':
-          outcome = 'information_provided'
-          break
-        case 'test_drive':
-        case 'test-drive':
-          outcome = 'test_drive'
-          break
-        case 'trade_in_quote':
-        case 'trade-in-quote':
-          outcome = 'trade_in_quote'
+        case 'RETRY_QUEUED':
+          callStatus = 'queue'
           break
         default:
-          outcome = 'no_outcome'
+          callStatus = 'completed'
+      }
+
+      // Map outcome from API outcome field
+      let outcome: CallRecord['outcome'] = 'no_outcome'
+      
+      if (task.outcome) {
+        switch (task.outcome.toLowerCase()) {
+          case 'service appointment':
+          case 'service_appointment':
+            outcome = 'service_appointment'
+            break
+          case 'test drive':
+          case 'test_drive':
+            outcome = 'test_drive'
+            break
+          case 'callback':
+            outcome = 'callback'
+            break
+          case 'not interested':
+          case 'not_interested':
+            outcome = 'not_interested'
+            break
+          case 'wrong number':
+          case 'wrong_number':
+            outcome = 'wrong_number'
+            break
+          case 'information provided':
+          case 'information_provided':
+          case 'general inquiry':
+            outcome = 'information_provided'
+            break
+          case 'trade-in quote':
+          case 'trade_in_quote':
+            outcome = 'trade_in_quote'
+            break
+          default:
+            outcome = 'no_outcome'
+        }
+      }
+
+      // Format call duration
+      let duration = "0min 0sec"
+      if (task.callDuration) {
+        const durationMs = parseInt(task.callDuration)
+        if (!isNaN(durationMs)) {
+          const minutes = Math.floor(durationMs / 60000)
+          const seconds = Math.floor((durationMs % 60000) / 1000)
+          duration = `${minutes}min ${seconds}sec`
+        }
       }
 
       return {
@@ -289,9 +279,9 @@ export function LiveActivityTable({
         timestamp: {
           date: dateStr,
           time: timeStr,
-          duration: "--" // Duration not provided in API
+          duration: duration
         },
-        callStatus: "completed" as const,
+        callStatus,
         connectionStatus,
         outcome,
         callReason: "service_reminder" as const, // Default since not provided in API
@@ -300,42 +290,47 @@ export function LiveActivityTable({
           name: apiData.agentName,
           avatar: "/placeholder-user.jpg"
         },
-        qualityScore: parseFloat(task.aiSentimentScore) || 0
+        qualityScore: parseFloat(task.aiSentimentScore || '0') || 0
       }
     })
   }
 
-  // Fetch campaign completed calls data
+  // Fetch campaign status data (includes all call types: live, queued, completed, failed)
   useEffect(() => {
-    const fetchCampaignCalls = async () => {
+    const fetchCampaignStatus = async () => {
       if (!campaignId) return
 
       setIsLoadingCalls(true)
       setCallsError(null)
       
       try {
-        const response = await fetch(`/api/fetch-campaign-completed-calls?campaignId=${campaignId}`)
+        const response = await fetch(`/api/fetch-campaign-status?campaignId=${campaignId}`)
         if (!response.ok) {
-          throw new Error('Failed to fetch campaign calls')
+          throw new Error('Failed to fetch campaign status')
         }
         
-        const apiData: CampaignCompletedResponse = await response.json()
+        const apiData: CampaignStatusResponse = await response.json()
         const transformedData = transformApiDataToCallRecords(apiData)
         setCallRecords(transformedData)
       } catch (error) {
-        console.error('Error fetching campaign calls:', error)
-        setCallsError(error instanceof Error ? error.message : 'Failed to fetch calls')
+        console.error('Error fetching campaign status:', error)
+        setCallsError(error instanceof Error ? error.message : 'Failed to fetch campaign status')
         setCallRecords([]) // Set empty array on error
       } finally {
         setIsLoadingCalls(false)
       }
     }
 
-    fetchCampaignCalls()
+    fetchCampaignStatus()
+    
+    // Set up polling to refresh data every 10 seconds for live updates
+    const interval = setInterval(fetchCampaignStatus, 10000)
+    
+    return () => clearInterval(interval)
   }, [campaignId])
 
-  // Component uses callRecords state which is populated from API data
-  // Mock data removed - component now only uses real API data
+  // Component uses callRecords state populated from the new campaign status API
+  // This includes all call types: live, queued, completed, failed calls with real-time updates
 
   const filteredCalls = callRecords
     .filter(call => {

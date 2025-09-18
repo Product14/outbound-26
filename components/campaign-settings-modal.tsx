@@ -114,18 +114,18 @@ export function CampaignSettingsModal({
         
         // Use real data from the API
         schedule: 'now', // Most campaigns start immediately - could be enhanced based on startDate
-        maxRetryAttempts: conversationData.retryLogic.maxAttempts,
-        retryDelayMinutes: conversationData.retryLogic.retryDelay,
-        voicemailStrategy: conversationData.voicemailConfig.method,
-        voicemailMessage: conversationData.voicemailConfig.voicemailMessage,
-        smsSwitchOnSecondAttempt: conversationData.retryLogic.smsSwitchover,
-        maxCallsPerDay: conversationData.callLimits.dailyContactLimit,
-        maxCallsPerHour: conversationData.callLimits.hourlyThrottle,
-        maxConcurrentCalls: conversationData.callLimits.maxConcurrentCalls,
-        timeSlots: conversationData.scheduledTime.map(slot => ({ 
+        maxRetryAttempts: conversationData.retryLogic?.maxAttempts,
+        retryDelayMinutes: conversationData.retryLogic?.retryDelay ? Math.round(conversationData.retryLogic.retryDelay / 60) : 60, // Convert seconds to minutes
+        voicemailStrategy: conversationData.voicemailConfig?.method,
+        voicemailMessage: conversationData.voicemailConfig?.voicemailMessage,
+        smsSwitchOnSecondAttempt: conversationData.retryLogic?.smsSwitchover,
+        maxCallsPerDay: conversationData.callLimits?.dailyContactLimit,
+        maxCallsPerHour: conversationData.callLimits?.hourlyThrottle,
+        maxConcurrentCalls: conversationData.callLimits?.maxConcurrentCalls,
+        timeSlots: conversationData.scheduledTime?.map(slot => ({ 
           startTime: slot.start, 
           endTime: slot.end 
-        }))
+        })) || []
       }
 
       setSettings(mappedSettings)

@@ -89,6 +89,7 @@ interface CallRecord {
   connectionStatus: string // Use actual API values
   outcome: string // Use actual API values
   callReason: string // Use actual API values
+  errorReason?: string // Error reason from API
   vehicleInfo?: {
     make: string
     model: string
@@ -307,6 +308,7 @@ export function LiveActivityTable({
         connectionStatus,
         outcome,
         callReason: "Unknown", // API doesn't provide this field
+        errorReason: task.errorReason, // Include errorReason from API
         priority: "Unknown", // API doesn't provide this field  
         agent: {
           name: apiData.agentName || "Unknown",

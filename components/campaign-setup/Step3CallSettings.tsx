@@ -557,8 +557,8 @@ export default function Step3CallSettings({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="10">2 minutes</SelectItem>
-                      <SelectItem value="15">5 minutes</SelectItem>
+                      <SelectItem value="2">2 minutes</SelectItem>
+                      <SelectItem value="5">5 minutes</SelectItem>
                       <SelectItem value="30">30 minutes</SelectItem>
                       <SelectItem value="60">1 hour</SelectItem>
                       <SelectItem value="120">2 hours</SelectItem>
@@ -642,7 +642,7 @@ export default function Step3CallSettings({
                     Voicemail Message
                   </Label>
                   <Textarea
-                    value={campaignData.voicemailMessage || "Hi, this is [Company Name] calling with some exciting news about your vehicle. We’re offering a special opportunity to upgrade or take advantage of exclusive savings. Please call us back at [Phone Number] to learn how you can benefit. This is a limited-time offer designed to give you the best value on your next vehicle. Thank you, and we look forward to speaking with you."}
+                    value={campaignData.voicemailMessage}
                     onChange={(e) => setCampaignData(prev => ({ ...prev, voicemailMessage: e.target.value }))}
                     placeholder="Enter your voicemail message..."
                     className="min-h-[120px] text-[14px] border-[#E5E7EB] focus:border-[#4600F2] focus:ring-2 focus:ring-[#4600F2]/20 transition-all duration-200 resize-none"

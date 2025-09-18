@@ -56,7 +56,7 @@ const initialCampaignData: CampaignData = {
   noAnswerRetry: true,
   busyCustomerRetry: false,
   smsSwitchOnSecondAttempt: false,
-  voicemailMessage: '',
+  voicemailMessage: "Hi, this is [Company Name] calling with some exciting news about your vehicle. We're offering a special opportunity to upgrade or take advantage of exclusive savings. Please call us back at [Phone Number] to learn how you can benefit. This is a limited-time offer designed to give you the best value on your next vehicle. Thank you, and we look forward to speaking with you.",
   primaryGoal: 'book_test_drive',
   secondaryActions: {
     sendInventoryLink: false,

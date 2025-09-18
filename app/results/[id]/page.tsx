@@ -19,7 +19,7 @@ import { CampaignHeader } from '@/components/campaign/campaign-header'
 import { LiveCallsTab } from '@/components/campaign/live-calls-tab'
 // import { AnalyticsTab } from '@/components/campaign/analytics-tab'
 // import { TabsNavigation } from '@/components/ui/tabs-navigation'
-import { BlankCallDrawer } from '@/components/blank-call-drawer'
+import { ApiCallDrawer } from '@/components/api-call-drawer'
 import { CampaignPageShimmer } from '@/components/ui/campaign-shimmer'
 // import { FunnelChart } from '@/components/ui/funnel-chart'
 // import AppointmentFunnel from '@/components/ui/appointment-funnel'
@@ -365,6 +365,10 @@ export default function CampaignDetail() {
     
     setSelectedCall(convertedCall)
     setIsCallDetailsOpen(true)
+    
+    // Disable body scroll when drawer opens
+    document.body.style.overflow = 'hidden'
+    
     // Update URL to include selected call
     const newUrl = buildUrlWithParams(`/results/${campaignId}`, { 
       tab: activeTab,
@@ -389,6 +393,9 @@ export default function CampaignDetail() {
     setIsClosing(true)
     setIsCallDetailsOpen(false)
     setSelectedCall(null)
+    
+    // Re-enable body scroll when drawer closes
+    document.body.style.overflow = 'unset'
     
     // Add a temporary click blocker to the document
     const clickBlocker = (e: Event) => {
@@ -486,6 +493,14 @@ export default function CampaignDetail() {
   const handlePlayStateChange = (call: CallRecord, playing: boolean) => {
     setIsPlaying(playing)
   }
+
+  // Cleanup effect to restore body scroll on unmount
+  useEffect(() => {
+    return () => {
+      // Restore body scroll when component unmounts
+      document.body.style.overflow = 'unset'
+    }
+  }, [])
 
   // Effects
   useEffect(() => {
@@ -691,14 +706,11 @@ export default function CampaignDetail() {
           setIsLoadingAgent(true)
           // Get URL parameters for authentication
           const urlParams = extractUrlParams()
-          console.log('URL params extracted:', urlParams)
-          console.log('Raw auth_key from URL:', urlParams.auth_key)
+          
           
           // Ensure auth_key is properly decoded
           const authKey = urlParams.auth_key ? decodeURIComponent(urlParams.auth_key) : null
-          console.log('Auth key after decode:', authKey)
-          console.log('Auth key type:', typeof authKey)
-          console.log('Auth key length:', authKey?.length)
+         
           
           const agentResponse = await fetchAgentList(
             urlParams.enterprise_id || "1", 
@@ -706,7 +718,7 @@ export default function CampaignDetail() {
             undefined, // agentUseCase
             undefined, // agentType  
             undefined, // agentCallType
-            authKey
+            authKey || undefined
           )
           // For demo purposes, use the first available agent
           const agent = agentResponse.length > 0 ? agentResponse[0] : null
@@ -872,8 +884,6 @@ export default function CampaignDetail() {
               e.stopPropagation()
               handleCallDetailsClose()
             }}
-            onWheel={(e) => e.preventDefault()}
-            onTouchMove={(e) => e.preventDefault()}
           />
           
           {/* Modal Content */}
@@ -882,7 +892,7 @@ export default function CampaignDetail() {
             style={{ maxWidth: '48rem' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <BlankCallDrawer
+            <ApiCallDrawer
               call={selectedCall}
               open={isCallDetailsOpen}
               onClose={handleCallDetailsClose}
@@ -890,14 +900,6 @@ export default function CampaignDetail() {
               isPlaying={isPlaying}
               audioRef={audioRef}
               autoStartPlayback={false}
-              getAgentDetails={getAgentDetails}
-              getCallSummary={getCallSummary}
-              getVehicleInfo={getVehicleInfo}
-              getNextAction={getNextAction}
-              getPotentialRevenue={getPotentialRevenue}
-              formatRevenue={formatRevenue}
-              getTimeAgo={getTimeAgo}
-              getCallTitle={getCallTitle}
             />
           </div>
         </div>

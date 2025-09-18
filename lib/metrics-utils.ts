@@ -13,6 +13,26 @@ export interface CampaignAnalyticsResponse {
   }
   agentName: string
   createdAt: string
+  // Newer shape: top-level aggregate fields
+  totalLeads?: number
+  totalLeadsContacted?: number
+  totalCallsMade?: number
+  totalCallsInitiated?: number
+  totalConnectedCalls?: number
+  totalCallsFailed?: number
+  totalVoicemailCount?: number
+  totalAppointments?: number
+  callbacksRequested?: number
+  avgCallDuration?: string
+  // Raw tasks for derivation when overview is absent
+  tasks?: Array<{
+    status?: string
+    connectionStatus?: string
+    errorReason?: string
+    duration?: string
+    outcome?: string
+    appointmentScheduled?: boolean
+  }>
   overview: {
     totalLeads: number
     totalLeadsCalled: number
@@ -102,6 +122,9 @@ export interface CampaignMetrics {
     duration: string
   }
   callFailedPercentage: {
+    percentage: number
+  }
+  callRejectedPercentage?: {
     percentage: number
   }
   percentageOfFollowups: {
@@ -246,38 +269,54 @@ export function calculateCampaignMetricsFromAPI(
       voicemailPercentage: { percentage: 0 },
       avgCallDuration: { duration: '0:00' },
       callFailedPercentage: { percentage: 0 },
+      callRejectedPercentage: { percentage: 0 },
       percentageOfFollowups: { percentage: 0 }
     }
   }
 
-  const overview = analyticsData.overview
+  // Prefer overview when present; else derive from top-level fields and tasks
+  const ov = analyticsData.overview
+  const totalLeads = ov?.totalLeads ?? analyticsData.totalLeads ?? 0
+  const totalCustomersContacted = ov?.totalConnectedCalls ?? analyticsData.totalLeadsContacted ?? analyticsData.totalConnectedCalls ?? 0
+  const totalAppointments = ov?.totalAppointments ?? analyticsData.totalAppointments ?? (() => {
+    const tasks = analyticsData.tasks || []
+    return tasks.filter(t => t.appointmentScheduled || (t.outcome || '').toLowerCase().includes('appointment')).length
+  })()
+  const totalCallsMade = ov?.totalCallsMade ?? analyticsData.totalCallsMade ?? analyticsData.totalCallsInitiated ?? 0
 
-  // Total Calls Made = totalCallsMade from new analytics API
-  const totalCallsMade = overview.totalCallsMade || 0
+  // Derive voicemail / failed / not picked when not provided
+  const tasks = analyticsData.tasks || []
+  const voicemailCount = ov?.totalVoicemailCount ?? analyticsData.totalVoicemailCount ?? tasks.filter(t => t.errorReason === 'voicemail').length
+  const callsNotPicked = (ov as any)?.totalCallsNotPicked ?? (tasks.filter(t => t.errorReason === 'customer-did-not-answer' || t.errorReason === 'customer-busy').length)
+  const callsFailed = ov?.totalCallsFailed ?? analyticsData.totalCallsFailed ?? tasks.filter(t => {
+    if (!t.errorReason) return false
+    // Treat non-voicemail and non-not-picked error reasons as failed
+    return t.errorReason !== 'voicemail' && t.errorReason !== 'customer-did-not-answer' && t.errorReason !== 'customer-busy'
+  }).length
 
-  // Total Contacted = totalConnectedCalls from new analytics API
-  const totalCustomersContacted = overview.totalConnectedCalls || 0
+  // Avg call duration: prefer provided, else compute from tasks (MM:SS)
+  const avgCallDuration = ov?.avgCallDuration ?? analyticsData.avgCallDuration ?? (() => {
+    const durations = tasks
+      .map(t => t.duration)
+      .filter((d): d is string => typeof d === 'string' && /\d+:\d{2}/.test(d))
+      .map(d => {
+        const [m, s] = d.split(':').map(x => parseInt(x, 10) || 0)
+        return m * 60 + s
+      })
+    if (durations.length === 0) return '0:00'
+    const avg = Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+    const m = Math.floor(avg / 60)
+    const s = (avg % 60).toString().padStart(2, '0')
+    return `${m}:${s}`
+  })()
 
-  // Total Appointments = totalAppointments from new analytics API
-  const totalAppointments = overview.totalAppointments || 0
-
-  // Answer Rate = totalConnectedCalls / totalCallsMade * 100
-  const answerRate = totalCallsMade > 0 ? Math.round((totalCustomersContacted / totalCallsMade) * 100) : 0
-
-  // Voice Mail % = totalVoicemailCount / totalCallsMade * 100 (from new API)
-  const voicemailCount = overview.totalVoicemailCount || 0
-  const voicemailPercentage = totalCallsMade > 0 ? Math.round((voicemailCount / totalCallsMade) * 100) : 0
-
-  // Avg. Call Duration = avgCallDuration from new analytics API
-  const avgCallDuration = overview.avgCallDuration || '0:00'
-
-  // Call failed % = totalCallsFailed / totalCallsMade * 100 (from new API)
-  const callsFailed = overview.totalCallsFailed || 0
-  const callFailedPercentage = totalCallsMade > 0 ? Math.round((callsFailed / totalCallsMade) * 100) : 0
-
-  // % of followups = callbacksRequested / totalCallsMade * 100 (from new API)
-  const callbacksRequested = overview.callbacksRequested || 0
-  const percentageOfFollowups = totalCallsMade > 0 ? Math.round((callbacksRequested / totalCallsMade) * 100) : 0
+  // Percentages use totalLeads as denominator
+  const answerRate = totalLeads > 0 ? Math.round((totalCustomersContacted / totalLeads) * 100) : 0
+  const voicemailPercentage = totalLeads > 0 ? Math.round((voicemailCount / totalLeads) * 100) : 0
+  const callFailedPercentage = totalLeads > 0 ? Math.round((callsFailed / totalLeads) * 100) : 0
+  const callRejectedPercentage = totalLeads > 0 ? Math.round((callsNotPicked / totalLeads) * 100) : 0
+  const callbacksRequested = ov?.callbacksRequested ?? analyticsData.callbacksRequested ?? 0
+  const percentageOfFollowups = totalLeads > 0 ? Math.round((callbacksRequested / totalLeads) * 100) : 0
 
   return {
     totalCallsMade: { count: totalCallsMade },
@@ -287,6 +326,7 @@ export function calculateCampaignMetricsFromAPI(
     voicemailPercentage: { percentage: voicemailPercentage },
     avgCallDuration: { duration: avgCallDuration },
     callFailedPercentage: { percentage: callFailedPercentage },
+    callRejectedPercentage: { percentage: callRejectedPercentage },
     percentageOfFollowups: { percentage: percentageOfFollowups }
   }
 }

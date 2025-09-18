@@ -155,6 +155,9 @@ export function CampaignHeader({
   const remainingTime = remainingHours > 1 ? `${remainingHours}hr remaining` : 
                        remainingHours === 1 ? `${remainingHours}hr remaining` :
                        remainingCalls > 0 ? `${Math.ceil(remainingCalls / (callsPerHour / 60))}min remaining` : 'Completed'
+  
+  // Determine completed state from derived metrics
+  const isCompleted = completionPercentage >= 100 || remainingCalls <= 0
 
   return (
     <div className={`
@@ -222,45 +225,49 @@ export function CampaignHeader({
                   </div>
                 </div>
               </div>
-              <Badge className={`px-2 py-0.5 text-xs font-medium flex items-center gap-2 ${
-                campaignRunning 
-                  ? "bg-blue-50 text-blue-600 border-blue-100" 
-                  : "bg-orange-50 text-orange-600 border-orange-100"
+              <Badge className={`px-2 py-0.5 text-xs font-medium flex items-center gap-2 transition-all duration-200 ${
+                isCompleted
+                  ? "bg-green-50 text-green-700 border-green-100"
+                  : "cursor-pointer hover:scale-105 hover:shadow-sm " + (campaignRunning 
+                      ? "bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100 hover:border-blue-200" 
+                      : "bg-orange-50 text-orange-600 border-orange-100 hover:bg-orange-100 hover:border-orange-200")
               }`}>
-                <div className={`w-2 h-2 rounded-full ${
-                  campaignRunning ? "bg-blue-600" : "bg-orange-600"
+                <div className={`w-2 h-2 rounded-full transition-all duration-200 ${
+                  isCompleted ? "bg-green-600" : (campaignRunning ? "bg-blue-600" : "bg-orange-600")
                 }`} />
-                {campaignRunning ? "Active" : "Paused"}
+                {isCompleted ? "Completed" : (campaignRunning ? "Active" : "Paused")}
               </Badge>
             </div>
           </div>
           
           {/* Stop/Resume Campaign Button */}
-          <div className="flex items-center gap-4">
-            <Button 
-              variant="outline"
-              className={`
-                font-semibold flex items-center gap-2 transition-all duration-300 ease-out
-                ${isCompact ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'}
-                ${campaignRunning 
-                  ? 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100' 
-                  : 'bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100'
-                }
-              `}
-              onClick={onToggleCampaignStatus}
-            >
-              <span className={`transition-all duration-300 ease-out ${isCompact ? 'max-w-12' : 'max-w-32'} overflow-hidden whitespace-nowrap`}>
+          {!isCompleted && (
+            <div className="flex items-center gap-4">
+              <Button 
+                variant="outline"
+                className={`
+                  font-semibold flex items-center gap-2 transition-all duration-300 ease-out hover:scale-105 hover:shadow-sm
+                  ${isCompact ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'}
+                  ${campaignRunning 
+                    ? 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100 hover:border-red-200' 
+                    : 'bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100 hover:border-blue-200'
+                  }
+                `}
+                onClick={onToggleCampaignStatus}
+              >
+                <span className={`transition-all duration-300 ease-out ${isCompact ? 'max-w-12' : 'max-w-32'} overflow-hidden whitespace-nowrap`}>
+                  {campaignRunning 
+                    ? (isCompact ? 'Stop' : 'Stop Campaign')
+                    : (isCompact ? 'Resume' : 'Resume Campaign')
+                  }
+                </span>
                 {campaignRunning 
-                  ? (isCompact ? 'Stop' : 'Stop Campaign')
-                  : (isCompact ? 'Resume' : 'Resume Campaign')
+                  ? <Square className="h-3 w-3 fill-current flex-shrink-0" />
+                  : <Play className="h-3 w-3 fill-current flex-shrink-0" />
                 }
-              </span>
-              {campaignRunning 
-                ? <Square className="h-3 w-3 fill-current flex-shrink-0" />
-                : <Play className="h-3 w-3 fill-current flex-shrink-0" />
-              }
-            </Button>
-          </div>
+              </Button>
+            </div>
+          )}
         </div>
         
         {/* Campaign Details Section - Animated visibility */}
@@ -345,15 +352,35 @@ export function CampaignHeader({
                 <div className="text-sm font-medium text-gray-600 mb-2">
                   Campaign Type
                 </div>
-                <Badge className="bg-green-50 text-green-600 border-green-100 px-2 py-1 text-xs font-semibold italic flex items-center gap-2 hover:bg-green-50 hover:text-green-600 hover:border-green-100 cursor-default">
+                <Badge className="bg-green-50 text-green-600 border-green-100 px-2 py-1 text-xs font-semibold flex items-center gap-2 hover:bg-green-50 hover:text-green-600 hover:border-green-100 cursor-default">
                   <Calendar className="h-4 w-4" />
-                  {analyticsData?.campaignType ? (
-                    analyticsData.campaignType
-                  ) : conversationData?.campaignUseCase ? (
-                    conversationData.campaignUseCase.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (str: string) => str.toUpperCase())
-                  ) : (
-                    isSalesCampaign ? 'Sales Campaign' : 'Service Campaign'
-                  )}
+                  {(() => {
+                    // Prefer campaignUseCase coming from the Campaign Status API (conversationData)
+                    const useCaseFromStatus = conversationData?.campaignUseCase
+                    if (typeof useCaseFromStatus === 'string' && useCaseFromStatus.length > 0) {
+                      return useCaseFromStatus
+                        .replace(/([a-z])([A-Z])/g, '$1 $2')
+                        .replace(/^./, (str: string) => str.toUpperCase())
+                    }
+
+                    // Fallback to analytics or campaign detail data if available
+                    const useCaseFromAnalytics = analyticsData?.campaignUseCase
+                    if (typeof useCaseFromAnalytics === 'string' && useCaseFromAnalytics.length > 0) {
+                      return useCaseFromAnalytics
+                        .replace(/([a-z])([A-Z])/g, '$1 $2')
+                        .replace(/^./, (str: string) => str.toUpperCase())
+                    }
+
+                    const useCaseFromCampaign = campaignData?.campaign?.campaignUseCase
+                    if (typeof useCaseFromCampaign === 'string' && useCaseFromCampaign.length > 0) {
+                      return useCaseFromCampaign
+                        .replace(/([a-z])([A-Z])/g, '$1 $2')
+                        .replace(/^./, (str: string) => str.toUpperCase())
+                    }
+
+                    // Last resort: infer from boolean flags
+                    return isSalesCampaign ? 'Sales Campaign' : 'Service Campaign'
+                  })()}
                 </Badge>
               </div>
               

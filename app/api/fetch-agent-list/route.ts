@@ -12,6 +12,8 @@ export async function GET(request: NextRequest) {
     const agentUseCase = searchParams.get('agentUseCase'); // Don't default here, let the client decide
     const agentType = searchParams.get('agentType') || 'Service';
     const agentCallType = searchParams.get('agentCallType');
+    
+    console.log('API route received params:', { enterpriseId, teamId, authKey, agentUseCase, agentType, agentCallType });
 
     // Validate required parameters
     if (!enterpriseId || !teamId) {

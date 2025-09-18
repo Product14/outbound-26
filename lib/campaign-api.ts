@@ -639,7 +639,7 @@ export function transformCampaignData(
 export async function launchCampaign(payload: LaunchCampaignPayload, authKey?: string): Promise<CampaignApiResponse> {
   try {
     // Build URL with auth_key parameter
-    const url = authKey ? `/api/launch-campaign?auth_key=${encodeURIComponent(authKey)}` : '/api/launch-campaign';
+    const url = authKey ? `/api/launch-campaign?auth_key=${authKey}` : '/api/launch-campaign';
     
     const response = await fetch(url, {
       method: 'POST',
@@ -734,7 +734,9 @@ export async function fetchCampaignDetails(campaignId: string, authKey?: string)
 export async function fetchCampaignTypes(authKey?: string): Promise<CampaignTypesResponse> {
   try {
     // Build URL with auth_key parameter
-    const url = authKey ? `/api/fetch-campaign-types?auth_key=${encodeURIComponent(authKey)}` : '/api/fetch-campaign-types';
+    console.log('fetchCampaignTypes called with authKey:', authKey ? 'present' : 'missing', 'length:', authKey?.length);
+    const url = authKey ? `/api/fetch-campaign-types?auth_key=${authKey}` : '/api/fetch-campaign-types';
+    console.log('fetchCampaignTypes URL:', url);
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -1061,7 +1063,7 @@ export async function processKeyMapping(requiredKeys: string[], availableKeys: s
     };
 
     // Build URL with auth_key parameter
-    const url = authKey ? `/api/keys-mapping?auth_key=${encodeURIComponent(authKey)}` : '/api/keys-mapping';
+    const url = authKey ? `/api/keys-mapping?auth_key=${authKey}` : '/api/keys-mapping';
 
     const response = await fetch(url, {
       method: 'POST',

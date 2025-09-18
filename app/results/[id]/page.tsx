@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
-import { AlertCircle, Loader2, CheckCircle, Download, ArrowLeft } from 'lucide-react'
+import { AlertCircle, CheckCircle, Download, ArrowLeft } from 'lucide-react'
 import Link from "next/link"
 import { fetchCampaignDetails, fetchCampaignTypes, fetchCampaignConversationData, type CampaignDetailResponse } from '@/lib/campaign-api'
 import { fetchAgentList, type Agent } from '@/lib/agent-api'
@@ -17,17 +17,17 @@ import { buildUrlWithParams, extractUrlParams } from '@/lib/url-utils'
 // Import our new components
 import { CampaignHeader } from '@/components/campaign/campaign-header'
 import { LiveCallsTab } from '@/components/campaign/live-calls-tab'
-import { AnalyticsTab } from '@/components/campaign/analytics-tab'
-import { TabsNavigation } from '@/components/ui/tabs-navigation'
+// import { AnalyticsTab } from '@/components/campaign/analytics-tab'
+// import { TabsNavigation } from '@/components/ui/tabs-navigation'
 import { BlankCallDrawer } from '@/components/blank-call-drawer'
 import { CampaignPageShimmer } from '@/components/ui/campaign-shimmer'
-import { FunnelChart } from '@/components/ui/funnel-chart'
-import AppointmentFunnel from '@/components/ui/appointment-funnel'
+// import { FunnelChart } from '@/components/ui/funnel-chart'
+// import AppointmentFunnel from '@/components/ui/appointment-funnel'
 import { getCampaignFunnelData, calculateFunnelMetrics, getAppointmentFunnelData } from '@/lib/funnel-utils'
 import { calculateCampaignMetricsFromAPI, type CampaignAnalyticsResponse, type CampaignCompletedResponse } from '@/lib/metrics-utils'
-import { MetricsGrid } from '@/components/ui/metrics-grid'
+// import { MetricsGrid } from '@/components/ui/metrics-grid'
 import type { CallRecord } from '@/types/call-record'
-import { PerformanceTimeChart } from '@/components/charts/PerformanceTimeChart'
+// import { PerformanceTimeChart } from '@/components/charts/PerformanceTimeChart'
 
 // Map API campaign type to display format using dynamic data
 const mapCampaignType = (campaignType: string, campaignTypes?: any | null): string => {
@@ -490,7 +490,7 @@ export default function CampaignDetail() {
   // Effects
   useEffect(() => {
     // Restore tab from URL parameters if present, otherwise default to live-calls
-    if (urlParams.tab && ['analytics', 'live-calls'].includes(urlParams.tab)) {
+    if (urlParams.tab && ['live-calls'].includes(urlParams.tab)) {
       setActiveTab(urlParams.tab)
     } else {
       setActiveTab('live-calls')
@@ -505,16 +505,32 @@ export default function CampaignDetail() {
   // Disable/enable body scroll when modal opens/closes
   useEffect(() => {
     if (isCallDetailsOpen) {
+      // Store the current scroll position
+      const scrollY = window.scrollY
       // Disable body scroll
       document.body.style.overflow = 'hidden'
+      document.body.style.position = 'fixed'
+      document.body.style.top = `-${scrollY}px`
+      document.body.style.width = '100%'
     } else {
       // Re-enable body scroll
+      const scrollY = document.body.style.top
       document.body.style.overflow = 'unset'
+      document.body.style.position = 'unset'
+      document.body.style.top = 'unset'
+      document.body.style.width = 'unset'
+      // Restore scroll position
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || '0') * -1)
+      }
     }
 
     // Cleanup function to ensure scroll is always re-enabled
     return () => {
       document.body.style.overflow = 'unset'
+      document.body.style.position = 'unset'
+      document.body.style.top = 'unset'
+      document.body.style.width = 'unset'
     }
   }, [isCallDetailsOpen])
 
@@ -588,7 +604,7 @@ export default function CampaignDetail() {
           // Fetch campaign types separately with fallback
           let typesResponse = null
           try {
-            typesResponse = await fetchCampaignTypes()
+            typesResponse = await fetchCampaignTypes(urlParams.auth_key || undefined)
           } catch (typesError) {
             console.warn('Failed to fetch campaign types, using fallback data:', typesError)
             // Provide fallback campaign types data
@@ -673,7 +689,25 @@ export default function CampaignDetail() {
       if (campaignData?.campaign) {
         try {
           setIsLoadingAgent(true)
-          const agentResponse = await fetchAgentList("1", "10")
+          // Get URL parameters for authentication
+          const urlParams = extractUrlParams()
+          console.log('URL params extracted:', urlParams)
+          console.log('Raw auth_key from URL:', urlParams.auth_key)
+          
+          // Ensure auth_key is properly decoded
+          const authKey = urlParams.auth_key ? decodeURIComponent(urlParams.auth_key) : null
+          console.log('Auth key after decode:', authKey)
+          console.log('Auth key type:', typeof authKey)
+          console.log('Auth key length:', authKey?.length)
+          
+          const agentResponse = await fetchAgentList(
+            urlParams.enterprise_id || "1", 
+            urlParams.team_id || "10",
+            undefined, // agentUseCase
+            undefined, // agentType  
+            undefined, // agentCallType
+            authKey
+          )
           // For demo purposes, use the first available agent
           const agent = agentResponse.length > 0 ? agentResponse[0] : null
           setCampaignAgent(agent)
@@ -753,7 +787,8 @@ export default function CampaignDetail() {
         onToggleCampaignStatus={toggleCampaignStatus}
       />
       
-      {/* Tabs Navigation */}
+      {/* Tabs Navigation - Commented out temporarily */}
+      {/**
       <TabsNavigation
         defaultActiveTab={activeTab}
         onTabChange={handleTabChange}
@@ -765,6 +800,7 @@ export default function CampaignDetail() {
         setStatusFilter={setStatusFilter}
         onToggleFilters={() => setShowFilters(!showFilters)}
       />
+      **/}
       
       {/* Content Area with Tabs for Sales and Service Campaigns */}
       {(isSalesCampaign || isServiceCampaign) ? (
@@ -784,141 +820,20 @@ export default function CampaignDetail() {
               onToggleFilters={() => setShowFilters(!showFilters)}
               showFilters={showFilters}
               campaignId={campaignId}
+              totalLeads={analyticsData?.overview?.totalLeads ?? analyticsData?.totalLeads ?? 0}
+              campaignData={campaignData}
+              isSalesCampaign={isSalesCampaign}
+              analyticsData={analyticsData}
+              campaignMetrics={campaignMetrics}
             />
           </TabsContent>
 
-          {/* Analytics Tab */}
+          {/* Analytics Tab - Commented out temporarily */}
+          {/**
           <TabsContent value="analytics" className="mt-0">
-              <div className="space-y-6">
-                {/* Analytics Content */}
-                <div className="bg-white shadow-sm p-6">
-                {/* First Row: Funnel Chart - Full width on screens < 1400px */}
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
-                  {/* Funnel Chart */}
-                  <div className="xl:col-span-1">
-                    <div className="bg-gray-50 rounded-xl p-4 h-full">
-                      <div className="mb-4">
-                        <h3 className="text-sm font-semibold text-gray-900">
-                          {isSalesCampaign ? 'Sales Campaign Funnel' : 'Service Campaign Funnel'}
-                        </h3>
-                      </div>
-                      <div className="h-52">
-                        <AppointmentFunnel
-                          data={getAppointmentFunnelData(
-                            campaignData,
-                            isSalesCampaign ? 'sales' : 'service',
-                            analyticsData // Pass real analytics data
-                          )}
-                          cardBackgroundColor={isSalesCampaign ? '#DBEAFE' : '#DCFCE7'}
-                          graphColor={isSalesCampaign ? '#3B82F6' : '#22C55E'}
-                          conversionChipColor={isSalesCampaign ? '#93C5FD' : '#86EFAC'}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Metrics Grid */}
-                  <div className="xl:col-span-1">
-                    <div className="bg-gray-50 rounded-xl p-4 h-full">
-                      <div className="mb-4">
-                        <h3 className="text-sm font-semibold text-gray-900">
-                          Campaign Metrics
-                        </h3>
-                      </div>
-                      <MetricsGrid metrics={campaignMetrics} />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Second Row: Performance Charts */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Performance Time Chart */}
-                  <div className="md:col-span-1">
-                    <PerformanceTimeChart 
-                      data={analyticsData?.performanceByTime && analyticsData.performanceByTime.length > 0 
-                        ? analyticsData.performanceByTime.map(item => ({
-                            hour: item.hour,
-                            calls: item.totalCalls,
-                            appointments: item.successfulCalls,
-                            successRate: item.successRate
-                          }))
-                        : []
-                      } 
-                      title="Best Time"
-                    />
-                  </div>
-
-                  {/* Top Performing Vehicles - Only show for sales campaigns */}
-                  {isSalesCampaign && (
-                    <div className="md:col-span-1">
-                      <div className="bg-gray-50 rounded-xl p-4 h-[340px] flex flex-col">
-                        <div className="mb-4">
-                          <h3 className="text-sm font-semibold text-gray-900">
-                            Top Performing Vehicles
-                          </h3>
-                        </div>
-                        <div className="space-y-2 overflow-y-auto flex-1 pr-2">
-                         
-                          {isLoadingAnalytics && (
-                            <div className="flex items-center justify-center py-4">
-                              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-                              <span className="ml-2 text-gray-500">Loading analytics...</span>
-                            </div>
-                          )}
-                          {analyticsData ? (
-                            // Check if it's a Sales campaign with topPerformingVehicles
-                            'topPerformingVehicles' in analyticsData ? (
-                              analyticsData.topPerformingVehicles && analyticsData.topPerformingVehicles.length > 0 ? (
-                                analyticsData.topPerformingVehicles.map((vehicle, index) => (
-                                  <div key={vehicle.vehicleName} className="flex items-center justify-between p-2 border border-[#E5E7EB] rounded-[8px]">
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-6 h-6 bg-[#F0F4FF] rounded-full flex items-center justify-center text-[#4600F2] font-bold text-xs">
-                                        {index + 1}
-                                      </div>
-                                      <span className="font-medium text-[#1A1A1A]">
-                                        {vehicle.vehicleName}
-                                      </span>
-                                    </div>
-                                    <div className="text-right">
-                                      <div className="text-[16px] font-bold text-[#1A1A1A]">{vehicle.appointmentsCount}</div>
-                                      <div className="text-xs text-[#6B7280]">
-                                        {vehicle.conversionRate}%
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))
-                              ) : (
-                                <div className="flex items-center justify-center py-8 text-center">
-                                  <div className="text-gray-500">
-                                    <div className="text-sm font-medium">No vehicle data available</div>
-                                   
-                                  </div>
-                                </div>
-                              )
-                            ) : (
-                              // Service campaigns don't have vehicle data, show appropriate message
-                              <div className="flex items-center justify-center py-8 text-center">
-                                <div className="text-gray-500">
-                                  <div className="text-sm font-medium">No vehicle data available</div>
-                                </div>
-                              </div>
-                            )
-                          ) : (
-                            // Show empty state when no real vehicle data is available
-                            <div className="flex items-center justify-center py-8 text-center">
-                              <div className="text-gray-500">
-                                <div className="text-sm font-medium">No vehicle data available</div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+            ...
           </TabsContent>
+          **/}
         </Tabs>
       ) : (
         // Non-Sales/Service campaigns - show simple completion message
@@ -987,6 +902,17 @@ export default function CampaignDetail() {
           </div>
         </div>
       )}
+      
+      {/* Scroll to Top Button */}
+      <button
+        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        className="fixed bottom-6 right-6 z-40 bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full shadow-lg transition-all duration-200 hover:scale-105"
+        title="Scroll to top"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+        </svg>
+      </button>
       
       <Toaster />
     </div>  

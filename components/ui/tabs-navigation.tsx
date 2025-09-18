@@ -70,40 +70,29 @@ export function TabsNavigation({
     <div className="bg-white relative w-full border-b border-black/[0.06]">
       <div className="flex items-end justify-between px-8 py-0 h-full">
         {/* Left side - Tabs */}
-        <div className="flex flex-row items-end h-full">
-          <div className="flex gap-6 h-full items-center">
-            {tabs.map((tab) => (
-              <div
-                key={tab.id}
-                className={`flex gap-2.5 h-full items-center cursor-pointer relative ${
-                  activeTab === tab.id ? 'border-b-2 border-neutral-950' : ''
-                }`}
-                onClick={() => handleTabClick(tab.id)}
-              >
-                {activeTab === tab.id ? (
-                  // Active tab styling
-                  <div className="bg-[rgba(72,80,102,0.04)] border border-[rgba(0,0,0,0.04)] flex gap-2.5 items-center justify-center pl-2 pr-3 py-1.5 rounded-[6px]">
-                    <div className="shrink-0">
-                      {tab.icon}
-                    </div>
-                    <div className="font-semibold text-[14px] text-[rgba(0,0,0,0.8)] tracking-[0.0449px] leading-5">
-                      {tab.label}
-                    </div>
-                  </div>
-                ) : (
-                  // Inactive tab styling
-                  <div className="flex gap-2 items-center px-0 py-1">
-                    <div className="shrink-0 text-[#8f8f8f]">
-                      {tab.icon}
-                    </div>
-                    <div className="font-medium text-[14px] text-[#8f8f8f] tracking-[0.0449px] leading-5">
-                      {tab.label}
-                    </div>
-                  </div>
-                )}
+        <div className="flex items-center space-x-8 flex-1 min-w-0 pb-0 border-0 border-gray-200 overflow-x-auto">
+          {tabs.map((tab) => (
+            <div key={tab.id} className="relative flex items-center">
+              <div className="flex items-center pb-3">
+                <button
+                  onClick={() => handleTabClick(tab.id)}
+                  className={`text-base transition-colors ${
+                    activeTab === tab.id 
+                      ? 'text-black font-semibold' 
+                      : 'text-black/40 font-medium hover:text-black/60'
+                  }`}
+                >
+                  {tab.label}
+                </button>
               </div>
-            ))}
-          </div>
+              {activeTab === tab.id && (
+                <div 
+                  className="absolute bottom-0 left-0 right-0 h-0.5" 
+                  style={{ backgroundColor: 'rgb(70, 0, 242)' }}
+                />
+              )}
+            </div>
+          ))}
         </div>
 
         {/* Right side - Search and Filters */}

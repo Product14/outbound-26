@@ -38,24 +38,29 @@ export interface AgentListResponse {
 async function convertUseCaseToSnakeCase(useCase: string, authKey?: string): Promise<string> {
   try {
     // Fetch campaign types to get the original names
-    const campaignTypesResponse = await fetchCampaignTypes(authKey);
+    // Only call fetchCampaignTypes if authKey is provided
+    console.log('convertUseCaseToSnakeCase called with:', { useCase, authKey: authKey ? 'present' : 'missing', authKeyLength: authKey?.length });
+    if (authKey) {
+      console.log('Calling fetchCampaignTypes with authKey');
+      const campaignTypesResponse = await fetchCampaignTypes(authKey);
     
-    if (campaignTypesResponse.success && campaignTypesResponse.data) {
-      // Look for the original campaign type name that matches this use case
-      for (const group of campaignTypesResponse.data) {
-        if (group.campaignTypes) {
-          for (const campaignType of group.campaignTypes) {
-            // Check if this campaign type transforms to the current use case
-            const transformedValue = campaignType.name.replace(/[_\s]/g, '-').toLowerCase();
-            
-            if (transformedValue === useCase.toLowerCase()) {
-              // Found the original name, now convert it to snake_case
-              const snakeCaseValue = campaignType.name
-                .replace(/([a-z])([A-Z])/g, '$1_$2')  // Convert camelCase to snake_case
-                .replace(/[_\s]/g, '_')  // Ensure consistent underscores
-                .toLowerCase();
+      if (campaignTypesResponse.success && campaignTypesResponse.data) {
+        // Look for the original campaign type name that matches this use case
+        for (const group of campaignTypesResponse.data) {
+          if (group.campaignTypes) {
+            for (const campaignType of group.campaignTypes) {
+              // Check if this campaign type transforms to the current use case
+              const transformedValue = campaignType.name.replace(/[_\s]/g, '-').toLowerCase();
               
-              return snakeCaseValue;
+              if (transformedValue === useCase.toLowerCase()) {
+                // Found the original name, now convert it to snake_case
+                const snakeCaseValue = campaignType.name
+                  .replace(/([a-z])([A-Z])/g, '$1_$2')  // Convert camelCase to snake_case
+                  .replace(/[_\s]/g, '_')  // Ensure consistent underscores
+                  .toLowerCase();
+                
+                return snakeCaseValue;
+              }
             }
           }
         }
@@ -96,6 +101,8 @@ export async function fetchAgentList(
   authKey?: string
 ): Promise<Agent[]> {
   try {
+    console.log('fetchAgentList called with:', { enterpriseId, teamId, agentUseCase, agentType, agentCallType, authKey });
+    
     // Build query parameters, only including defined values
     const params = new URLSearchParams();
     params.append('enterpriseId', enterpriseId);
@@ -104,6 +111,9 @@ export async function fetchAgentList(
     // Add auth_key parameter
     if (authKey) {
       params.append('auth_key', authKey);
+      console.log('Added auth_key to params:', authKey);
+    } else {
+      console.warn('No auth_key provided to fetchAgentList');
     }
     
     // Convert agentUseCase to snake_case format specifically for this API

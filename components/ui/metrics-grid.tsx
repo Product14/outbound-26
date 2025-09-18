@@ -14,8 +14,8 @@ export function MetricsGrid({ metrics, className }: MetricsGridProps) {
     <>
       {/* Desktop view - 4 columns */}
       <div className={`hidden md:grid md:grid-cols-4 gap-4 auto-rows-fr ${className}`}>
-        {/* Row 1 */}
-        <MetricCard
+        {/* Row 1 - Commented out as requested */}
+        {/* <MetricCard
           title="Total Calls Made"
           value={metrics.totalCallsMade.count.toLocaleString()}
           valueColor="text-blue-600"
@@ -41,7 +41,7 @@ export function MetricsGrid({ metrics, className }: MetricsGridProps) {
           value={`${metrics.answerRate.percentage}%`}
           valueColor="text-emerald-600"
           icon={<CheckCircle className="h-4 w-4" />}
-        />
+        /> */}
         
         {/* Row 2 */}
         <MetricCard
@@ -66,7 +66,7 @@ export function MetricsGrid({ metrics, className }: MetricsGridProps) {
         />
         
         <MetricCard
-          title="% of followups"
+          title="Call Rejected %"
           value={`${metrics.percentageOfFollowups.percentage}%`}
           valueColor="text-indigo-600"
           icon={<MessageSquare className="h-4 w-4" />}
@@ -75,8 +75,8 @@ export function MetricsGrid({ metrics, className }: MetricsGridProps) {
 
       {/* Mobile view - 2 columns with custom layout */}
       <div className={`md:hidden space-y-3 ${className}`}>
-        {/* Row 1 - First 4 metrics in 2x2 grid */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* Row 1 - First 4 metrics in 2x2 grid - Commented out as requested */}
+        {/* <div className="grid grid-cols-2 gap-4">
           <MetricCard
             title="Total Calls Made"
             value={metrics.totalCallsMade.count.toLocaleString()}
@@ -104,7 +104,7 @@ export function MetricsGrid({ metrics, className }: MetricsGridProps) {
             valueColor="text-emerald-600"
             icon={<CheckCircle className="h-4 w-4" />}
           />
-        </div>
+        </div> */}
 
         {/* Row 2 - Remaining metrics with Average call duration and Percentage of followups in same row */}
         <div className="grid grid-cols-2 gap-4">
@@ -131,7 +131,7 @@ export function MetricsGrid({ metrics, className }: MetricsGridProps) {
           />
           
           <MetricCard
-            title="% of followups"
+            title="Call Rejected %"
             value={`${metrics.percentageOfFollowups.percentage}%`}
             valueColor="text-indigo-600"
             icon={<MessageSquare className="h-4 w-4" />}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CircularProgress } from "@/components/ui/circular-progress"
@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Phone, Search, Play, Pause, ArrowUpDown, User, Clock, CheckCircle, X, AlertTriangle, Car, Calendar, ChevronLeft, ChevronRight, PhoneCall, Users, PhoneOff, Voicemail, PhoneMissed, Ban, Timer, Loader2 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { RefreshCountdown } from "@/components/ui/refresh-countdown"
 import type { CallRecord as AICallRecord } from "@/types/call-record"
 
 // API Response types for Campaign Status
@@ -113,6 +114,7 @@ interface LiveActivityTableProps {
   callReasonFilter?: string
   campaignId?: string
   onFilteredCountChange?: (count: number) => void
+  refreshTrigger?: number // Add this to trigger refresh from parent
 }
 
 export function LiveActivityTable({ 
@@ -126,12 +128,13 @@ export function LiveActivityTable({
   agentFilter = "all",
   callReasonFilter = "all",
   campaignId,
-  onFilteredCountChange
+  onFilteredCountChange,
+  refreshTrigger
 }: LiveActivityTableProps) {
   const [sortField, setSortField] = useState<keyof CallRecord>("timestamp")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [itemsPerPage, setItemsPerPage] = useState(50)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [aiScoreBreakdownOpen, setAiScoreBreakdownOpen] = useState(false)
   const [selectedCallForBreakdown, setSelectedCallForBreakdown] = useState<AICallRecord | null>(null)
@@ -150,6 +153,7 @@ export function LiveActivityTable({
   const [callRecords, setCallRecords] = useState<CallRecord[]>([])
   const [isLoadingCalls, setIsLoadingCalls] = useState(false)
   const [callsError, setCallsError] = useState<string | null>(null)
+  const [totalRecords, setTotalRecords] = useState(0)
 
   // Utility function to parse and format call duration from API
   const parseCallDuration = (callDuration: string | number | undefined, status: string, connectionStatus: string, outcome?: string): string => {
@@ -243,34 +247,39 @@ export function LiveActivityTable({
       // Map connection status directly from API connectionStatus field
       let connectionStatus: CallRecord['connectionStatus'] = 'not_connected'
       
-      switch (task.connectionStatus) {
-        case 'connected':
-          connectionStatus = 'connected'
-          break
-        case 'live':
-          connectionStatus = 'live'
-          break
-        case 'queue':
-          connectionStatus = 'queue'
-          break
-        case 'not connected':
-          connectionStatus = 'not_connected'
-          break
-        case 'voice_mail':
-        case 'voicemail':
-          connectionStatus = 'voice_mail'
-          break
-        case 'call_failed':
-          connectionStatus = 'call_failed'
-          break
-        case 'busy':
-          connectionStatus = 'busy'
-          break
-        case 'do_not_call':
-          connectionStatus = 'do_not_call'
-          break
-        default:
-          connectionStatus = 'not_connected'
+      // Check errorReason first for voicemail
+      if (task.errorReason === 'voicemail') {
+        connectionStatus = 'voice_mail'
+      } else {
+        switch (task.connectionStatus) {
+          case 'connected':
+            connectionStatus = 'connected'
+            break
+          case 'live':
+            connectionStatus = 'live'
+            break
+          case 'queue':
+            connectionStatus = 'queue'
+            break
+          case 'not connected':
+            connectionStatus = 'not_connected'
+            break
+          case 'voice_mail':
+          case 'voicemail':
+            connectionStatus = 'voice_mail'
+            break
+          case 'call_failed':
+            connectionStatus = 'call_failed'
+            break
+          case 'busy':
+            connectionStatus = 'busy'
+            break
+          case 'do_not_call':
+            connectionStatus = 'do_not_call'
+            break
+          default:
+            connectionStatus = 'not_connected'
+        }
       }
 
       // Use status directly from API
@@ -309,58 +318,82 @@ export function LiveActivityTable({
   }
 
   // Fetch campaign status data (includes all call types: live, queued, completed, failed)
-  useEffect(() => {
-    const fetchCampaignStatus = async () => {
-      if (!campaignId) return
+  const fetchCampaignStatus = useCallback(async (showLoading = true, currentStatusFilter = statusFilter, page = currentPage, limit = itemsPerPage) => {
+    if (!campaignId) return
 
+    if (showLoading) {
       setIsLoadingCalls(true)
-      setCallsError(null)
+    }
+    setCallsError(null)
+    
+    try {
+      // Build URL with status filters if they are not "all"
+      let url = `/api/fetch-campaign-status?campaignId=${campaignId}&page=${page}&limit=${limit}`
       
-      try {
-        // Build URL with status filters if they are not "all"
-        let url = `/api/fetch-campaign-status?campaignId=${campaignId}`
-        
-        // Add status type filters if not showing all
-        const activeStatusFilters = statusFilter.filter(status => status !== 'all')
-        if (activeStatusFilters.length > 0) {
-          // Map frontend filter values to API expected values
-          const apiStatusTypes = activeStatusFilters.map(status => {
-            switch (status) {
-              case 'connected': return 'connected'
-              case 'live': return 'live'  
-              case 'queue': return 'queue'
-              case 'not_connected': return 'not-connected'
-              case 'voice_mail': return 'voicemail'
-              default: return status
-            }
-          })
-          url += `&statusTypes=${apiStatusTypes.join(',')}`
-        }
-        
-        const response = await fetch(url)
-        if (!response.ok) {
-          throw new Error('Failed to fetch campaign status')
-        }
-        
-        const apiData: CampaignStatusResponse = await response.json()
-        const transformedData = transformApiDataToCallRecords(apiData)
-        setCallRecords(transformedData)
-      } catch (error) {
-        console.error('Error fetching campaign status:', error)
-        setCallsError(error instanceof Error ? error.message : 'Failed to fetch campaign status')
-        setCallRecords([]) // Set empty array on error
-      } finally {
+      // Add status type filters if not showing all
+      const activeStatusFilters = currentStatusFilter.filter(status => status !== 'all')
+      if (activeStatusFilters.length > 0) {
+        // Map frontend filter values to API expected values
+        const apiStatusTypes = activeStatusFilters.map(status => {
+          switch (status) {
+            case 'connected': return 'connected'
+            case 'live': return 'live'  
+            case 'queue': return 'queue'
+            case 'not_connected': return 'not-connected'
+            case 'voice_mail': return 'voicemail'
+            default: return status
+          }
+        })
+        url += `&statusTypes=${apiStatusTypes.join(',')}`
+      }
+      
+      const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error('Failed to fetch campaign status')
+      }
+      
+      const apiData: CampaignStatusResponse = await response.json()
+      const transformedData = transformApiDataToCallRecords(apiData)
+      setCallRecords(transformedData)
+      setTotalRecords(apiData.totalLeads || transformedData.length)
+    } catch (error) {
+      console.error('Error fetching campaign status:', error)
+      setCallsError(error instanceof Error ? error.message : 'Failed to fetch campaign status')
+      setCallRecords([]) // Set empty array on error
+    } finally {
+      if (showLoading) {
         setIsLoadingCalls(false)
       }
     }
+  }, [campaignId, currentPage, itemsPerPage])
 
-    fetchCampaignStatus()
-    
-    // Set up polling to refresh data every 10 seconds for live updates
-    const interval = setInterval(fetchCampaignStatus, 10000)
-    
-    return () => clearInterval(interval)
-  }, [campaignId, statusFilter])
+  // Initial data fetch
+  useEffect(() => {
+    if (campaignId) {
+      fetchCampaignStatus(true)
+    }
+  }, [campaignId])
+
+  // Handle refresh trigger from parent
+  useEffect(() => {
+    if (refreshTrigger && refreshTrigger > 0 && campaignId) {
+      fetchCampaignStatus(false)
+    }
+  }, [refreshTrigger, campaignId])
+
+  // Refetch when statusFilter changes
+  useEffect(() => {
+    if (campaignId) {
+      fetchCampaignStatus(false, statusFilter)
+    }
+  }, [statusFilter, campaignId])
+
+  // Refetch when pagination changes
+  useEffect(() => {
+    if (campaignId) {
+      fetchCampaignStatus(false, statusFilter, currentPage, itemsPerPage)
+    }
+  }, [currentPage, itemsPerPage, campaignId, statusFilter])
 
   // Component uses callRecords state populated from the new campaign status API
   // This includes all call types: live, queued, completed, failed calls with real-time updates
@@ -391,10 +424,12 @@ export function LiveActivityTable({
     }
   }, [filteredCalls.length, onFilteredCountChange])
 
-  const totalPages = Math.ceil(filteredCalls.length / itemsPerPage)
+  // Use API pagination data instead of client-side pagination
+  const totalPages = Math.ceil(totalRecords / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
+  const endIndex = Math.min(startIndex + itemsPerPage, totalRecords)
 
+  // Apply client-side filtering and sorting to the API data
   const filteredAndSortedCalls = filteredCalls
     .sort((a, b) => {
       let aValue: any, bValue: any
@@ -417,7 +452,6 @@ export function LiveActivityTable({
         return aValue > bValue ? -1 : aValue < bValue ? 1 : 0
       }
     })
-    .slice(startIndex, endIndex)
 
   const handleSort = (field: keyof CallRecord) => {
     if (sortField === field) {
@@ -455,7 +489,15 @@ export function LiveActivityTable({
     }
   }
 
-  const getConnectionStatusBadge = (status: string) => {
+  const getConnectionStatusBadge = (status: string, errorReason?: string) => {
+    // Check if errorReason is voicemail first
+    if (errorReason === "voicemail") {
+      return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
+        <Voicemail className="w-3 h-3 mr-1" />
+        Voicemail
+      </Badge>
+    }
+
     switch (status) {
       case "connected":
         return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
@@ -488,7 +530,7 @@ export function LiveActivityTable({
           Call Failed
         </Badge>
       case "busy":
-        return <Badge className="bg-orange-50 text-orange-600 hover:bg-orange-50">
+        return <Badge className="bg-orange-50 text-orange-600 hover:bg-orange-100 hover:border-orange-200 transition-all duration-200">
           <PhoneMissed className="w-3 h-3 mr-1" />
           Busy
         </Badge>
@@ -503,32 +545,68 @@ export function LiveActivityTable({
   }
 
   const getOutcomeBadge = (outcome: string) => {
-    switch (outcome) {
-      case "service_appointment":
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+    const originalLabel = outcome && outcome.trim().length > 0 ? outcome : "No Outcome"
+    const normalized = originalLabel
+      .toLowerCase()
+      .replace(/\s+/g, "_")
+      .replace(/[^a-z0-9_]/g, "")
+
+    // Map many human-readable variants to color classes
+    const isServiceAppointment =
+      normalized.includes("service") && normalized.includes("appointment")
+    const isTestDrive = normalized.includes("test") && normalized.includes("drive")
+    const isCallback = normalized.includes("callback") || normalized.includes("call_back")
+    const isNotInterested = normalized.includes("not_interested") || normalized.includes("notinterested")
+    const isWrongNumber = normalized.includes("wrong") && normalized.includes("number")
+    const isInfoProvided = normalized.includes("information_provided") || normalized.includes("info")
+    const isTradeIn = normalized.includes("trade") && (normalized.includes("in") || normalized.includes("tradein"))
+    const isGeneralSalesInquiry =
+      (normalized.includes("sales") && normalized.includes("inquiry")) || normalized.includes("general_sales_inquiry")
+    const isVoicemailOutcome = normalized.includes("voicemail") || normalized.includes("voice_mail")
+    const isNoOutcome = normalized === "no_outcome" || normalized === "nooutcome" || normalized === "none"
+
+    if (isServiceAppointment) {
+      return (
+        <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
           <Calendar className="w-3 h-3 mr-1" />
-          Service Appointment
+          {originalLabel}
         </Badge>
-      case "test_drive":
-        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
-          <Car className="w-3 h-3 mr-1" />
-          Test Drive
-        </Badge>
-      case "callback":
-        return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100">Callback</Badge>
-      case "not_interested":
-        return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Not Interested</Badge>
-      case "wrong_number":
-        return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">Wrong Number</Badge>
-      case "information_provided":
-        return <Badge className="bg-cyan-100 text-cyan-800 hover:bg-cyan-100">Info Provided</Badge>
-      case "trade_in_quote":
-        return <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">Trade-in Quote</Badge>
-      case "no_outcome":
-        return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">No Outcome</Badge>
-      default:
-        return <Badge variant="secondary">{outcome}</Badge>
+      )
     }
+    if (isTestDrive) {
+      return (
+        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+          <Car className="w-3 h-3 mr-1" />
+          {originalLabel}
+        </Badge>
+      )
+    }
+    if (isCallback) {
+      return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100">{originalLabel}</Badge>
+    }
+    if (isNotInterested) {
+      return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">{originalLabel}</Badge>
+    }
+    if (isWrongNumber) {
+      return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">{originalLabel}</Badge>
+    }
+    if (isInfoProvided) {
+      return <Badge className="bg-cyan-100 text-cyan-800 hover:bg-cyan-100">{originalLabel}</Badge>
+    }
+    if (isTradeIn) {
+      return <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">{originalLabel}</Badge>
+    }
+    if (isGeneralSalesInquiry) {
+      return <Badge className="bg-indigo-100 text-indigo-800 hover:bg-indigo-100">{originalLabel}</Badge>
+    }
+    if (isVoicemailOutcome) {
+      return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">{originalLabel}</Badge>
+    }
+    if (isNoOutcome) {
+      return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">{originalLabel}</Badge>
+    }
+
+    return <Badge variant="secondary">{originalLabel}</Badge>
   }
 
   const getCallReasonBadge = (reason: string) => {
@@ -702,9 +780,109 @@ export function LiveActivityTable({
   if (isLoadingCalls) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-          <span className="ml-2 text-gray-500">Loading calls...</span>
+        <div className="p-6">
+          <div className="space-y-4">
+            {/* Header skeleton */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="h-6 bg-gray-200 rounded w-48 animate-pulse" />
+                <div className="h-4 bg-gray-200 rounded w-24 animate-pulse" />
+              </div>
+              <div className="h-8 bg-gray-200 rounded w-32 animate-pulse" />
+            </div>
+            
+            {/* Table header skeleton */}
+            <div className="grid grid-cols-12 gap-4 py-3 border-b border-gray-100">
+              <div className="col-span-2">
+                <div className="h-4 bg-gray-200 rounded w-16 animate-pulse" />
+              </div>
+              <div className="col-span-2">
+                <div className="h-4 bg-gray-200 rounded w-20 animate-pulse" />
+              </div>
+              <div className="col-span-1">
+                <div className="h-4 bg-gray-200 rounded w-12 animate-pulse" />
+              </div>
+              <div className="col-span-1">
+                <div className="h-4 bg-gray-200 rounded w-16 animate-pulse" />
+              </div>
+              <div className="col-span-1">
+                <div className="h-4 bg-gray-200 rounded w-14 animate-pulse" />
+              </div>
+              <div className="col-span-1">
+                <div className="h-4 bg-gray-200 rounded w-12 animate-pulse" />
+              </div>
+              <div className="col-span-1">
+                <div className="h-4 bg-gray-200 rounded w-16 animate-pulse" />
+              </div>
+              <div className="col-span-1">
+                <div className="h-4 bg-gray-200 rounded w-14 animate-pulse" />
+              </div>
+              <div className="col-span-1">
+                <div className="h-4 bg-gray-200 rounded w-12 animate-pulse" />
+              </div>
+              <div className="col-span-1">
+                <div className="h-4 bg-gray-200 rounded w-16 animate-pulse" />
+              </div>
+            </div>
+            
+            {/* Call rows skeleton */}
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div key={index} className="grid grid-cols-12 gap-4 py-4 border-b border-gray-50">
+                {/* Call ID */}
+                <div className="col-span-2">
+                  <div className="h-4 bg-gray-200 rounded w-20 animate-pulse" />
+                </div>
+                
+                {/* Customer */}
+                <div className="col-span-2">
+                  <div className="space-y-1">
+                    <div className="h-4 bg-gray-200 rounded w-24 animate-pulse" />
+                    <div className="h-3 bg-gray-200 rounded w-16 animate-pulse" />
+                  </div>
+                </div>
+                
+                {/* Status */}
+                <div className="col-span-1">
+                  <div className="h-6 bg-gray-200 rounded-full w-16 animate-pulse" />
+                </div>
+                
+                {/* Duration */}
+                <div className="col-span-1">
+                  <div className="h-4 bg-gray-200 rounded w-12 animate-pulse" />
+                </div>
+                
+                {/* Quality Score */}
+                <div className="col-span-1">
+                  <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse" />
+                </div>
+                
+                {/* Outcome */}
+                <div className="col-span-1">
+                  <div className="h-6 bg-gray-200 rounded-full w-20 animate-pulse" />
+                </div>
+                
+                {/* Agent */}
+                <div className="col-span-1">
+                  <div className="h-4 bg-gray-200 rounded w-16 animate-pulse" />
+                </div>
+                
+                {/* Time */}
+                <div className="col-span-1">
+                  <div className="h-4 bg-gray-200 rounded w-14 animate-pulse" />
+                </div>
+                
+                {/* Actions */}
+                <div className="col-span-1">
+                  <div className="h-8 bg-gray-200 rounded w-8 animate-pulse" />
+                </div>
+                
+                {/* Revenue */}
+                <div className="col-span-1">
+                  <div className="h-4 bg-gray-200 rounded w-12 animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     )
@@ -789,7 +967,7 @@ export function LiveActivityTable({
                   
                   {/* Connection Status */}
                   <TableCell>
-                    {getConnectionStatusBadge(call.connectionStatus)}
+                    {getConnectionStatusBadge(call.connectionStatus, call.errorReason)}
                   </TableCell>
                   
                   {/* Timestamp */}
@@ -845,16 +1023,18 @@ export function LiveActivityTable({
       {/* Pagination Controls */}
       {filteredCalls.length > 0 && (
         <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <span className="text-sm text-gray-700">
-              Showing {startIndex + 1} to {Math.min(endIndex, filteredCalls.length)} of {filteredCalls.length} results
+              Showing {startIndex + 1} to {Math.min(endIndex, totalRecords)} of {totalRecords} results
             </span>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <Select value={itemsPerPage.toString()} onValueChange={(value) => {
-              setItemsPerPage(parseInt(value))
+              const newItemsPerPage = parseInt(value)
+              setItemsPerPage(newItemsPerPage)
               setCurrentPage(1)
+              fetchCampaignStatus(true, statusFilter, 1, newItemsPerPage)
             }}>
               <SelectTrigger className="w-20 h-8 text-sm">
                 <SelectValue />
@@ -869,11 +1049,15 @@ export function LiveActivityTable({
             <span className="text-sm text-gray-700">per page</span>
           </div>
           
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-shrink-0">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              onClick={() => {
+                const newPage = Math.max(1, currentPage - 1)
+                setCurrentPage(newPage)
+                fetchCampaignStatus(true, statusFilter, newPage, itemsPerPage)
+              }}
               disabled={currentPage === 1}
               className="h-8 w-8 p-0"
             >
@@ -889,7 +1073,10 @@ export function LiveActivityTable({
                     key={page}
                     variant={isActive ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setCurrentPage(page)}
+                    onClick={() => {
+                      setCurrentPage(page)
+                      fetchCampaignStatus(true, statusFilter, page, itemsPerPage)
+                    }}
                     className="h-8 w-8 p-0"
                   >
                     {page}
@@ -902,7 +1089,10 @@ export function LiveActivityTable({
                   <Button
                     variant={currentPage === totalPages ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setCurrentPage(totalPages)}
+                    onClick={() => {
+                      setCurrentPage(totalPages)
+                      fetchCampaignStatus(true, statusFilter, totalPages, itemsPerPage)
+                    }}
                     className="h-8 w-8 p-0"
                   >
                     {totalPages}
@@ -914,7 +1104,11 @@ export function LiveActivityTable({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              onClick={() => {
+                const newPage = Math.min(totalPages, currentPage + 1)
+                setCurrentPage(newPage)
+                fetchCampaignStatus(true, statusFilter, newPage, itemsPerPage)
+              }}
               disabled={currentPage === totalPages}
               className="h-8 w-8 p-0"
             >

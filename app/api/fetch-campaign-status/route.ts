@@ -6,6 +6,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const campaignId = searchParams.get('campaignId')
     const statusTypes = searchParams.get('statusTypes')
+    const page = searchParams.get('page') || '1'
+    const limit = searchParams.get('limit') || '50'
     
     if (!campaignId) {
       return NextResponse.json(
@@ -14,10 +16,18 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Build the URL with optional status filters
+    // Build the URL with optional status filters and pagination
     let url = `${configs.base_url}conversation/campaign/status/${campaignId}`
+    const queryParams = new URLSearchParams()
+    
     if (statusTypes) {
-      url += `?statusTypes=${encodeURIComponent(statusTypes)}`
+      queryParams.append('statusTypes', statusTypes)
+    }
+    queryParams.append('page', page)
+    queryParams.append('limit', limit)
+    
+    if (queryParams.toString()) {
+      url += `?${queryParams.toString()}`
     }
 
     const response = await fetch(url, {

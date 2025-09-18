@@ -192,17 +192,17 @@ export function getAppointmentFunnelData(
   analyticsData?: any // New parameter for real API data
 ): AppointmentFunnelData {
   // If we have real analytics data, use it
-  if (analyticsData?.overview) {
-    const overview = analyticsData.overview
+  if (analyticsData) {
+    const overview = analyticsData.overview || {}
     
     // Use real API data with correct mappings:
-    // - totalCallsInitiated is Customer Contact Initiated
-    // - totalConnectedCalls is Contacted Successfully  
+    // - totalLeads is Customer Contact Initiated
+    // - totalLeadsContacted is Contacted Successfully  
     // - totalAppointments is Appointments Scheduled
     const stages: AppointmentFunnelStage[] = [
-      { name: 'Customer contact initiated', count: overview.totalCallsInitiated || 0 },
-      { name: 'Contacted successfully', count: overview.totalConnectedCalls || 0 },
-      { name: 'Appointments scheduled', count: overview.totalAppointments || 0 }
+      { name: 'Customer contact initiated', count: (overview as any).totalLeads ?? analyticsData.totalLeads ?? 0 },
+      { name: 'Contacted successfully', count: (overview as any).totalLeadsContacted ?? analyticsData.totalLeadsContacted ?? (overview as any).totalConnectedCalls ?? analyticsData.totalConnectedCalls ?? 0 },
+      { name: 'Appointments scheduled', count: (overview as any).totalAppointments ?? analyticsData.totalAppointments ?? 0 }
     ]
     
     // Calculate conversion rates between stages

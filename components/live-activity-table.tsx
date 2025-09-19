@@ -168,6 +168,9 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
   // Search mode state
   const [isSearchMode, setIsSearchMode] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
+  
+  // Track last API call to prevent duplicates
+  const lastApiCallRef = useRef<string>('')
 
   // Utility function to format next call time for queued calls
   const formatNextCallTime = (nextVisibleAt: string | undefined): string => {
@@ -384,7 +387,43 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
     currentSortField = sortField,
     currentSortDirection = sortDirection
   ) => {
-    if (!campaignId) return
+    if (!campaignId) {
+      console.log('❌ No campaignId provided, skipping API call')
+      return
+    }
+
+    // Create a unique key for this API call to prevent duplicates
+    const apiCallKey = JSON.stringify({
+      campaignId,
+      page,
+      limit,
+      searchTerm: currentSearchTerm,
+      outcomeFilter: currentOutcomeFilter,
+      connectionFilter: currentConnectionFilter,
+      timePeriodFilter: currentTimePeriodFilter,
+      sortField: currentSortField,
+      sortDirection: currentSortDirection
+    })
+    
+    // Prevent duplicate API calls
+    if (lastApiCallRef.current === apiCallKey) {
+      console.log('🚫 Duplicate API call prevented:', apiCallKey)
+      return
+    }
+    
+    lastApiCallRef.current = apiCallKey
+    
+    console.log('🚀 Starting API call with parameters:', {
+      campaignId,
+      showLoading,
+      page,
+      limit,
+      searchTerm: currentSearchTerm,
+      outcomeFilter: currentOutcomeFilter,
+      connectionFilter: currentConnectionFilter,
+      timePeriodFilter: currentTimePeriodFilter,
+      apiCallKey: apiCallKey.substring(0, 100) + '...' // Truncated for readability
+    })
 
     if (showLoading) {
       setIsLoadingCalls(true)
@@ -429,9 +468,12 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
       if (currentOutcomeFilter && currentOutcomeFilter !== 'all') {
         url += `&outcomes=${encodeURIComponent(currentOutcomeFilter)}`
         console.log('🎯 Outcome filter applied:', {
-          outcomeFilter: currentOutcomeFilter,
-          encoded: encodeURIComponent(currentOutcomeFilter)
+          originalFilter: currentOutcomeFilter,
+          encoded: encodeURIComponent(currentOutcomeFilter),
+          urlWithFilter: url
         })
+      } else {
+        console.log('🎯 No outcome filter applied:', { currentOutcomeFilter })
       }
 
       // Add time period filter (always apply date range for proper filtering)
@@ -510,14 +552,25 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
       })
       
       
+      console.log('📡 Making API request to:', url)
       const response = await fetch(url)
       if (!response.ok) {
-        throw new Error('Failed to fetch campaign status')
+        const errorText = await response.text()
+        console.error('❌ API request failed:', { status: response.status, statusText: response.statusText, errorText })
+        throw new Error(`Failed to fetch campaign status: ${response.status} - ${errorText}`)
       }
       
       const apiData: CampaignStatusResponse = await response.json()
-      
-    
+      console.log('✅ API response received:', {
+        totalTasks: apiData.tasks?.length || 0,
+        totalLeads: apiData.totalLeads,
+        paginationTotal: apiData.pagination?.total,
+        sampleTasks: apiData.tasks?.slice(0, 3).map(t => ({ 
+          leadName: t.leadName, 
+          outcome: t.outcome, 
+          connectionStatus: t.connectionStatus 
+        })) || []
+      })
       
       if (apiData.tasks && apiData.tasks.length > 0) {
         
@@ -605,15 +658,17 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
       
       setTotalRecords(finalTotalRecords)
     } catch (error) {
-      console.error('Error fetching campaign status:', error)
-      setCallsError(error instanceof Error ? error.message : 'Failed to fetch campaign status')
+      console.error('❌ Error fetching campaign status:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch campaign status'
+      setCallsError(errorMessage)
       setCallRecords([]) // Set empty array on error
+      lastApiCallRef.current = '' // Clear the duplicate prevention key on error
     } finally {
       if (showLoading) {
         setIsLoadingCalls(false)
       }
     }
-  }, [campaignId, authKey])
+  }, [campaignId, authKey]) // Only depend on campaignId and authKey to avoid loops
 
   // Dedicated search API function for text-based queries
   const performAPISearch = useCallback(async (query: string) => {
@@ -647,25 +702,37 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
   // Handle refresh trigger from parent
   useEffect(() => {
     if (refreshTrigger && refreshTrigger > 0 && campaignId) {
+      console.log('🔄 Refresh triggered:', refreshTrigger)
+      // Use current state values at the time of refresh
       fetchCampaignStatus(false, statusFilter, currentPage, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
     }
-  }, [refreshTrigger, campaignId, fetchCampaignStatus, statusFilter, currentPage, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection])
+  }, [refreshTrigger, campaignId, fetchCampaignStatus]) // Include necessary deps but avoid filter loops
 
-  // Initial load when component mounts
+  // Initial load and filter changes - consolidated effect
   useEffect(() => {
-    if (campaignId && callRecords.length === 0 && !isLoadingCalls) {
-      console.log('Initial load triggered for campaignId:', campaignId)
-      fetchCampaignStatus(true, statusFilter, currentPage, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
-    }
-  }, [campaignId, fetchCampaignStatus, callRecords.length, isLoadingCalls, statusFilter, currentPage, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection])
+    if (!campaignId) return
+    
+    console.log('📊 Data fetch triggered:', {
+      campaignId,
+      filters: { searchTerm, outcomeFilter, connectionFilter, statusFilter, timePeriodFilter },
+      pagination: { currentPage, itemsPerPage },
+      sorting: { sortField, sortDirection }
+    })
 
-  // Fetch data when filters change and reset pagination
-  useEffect(() => {
-    if (campaignId) {
+    // Reset to first page when filters change (except for pagination changes)
+    const isFilterChange = !callRecords.length || // Initial load
+      searchTerm !== '' || outcomeFilter !== 'all' || 
+      connectionFilter.some(f => f !== 'all') || statusFilter.some(f => f !== 'all') ||
+      timePeriodFilter !== '30'
+    
+    const pageToUse = isFilterChange ? 1 : currentPage
+    if (isFilterChange && currentPage !== 1) {
       setCurrentPage(1)
-      fetchCampaignStatus(true, statusFilter, 1, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
+      return // Let the next effect handle the API call with page 1
     }
-  }, [searchTerm, outcomeFilter, connectionFilter, statusFilter, timePeriodFilter, campaignId, fetchCampaignStatus, itemsPerPage, sortField, sortDirection])
+    
+    fetchCampaignStatus(true, statusFilter, pageToUse, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
+  }, [campaignId, searchTerm, outcomeFilter, connectionFilter, statusFilter, timePeriodFilter, currentPage, itemsPerPage, sortField, sortDirection]) // Remove fetchCampaignStatus from deps to avoid loops
 
   // Component uses callRecords state populated from the new campaign status API
   // This includes all call types: live, queued, completed, failed calls with real-time updates

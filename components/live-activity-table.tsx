@@ -1225,220 +1225,228 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      {/* Search Mode Indicator */}
-      {isSearchMode && (
-        <div className="px-6 py-3 bg-blue-50 border-b border-blue-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-blue-800">
-              <Search className="h-4 w-4" />
-              <span className="text-sm font-medium">
-                Search Results for "{searchTerm}" ({filteredCalls.length} found)
-              </span>
+    <div className="space-y-0">
+      {/* Main Table Content */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        {/* Search Mode Indicator */}
+        {isSearchMode && (
+          <div className="px-6 py-3 bg-blue-50 border-b border-blue-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-blue-800">
+                <Search className="h-4 w-4" />
+                <span className="text-sm font-medium">
+                  Search Results for "{searchTerm}" ({filteredCalls.length} found)
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setIsSearchMode(false)
+                  // This will trigger the parent component to clear the search term
+                  // which will then trigger a new API call without the search parameter
+                }}
+                className="text-blue-600 hover:text-blue-800"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Clear Search
+              </Button>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setIsSearchMode(false)
-                // This will trigger the parent component to clear the search term
-                // which will then trigger a new API call without the search parameter
-              }}
-              className="text-blue-600 hover:text-blue-800"
-            >
-              <X className="h-4 w-4 mr-1" />
-              Clear Search
-            </Button>
           </div>
-        </div>
-      )}
-      
-      <div className="overflow-x-auto">
-        <Table className="min-w-[1100px]">
-            <TableHeader>
-              <TableRow className="bg-gray-50">
-                <TableHead className="font-semibold text-gray-900 cursor-pointer whitespace-nowrap min-w-[250px]" onClick={() => handleSort("customer")}>
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4" />
-                    Customer Details
-                    <ArrowUpDown className="w-3 h-3" />
-                  </div>
-                </TableHead>
-                <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[140px]">Connection Status</TableHead>
-                <TableHead className="font-semibold text-gray-900 cursor-pointer whitespace-nowrap min-w-[160px]" onClick={() => handleSort("timestamp")}>
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    Timestamp
-                    <ArrowUpDown className="w-3 h-3" />
-                  </div>
-                </TableHead>
-                <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[120px]">Duration</TableHead>
-                <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[160px]">Outcome</TableHead>
-                <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[140px]">Agent</TableHead>
-                <TableHead className="font-semibold text-gray-900 cursor-pointer whitespace-nowrap min-w-[160px]" onClick={() => handleSort("qualityScore")}>
-                  <div className="flex items-center gap-2">
-                    Quality Score
-                    <ArrowUpDown className="w-3 h-3" />
-                  </div>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {displayCalls.map((call, index) => (
-                <TableRow 
-                  key={call.id} 
+        )}
+        
+        <div className="overflow-x-auto">
+          <Table className="min-w-[1100px]">
+              <TableHeader>
+                <TableRow className="bg-gray-50">
+                  <TableHead className="font-semibold text-gray-900 cursor-pointer whitespace-nowrap min-w-[250px]" onClick={() => handleSort("customer")}>
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      Customer Details
+                      <ArrowUpDown className="w-3 h-3" />
+                    </div>
+                  </TableHead>
+                  <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[140px]">Connection Status</TableHead>
+                  <TableHead className="font-semibold text-gray-900 cursor-pointer whitespace-nowrap min-w-[160px]" onClick={() => handleSort("timestamp")}>
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      Timestamp
+                      <ArrowUpDown className="w-3 h-3" />
+                    </div>
+                  </TableHead>
+                  <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[120px]">Duration</TableHead>
+                  <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[160px]">Outcome</TableHead>
+                  <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[140px]">Agent</TableHead>
+                  <TableHead className="font-semibold text-gray-900 cursor-pointer whitespace-nowrap min-w-[160px]" onClick={() => handleSort("qualityScore")}>
+                    <div className="flex items-center gap-2">
+                      Quality Score
+                      <ArrowUpDown className="w-3 h-3" />
+                    </div>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {displayCalls.map((call, index) => (
+                  <TableRow 
+                    key={call.id} 
                   className={`hover:bg-gray-50 transition-colors ${
-                    isTransitioning ? 'pointer-events-none' : 'cursor-pointer'
+                    isTransitioning ? 'pointer-events-none' : 
+                    call.connectionStatus === 'connected' ? 'cursor-pointer' : 'cursor-default'
                   }`}
                   onClick={(e) => {
                     e.preventDefault()
                     e.stopPropagation()
                     if (!isTransitioning) {
-                      console.log('🖱️ Row clicked - Call selected:', {
-                        outboundTaskId: call.id, // This is the row identifier
-                        callId: call.call_id,    // This should be the API callId
-                        customerName: call.customer.name
-                      })
+                      // Only open call drawer for connected calls
+                      if (call.connectionStatus !== 'connected') {
+                       
+                        return
+                      }
+                      
+                     
                       // Add small delay to ensure single execution
                       setTimeout(() => {
                         onCallSelect?.(call)
                       }, 10)
                     }
                   }}
-                >
-                  {/* Customer Details */}
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="w-8 h-8">
-                        <AvatarFallback className={getAvatarColor(call.customer.name)}>
-                          {call.customer.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium text-gray-900">{call.customer.name}</div>
-                        <div className="text-sm text-gray-500 whitespace-nowrap">{call.customer.phone}</div>
+                  >
+                    {/* Customer Details */}
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="w-8 h-8">
+                          <AvatarFallback className={getAvatarColor(call.customer.name)}>
+                            {call.customer.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium text-gray-900">{call.customer.name}</div>
+                          <div className="text-sm text-gray-500 whitespace-nowrap">{call.customer.phone}</div>
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  
-                  {/* Connection Status */}
-                  <TableCell>
-                    {getConnectionStatusBadge(call.connectionStatus, call.nextVisibleAt)}
-                  </TableCell>
-                  
-                  {/* Timestamp */}
-                  <TableCell>
-                    <div>
-                      <div className="text-sm text-gray-900">{call.timestamp.date}</div>
-                      <div className="text-sm text-gray-500">{call.timestamp.time}</div>
-                    </div>
-                  </TableCell>
-                  
-                  {/* Duration */}
-                  <TableCell>
-                    <div className="text-sm text-gray-900">{call.timestamp.duration}</div>
-                  </TableCell>
-                  
-                  {/* Outcome */}
-                  <TableCell>
-                    {getOutcomeBadge(call.outcome)}
-                  </TableCell>
-                  
-                  {/* Agent */}
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Avatar className="w-6 h-6">
-                        <AvatarFallback className="bg-purple-100 text-purple-600 text-xs">
-                          {call.agent.name.slice(0, 2)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm text-gray-900">{call.agent.name}</span>
-                    </div>
-                  </TableCell>
-                  
-                  {/* Quality Score */}
-                  <TableCell>
-                    <QualityScoreBar score={call.qualityScore} call={call} />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      
-      {displayCalls.length === 0 && (
-        <div className="text-center py-12 px-6">
-          <div className="text-gray-400 mb-2">
-            {searchError ? (
-              <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-red-400" />
-            ) : (
-              <Search className="w-12 h-12 mx-auto mb-4" />
-            )}
+                    </TableCell>
+                    
+                    {/* Connection Status */}
+                    <TableCell>
+                      {getConnectionStatusBadge(call.connectionStatus, call.nextVisibleAt)}
+                    </TableCell>
+                    
+                    {/* Timestamp */}
+                    <TableCell>
+                      <div>
+                        <div className="text-sm text-gray-900">{call.timestamp.date}</div>
+                        <div className="text-sm text-gray-500">{call.timestamp.time}</div>
+                      </div>
+                    </TableCell>
+                    
+                    {/* Duration */}
+                    <TableCell>
+                      <div className="text-sm text-gray-900">{call.timestamp.duration}</div>
+                    </TableCell>
+                    
+                    {/* Outcome */}
+                    <TableCell>
+                      {getOutcomeBadge(call.outcome)}
+                    </TableCell>
+                    
+                    {/* Agent */}
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Avatar className="w-6 h-6">
+                          <AvatarFallback className="bg-purple-100 text-purple-600 text-xs">
+                            {call.agent.name.slice(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm text-gray-900">{call.agent.name}</span>
+                      </div>
+                    </TableCell>
+                    
+                    {/* Quality Score */}
+                    <TableCell>
+                      <QualityScoreBar score={call.qualityScore} call={call} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
-          {searchError ? (
-            <>
-              <h3 className="text-lg font-medium text-red-900 mb-1">Search Error</h3>
-              <p className="text-red-600 mb-4">{searchError}</p>
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setSearchError(null)
-                  if (searchTerm.trim()) {
-                    performAPISearch(searchTerm.trim())
-                  }
-                }}
-              >
-                Try Again
-              </Button>
-            </>
-          ) : (
-            <>
-              <h3 className="text-lg font-medium text-gray-900 mb-1">
-                {isSearchMode ? 'No search results found' : 'No calls found'}
-              </h3>
-              <p className="text-gray-500">
-                {isSearchMode 
-                  ? `No results found for "${searchTerm}". Try a different search term.`
-                  : 'Try adjusting your search or filter criteria'
-                }
-              </p>
-              {isSearchMode && (
+        
+        {displayCalls.length === 0 && (
+          <div className="text-center py-12 px-6">
+            <div className="text-gray-400 mb-2">
+              {searchError ? (
+                <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-red-400" />
+              ) : (
+                <Search className="w-12 h-12 mx-auto mb-4" />
+              )}
+            </div>
+            {searchError ? (
+              <>
+                <h3 className="text-lg font-medium text-red-900 mb-1">Search Error</h3>
+                <p className="text-red-600 mb-4">{searchError}</p>
                 <Button 
                   variant="outline" 
                   onClick={() => {
-                    setIsSearchMode(false)
-                    // This will trigger the parent component to clear the search term
+                    setSearchError(null)
+                    if (searchTerm.trim()) {
+                      performAPISearch(searchTerm.trim())
+                    }
                   }}
-                  className="mt-4"
                 >
-                  Clear Search
+                  Try Again
                 </Button>
-              )}
-            </>
-          )}
-        </div>
-      )}
-      
-      {/* Smart Pagination Controls */}
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-medium text-gray-900 mb-1">
+                  {isSearchMode ? 'No search results found' : 'No calls found'}
+                </h3>
+                <p className="text-gray-500">
+                  {isSearchMode 
+                    ? `No results found for "${searchTerm}". Try a different search term.`
+                    : 'Try adjusting your search or filter criteria'
+                  }
+                </p>
+                {isSearchMode && (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setIsSearchMode(false)
+                      // This will trigger the parent component to clear the search term
+                    }}
+                    className="mt-4"
+                  >
+                    Clear Search
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Navbar - Pagination Controls */}
       {filteredCalls.length > 0 && (
-        <SmartPagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalRecords={totalRecords}
-          itemsPerPage={itemsPerPage}
-          onPageChange={(page) => {
-            setCurrentPage(page)
-            fetchCampaignStatus(true, statusFilter, page, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
-          }}
-          onItemsPerPageChange={(newItemsPerPage) => {
-            setItemsPerPage(newItemsPerPage)
-            setCurrentPage(1)
-            fetchCampaignStatus(true, statusFilter, 1, newItemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
-          }}
-          showProgressIndicator={true}
-          showGoToPage={true}
-          itemsPerPageOptions={[5, 10, 25, 50, 100]}
-        />
+        <div className="pt-6">
+          <SmartPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalRecords={totalRecords}
+            itemsPerPage={itemsPerPage}
+            onPageChange={(page) => {
+              setCurrentPage(page)
+              fetchCampaignStatus(true, statusFilter, page, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
+            }}
+            onItemsPerPageChange={(newItemsPerPage) => {
+              setItemsPerPage(newItemsPerPage)
+              setCurrentPage(1)
+              fetchCampaignStatus(true, statusFilter, 1, newItemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
+            }}
+            showProgressIndicator={true}
+            showGoToPage={true}
+            itemsPerPageOptions={[5, 10, 25, 50, 100]}
+          />
+        </div>
       )}
       
       {/* AI Score Breakdown Modal - Temporarily disabled to test double modal issue */}

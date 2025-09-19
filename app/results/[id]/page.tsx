@@ -366,6 +366,9 @@ export default function CampaignDetail() {
     setSelectedCall(convertedCall)
     setIsCallDetailsOpen(true)
     
+    // Prevent body scroll when drawer opens
+    document.body.style.overflow = 'hidden'
+    
     // Update URL to include selected call
     const newUrl = buildUrlWithParams(`/results/${campaignId}`, { 
       tab: activeTab,
@@ -390,6 +393,9 @@ export default function CampaignDetail() {
     setIsClosing(true)
     setIsCallDetailsOpen(false)
     setSelectedCall(null)
+    
+    // Restore body scroll when drawer closes
+    document.body.style.overflow = 'auto'
     
     // Add a temporary click blocker to the document
     const clickBlocker = (e: Event) => {
@@ -502,6 +508,20 @@ export default function CampaignDetail() {
       document.body.style.top = 'unset'
     }
   }, [])
+
+  // Handle body scroll when drawer state changes
+  useEffect(() => {
+    if (isCallDetailsOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'auto'
+    }
+    
+    // Cleanup when effect re-runs or component unmounts
+    return () => {
+      document.body.style.overflow = 'auto'
+    }
+  }, [isCallDetailsOpen])
 
   // Effects
   useEffect(() => {

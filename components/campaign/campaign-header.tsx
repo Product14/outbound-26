@@ -5,9 +5,10 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { ArrowLeft, Info, Square, Calendar, Play } from 'lucide-react'
+import { ArrowLeft, Info, Square, Calendar, Play, Copy, Check } from 'lucide-react'
 import { buildUrlWithParams } from '@/lib/url-utils'
 import { formatTimeRange } from '@/lib/time-utils'
+import { useToast } from '@/hooks/use-toast'
 import type { CampaignDetailResponse } from '@/lib/campaign-api'
 import type { Agent } from '@/lib/agent-api'
 import type { Agent as DeployedAgent } from '@/hooks/use-agents'
@@ -50,6 +51,35 @@ export function CampaignHeader({
   const lastScrollY = useRef(0)
   const scrollDirection = useRef<'up' | 'down'>('down')
   const isTransitioning = useRef(false)
+  const [copiedCampaignId, setCopiedCampaignId] = useState(false)
+  const { toast } = useToast()
+
+  // Copy campaign ID to clipboard
+  const copyCampaignId = async () => {
+    const id = campaignData?.campaign?.campaignId || campaignData?.campaign?._id || campaignId || ''
+    if (!id) return
+
+    try {
+      await navigator.clipboard.writeText(id)
+      setCopiedCampaignId(true)
+      toast({
+        title: "Campaign ID copied!",
+        description: "The campaign ID has been copied to your clipboard.",
+      })
+      
+      // Reset the copied state after 2 seconds
+      setTimeout(() => {
+        setCopiedCampaignId(false)
+      }, 2000)
+    } catch (err) {
+      console.error('Failed to copy campaign ID:', err)
+      toast({
+        title: "Failed to copy",
+        description: "Could not copy the campaign ID to clipboard.",
+        variant: "destructive",
+      })
+    }
+  }
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -204,26 +234,21 @@ export function CampaignHeader({
                       : 'Campaign')
                   }
                 </h1>
-                <div className={`
-                  relative group flex items-center justify-center w-[30px] h-[30px] rounded-full hover:bg-gray-50 
-                  transition-all duration-300 ease-out cursor-help
-                  ${isCompact ? 'opacity-0 max-w-0 max-h-0 overflow-hidden' : 'opacity-100 max-w-[30px] max-h-[30px]'}
-                `}>
-                  <Info className="h-5 w-5 text-gray-400" />
-                  {/* Tooltip */}
-                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-black text-white text-sm rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap z-[9999] shadow-xl border border-gray-700">
-                    Campaign ID: {(() => {
-                      const id = campaignData?.campaign?.campaignId || campaignData?.campaign?._id || campaignId || 'Loading...'
-                      console.log('Tooltip Campaign ID:', id, {
-                        fromCampaignData: campaignData?.campaign?.campaignId,
-                        fromId: campaignData?.campaign?._id,
-                        fromParams: campaignId,
-                        campaignData: campaignData
-                      })
-                      return id
-                    })()}
-                  </div>
-                </div>
+                <button 
+                  onClick={copyCampaignId}
+                  className={`
+                    relative group flex items-center justify-center w-[30px] h-[30px] rounded-full hover:bg-gray-50 
+                    transition-all duration-300 ease-out cursor-pointer
+                    ${isCompact ? 'opacity-0 max-w-0 max-h-0 overflow-hidden' : 'opacity-100 max-w-[30px] max-h-[30px]'}
+                  `}
+                  title="Copy Campaign ID"
+                >
+                  {copiedCampaignId ? (
+                    <Check className="h-5 w-5 text-green-600" />
+                  ) : (
+                    <Copy className="h-5 w-5 text-gray-400 group-hover:text-gray-600" />
+                  )}
+                </button>
               </div>
               <Badge className={`px-2 py-0.5 text-xs font-medium flex items-center gap-2 transition-all duration-200 ${
                 isCompleted

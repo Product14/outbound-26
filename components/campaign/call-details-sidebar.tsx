@@ -31,7 +31,7 @@ export function CallDetailsSidebar({
   if (!selectedCall) return null
 
   return (
-    <div className={`fixed right-0 top-0 h-full w-[600px] bg-white border-l border-gray-200 shadow-xl transform transition-transform duration-300 ease-in-out z-50 ${
+    <div className={`fixed right-0 top-0 h-full w-[480px] bg-white border-l border-gray-200 shadow-xl transform transition-transform duration-300 ease-in-out z-50 ${
       isOpen ? 'translate-x-0' : 'translate-x-full'
     }`}>
       <div className="overflow-y-auto h-full p-6">
@@ -61,9 +61,11 @@ export function CallDetailsSidebar({
                   <span>•</span>
                   <div className="flex items-center gap-1">
                     <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">
-                      <span className="text-xs font-medium text-gray-600">KY</span>
+                      <span className="text-xs font-medium text-gray-600">
+                        {(selectedCall.agentName || selectedCall.agentInfo?.agentName || 'AI Agent').slice(0, 2).toUpperCase()}
+                      </span>
                     </div>
-                    <span>Kylie</span>
+                    <span>{selectedCall.agentName || selectedCall.agentInfo?.agentName || 'AI Agent'}</span>
                   </div>
                   {isCallInProgress(selectedCall) && (
                     <div className="ml-2">

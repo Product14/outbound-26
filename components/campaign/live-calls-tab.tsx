@@ -29,6 +29,7 @@ interface LiveCallsTabProps {
   isSalesCampaign?: boolean
   analyticsData?: any
   campaignMetrics?: any
+  authKey?: string
 }
 
 export function LiveCallsTab({
@@ -48,20 +49,26 @@ export function LiveCallsTab({
   campaignData,
   isSalesCampaign,
   analyticsData,
-  campaignMetrics
+  campaignMetrics,
+  authKey
 }: LiveCallsTabProps) {
   // Local state for all filters
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm || '')
   const [statusFilter, setStatusFilter] = useState(initialStatusFilter || ['all'])
   const [connectionFilter, setConnectionFilter] = useState(initialConnectionFilter || ['all'])
+  // New filter states
+  const [callTypeFilter, setCallTypeFilter] = useState('all')
+  const [campaignFilter, setCampaignFilter] = useState('all')
   const [outcomeFilter, setOutcomeFilter] = useState('all')
-  const [priorityFilter, setPriorityFilter] = useState('all')
-  const [agentFilter, setAgentFilter] = useState('all')
-  const [callReasonFilter, setCallReasonFilter] = useState('all')
+  const [queryFilter, setQueryFilter] = useState('all')
+  const [timePeriodFilter, setTimePeriodFilter] = useState('30')
 
   // We'll get the total results from the LiveActivityTable
   const [totalResults, setTotalResults] = useState(0)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  
+  // Ref to access LiveActivityTable's search function
+  const tableRef = useRef<any>(null)
 
   return (
     <div className="space-y-0 px-6 pt-6">
@@ -81,32 +88,6 @@ export function LiveCallsTab({
           className="text-sm"
         />
       </div>
-
-      {/* Filter Controls - Hidden search and connection filter */}
-      <LiveActivityFilters
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        statusFilter={statusFilter}
-        setStatusFilter={setStatusFilter}
-        connectionFilter={connectionFilter}
-        setConnectionFilter={setConnectionFilter}
-        outcomeFilter={outcomeFilter}
-        setOutcomeFilter={setOutcomeFilter}
-        priorityFilter={priorityFilter}
-        setPriorityFilter={setPriorityFilter}
-        agentFilter={agentFilter}
-        setAgentFilter={setAgentFilter}
-        callReasonFilter={callReasonFilter}
-        setCallReasonFilter={setCallReasonFilter}
-        onPauseCampaign={onPauseCampaign}
-        campaignRunning={campaignRunning}
-        totalResults={totalResults}
-        activeTab={activeTab}
-        onTabChange={onTabChange}
-        hideSearchAndConnection={true}
-        showAllFilters={showFilters}
-        setShowAllFilters={() => onToggleFilters?.()}
-      />
 
       {/* Campaign Funnel and Metrics Section */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
@@ -250,22 +231,57 @@ export function LiveCallsTab({
         </Card>
       </div>
 
+      {/* Filter Controls - Above the table */}
+      <div className="mb-6">
+        <LiveActivityFilters
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          connectionFilter={connectionFilter}
+          setConnectionFilter={setConnectionFilter}
+          callTypeFilter={callTypeFilter}
+          setCallTypeFilter={setCallTypeFilter}
+          campaignFilter={campaignFilter}
+          setCampaignFilter={setCampaignFilter}
+          outcomeFilter={outcomeFilter}
+          setOutcomeFilter={setOutcomeFilter}
+          queryFilter={queryFilter}
+          setQueryFilter={setQueryFilter}
+          timePeriodFilter={timePeriodFilter}
+          setTimePeriodFilter={setTimePeriodFilter}
+          onPauseCampaign={onPauseCampaign}
+          campaignRunning={campaignRunning}
+          totalResults={totalResults}
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+          hideSearchAndConnection={false}
+          showAllFilters={showFilters}
+          setShowAllFilters={() => onToggleFilters?.()}
+          onSearchAPI={(searchTerm) => tableRef.current?.performAPISearch?.(searchTerm)}
+          isSearching={false} // We'll get this from the table if needed
+        />
+      </div>
+
       {/* Main Content Area - Full Width (Modal is positioned absolutely) */}
-      <div className="w-full pt-6">
+      <div className="w-full">
         {/* Live Activity Feed */}
         <LiveActivityTable 
+          ref={tableRef}
           isCallDetailsOpen={isCallDetailsOpen}
           onCallSelect={onCallSelect}
           searchTerm={searchTerm}
           statusFilter={statusFilter}
           connectionFilter={connectionFilter}
+          callTypeFilter={callTypeFilter}
+          campaignFilter={campaignFilter}
           outcomeFilter={outcomeFilter}
-          priorityFilter={priorityFilter}
-          agentFilter={agentFilter}
-          callReasonFilter={callReasonFilter}
+          queryFilter={queryFilter}
+          timePeriodFilter={timePeriodFilter}
           campaignId={campaignId}
           onFilteredCountChange={setTotalResults}
           refreshTrigger={refreshTrigger}
+          authKey={authKey}
         />
       </div>
     </div>

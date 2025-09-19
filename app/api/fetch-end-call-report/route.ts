@@ -25,7 +25,14 @@ export async function GET(request: NextRequest) {
       headers['Authorization'] = authKey.startsWith('Bearer ') ? authKey : `Bearer ${authKey}`
     }
 
+    // Use callId parameter as expected by the Spyne API
     const apiUrl = `${configs.base_url}conversation/vapi/end-call-report-by-id?callId=${callId}`
+    
+    console.log('📞 Fetch end call report API:', {
+      receivedCallId: callId,
+      apiUrl,
+      hasAuthKey: !!authKey
+    })
     
     const response = await fetch(apiUrl, {
       method: 'GET',

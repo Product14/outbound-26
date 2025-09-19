@@ -242,6 +242,8 @@ export function useEndCallReport(callId: string | null): UseEndCallReportReturn 
       return
     }
 
+    console.log('📊 useEndCallReport: Starting fetch for callId:', callId)
+
     setLoading(true)
     setError(null)
 
@@ -250,7 +252,10 @@ export function useEndCallReport(callId: string | null): UseEndCallReportReturn 
       const urlParams = extractUrlParams()
       const authKeyParam = urlParams.auth_key ? `&auth_key=${encodeURIComponent(urlParams.auth_key)}` : ''
       
-      const response = await fetch(`/api/fetch-end-call-report?callId=${encodeURIComponent(callId)}${authKeyParam}`)
+      const apiUrl = `/api/fetch-end-call-report?callId=${encodeURIComponent(callId)}${authKeyParam}`
+      
+      
+      const response = await fetch(apiUrl)
       
       if (!response.ok) {
         throw new Error(`Failed to fetch end call report: ${response.status} ${response.statusText}`)
@@ -281,7 +286,7 @@ export function useEndCallReport(callId: string | null): UseEndCallReportReturn 
           email: rawData.callDetails.email || rawData.report.Email || undefined
         },
         agentInfo: {
-          name: rawData.callDetails.agentInfo.agentName || 'Unknown Agent',
+          name: rawData.callDetails.agentInfo?.agentName || 'AI Agent',
           id: rawData.agentId
         },
         recordingUrl: rawData.callDetails.recordingUrl,

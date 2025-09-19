@@ -57,7 +57,7 @@ export function CallDetailsDrawer({ call, open, onClose }: CallDetailsDrawerProp
         className={`fixed top-0 right-0 h-full w-full sm:max-w-2xl bg-white shadow-2xl transform transition-all duration-300 ease-out z-50 ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
-        style={{ maxWidth: '48rem' }}
+        style={{ maxWidth: '38.4rem' }}
       >
         <div className="h-full flex flex-col">
           {/* Simple Header without Background */}
@@ -100,7 +100,7 @@ export function CallDetailsDrawer({ call, open, onClose }: CallDetailsDrawerProp
                     </div>
                     <div className="flex items-center gap-1">
                       <User className="h-4 w-4 text-gray-400" />
-                      <span>Agent: Mia</span>
+                      <span>Agent: {call.agentInfo?.agentName || call.agentConfig?.agentName || 'AI Agent'}</span>
                     </div>
                   </div>
                 </div>

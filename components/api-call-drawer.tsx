@@ -63,6 +63,19 @@ export function ApiCallDrawer({
   const scrollThrottleRef = useRef<NodeJS.Timeout | null>(null)
   const jumpButtonDebounceRef = useRef<NodeJS.Timeout | null>(null)
   
+  // Debug logging to verify call_id and agent info being passed
+  React.useEffect(() => {
+    if (open && call) {
+      console.log('ApiCallDrawer: call object:', {
+        call_id: call.call_id,
+        customer_name: call.customer?.name,
+        agentInfo: call.agentInfo,
+        agentConfig: call.agentConfig,
+        agent: (call as any).agent // Check if local agent property exists
+      })
+    }
+  }, [open, call])
+
   // Fetch detailed call data when drawer opens using the new API
   const { reportData, loading: detailsLoading, error: detailsError, retry } = useEndCallReport(open && call ? call.call_id : null)
   
@@ -1008,12 +1021,15 @@ export function ApiCallDrawer({
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                   <Clock className="h-4 w-4" />
                   <span>{getTimeAgo(call)}</span>
-                  <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden">
-                    <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-[10px] font-medium">
-                      {(call.agentInfo?.agentName || call.agentConfig?.agentName || 'AG').slice(0, 2).toUpperCase()}
+                  {/* Agent Info */}
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden">
+                      <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-[10px] font-medium">
+                        {(reportData?.agentInfo?.name || call.agentInfo?.agentName || call.agentConfig?.agentName || 'AI Agent').slice(0, 2).toUpperCase()}
+                      </div>
                     </div>
+                    <span className="font-medium">{reportData?.agentInfo?.name || call.agentInfo?.agentName || call.agentConfig?.agentName || 'AI Agent'}</span>
                   </div>
-                  <span>{call.agentInfo?.agentName || call.agentConfig?.agentName || 'Unknown Agent'}</span>
                 </div>
               </div>
               {detailsLoading && (
@@ -1504,11 +1520,21 @@ export function ApiCallDrawer({
                       <div>
                         <div className="text-xs font-medium text-gray-500 mb-1">Customer Satisfaction</div>
                         <div className={`text-lg font-semibold ${
-                          (reportData.analysis?.customerSatisfaction || reportData.sentiment?.score || 0) >= 0.8 ? 'text-green-600' :
-                          (reportData.analysis?.customerSatisfaction || reportData.sentiment?.score || 0) >= 0.6 ? 'text-yellow-600' :
-                          'text-red-600'
+                          (() => {
+                            const score = reportData.analysis?.customerSatisfaction || reportData.sentiment?.score || 0;
+                            const normalizedScore = score <= 1 ? score : score / 10;
+                            return normalizedScore >= 0.8 ? 'text-green-600' :
+                                   normalizedScore >= 0.6 ? 'text-yellow-600' :
+                                   'text-red-600';
+                          })()
                         }`}>
-                          {((reportData.analysis?.customerSatisfaction || reportData.sentiment?.score || 0) * 10).toFixed(1)} / 10
+                          {(() => {
+                            const score = reportData.analysis?.customerSatisfaction || reportData.sentiment?.score || 0;
+                            // If score is <= 1, it's normalized (0-1), so multiply by 10
+                            // If score is > 1, it's already scaled (0-10), so use as is
+                            const displayScore = score <= 1 ? score * 10 : score;
+                            return displayScore.toFixed(1);
+                          })()} / 10
                         </div>
                       </div>
                     </div>

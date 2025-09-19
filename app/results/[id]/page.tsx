@@ -366,9 +366,6 @@ export default function CampaignDetail() {
     setSelectedCall(convertedCall)
     setIsCallDetailsOpen(true)
     
-    // Disable body scroll when drawer opens
-    document.body.style.overflow = 'hidden'
-    
     // Update URL to include selected call
     const newUrl = buildUrlWithParams(`/results/${campaignId}`, { 
       tab: activeTab,
@@ -393,9 +390,6 @@ export default function CampaignDetail() {
     setIsClosing(true)
     setIsCallDetailsOpen(false)
     setSelectedCall(null)
-    
-    // Re-enable body scroll when drawer closes
-    document.body.style.overflow = 'unset'
     
     // Add a temporary click blocker to the document
     const clickBlocker = (e: Event) => {
@@ -496,9 +490,16 @@ export default function CampaignDetail() {
 
   // Cleanup effect to restore body scroll on unmount
   useEffect(() => {
+    // Ensure body scroll is enabled when component mounts
+    document.body.style.overflow = 'unset'
+    document.body.style.position = 'unset'
+    document.body.style.top = 'unset'
+    
     return () => {
       // Restore body scroll when component unmounts
       document.body.style.overflow = 'unset'
+      document.body.style.position = 'unset'
+      document.body.style.top = 'unset'
     }
   }, [])
 
@@ -517,37 +518,7 @@ export default function CampaignDetail() {
     
   }, [selectedCall, isCallDetailsOpen])
 
-  // Disable/enable body scroll when modal opens/closes
-  useEffect(() => {
-    if (isCallDetailsOpen) {
-      // Store the current scroll position
-      const scrollY = window.scrollY
-      // Disable body scroll
-      document.body.style.overflow = 'hidden'
-      document.body.style.position = 'fixed'
-      document.body.style.top = `-${scrollY}px`
-      document.body.style.width = '100%'
-    } else {
-      // Re-enable body scroll
-      const scrollY = document.body.style.top
-      document.body.style.overflow = 'unset'
-      document.body.style.position = 'unset'
-      document.body.style.top = 'unset'
-      document.body.style.width = 'unset'
-      // Restore scroll position
-      if (scrollY) {
-        window.scrollTo(0, parseInt(scrollY || '0') * -1)
-      }
-    }
-
-    // Cleanup function to ensure scroll is always re-enabled
-    return () => {
-      document.body.style.overflow = 'unset'
-      document.body.style.position = 'unset'
-      document.body.style.top = 'unset'
-      document.body.style.width = 'unset'
-    }
-  }, [isCallDetailsOpen])
+  // Note: Removed body scroll disabling to allow continuous scrolling with drawer open
 
 
   useEffect(() => {
@@ -755,7 +726,7 @@ export default function CampaignDetail() {
   // Error state
   if (error || !campaignData) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: 'hsl(var(--background))' }}>
+      <div className="min-h-screen overflow-auto" style={{ backgroundColor: 'hsl(var(--background))' }}>
         <div className="px-12 py-8">
           <div className="flex items-center gap-4 mb-8">
             <Link href={buildUrlWithParams("/results")} className="flex items-center text-[#6B7280] hover:text-[#1A1A1A] transition-colors">
@@ -781,7 +752,7 @@ export default function CampaignDetail() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'hsl(var(--background))' }}>
+    <div className="min-h-screen overflow-auto" style={{ backgroundColor: 'hsl(var(--background))' }}>
       <CampaignHeader
         campaignData={campaignData}
         conversationData={conversationData}
@@ -837,6 +808,7 @@ export default function CampaignDetail() {
               isSalesCampaign={isSalesCampaign}
               analyticsData={analyticsData}
               campaignMetrics={campaignMetrics}
+              authKey={urlParams.auth_key || undefined}
             />
           </TabsContent>
 
@@ -889,7 +861,7 @@ export default function CampaignDetail() {
           {/* Modal Content */}
           <div 
             className="fixed top-0 right-0 h-full w-full sm:max-w-2xl bg-white shadow-2xl transform transition-all duration-300 ease-out overflow-hidden"
-            style={{ maxWidth: '48rem' }}
+            style={{ maxWidth: '38.4rem' }}
             onClick={(e) => e.stopPropagation()}
           >
             <ApiCallDrawer

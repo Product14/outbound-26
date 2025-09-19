@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo, forwardRef, useImperativeHandle } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CircularProgress } from "@/components/ui/circular-progress"
 import { AIScoreBreakdown } from "@/components/ai-score-breakdown"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SmartPagination } from "@/components/ui/smart-pagination"
 import { Phone, Search, Play, Pause, ArrowUpDown, User, Clock, CheckCircle, X, AlertTriangle, Car, Calendar, ChevronLeft, ChevronRight, PhoneCall, Users, PhoneOff, Voicemail, PhoneMissed, Ban, Timer, Loader2 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { RefreshCountdown } from "@/components/ui/refresh-countdown"
@@ -15,6 +16,7 @@ import type { CallRecord as AICallRecord } from "@/types/call-record"
 // API Response types for Campaign Status
 interface CampaignTask {
   outboundTaskId: string
+  callId: string // Add callId field from API response
   status: string
   connectionStatus: string
   leadId: string
@@ -28,7 +30,6 @@ interface CampaignTask {
   serviceName?: string
   isCallback: boolean
   retryCount: number
-  errorReason: string
   statusUpdatedAt: string
   isCallConnected: boolean
   callAnswered?: boolean
@@ -37,8 +38,11 @@ interface CampaignTask {
   callbackRequested?: boolean
   customerSentimentScore?: number
   aiSentimentScore?: string
+  aiQuality?: string // AI Quality score from API response
   appointmentScheduled?: boolean
-  callDuration?: string
+  callDuration?: string // Legacy field name for backward compatibility
+  duration?: string // Actual field name from API response
+  nextVisibleAt?: string // Next call time for queued calls
   outcome?: string
 }
 
@@ -74,6 +78,7 @@ interface CampaignStatusResponse {
 
 interface CallRecord {
   id: string
+  call_id: string // Add call_id for API compatibility
   customer: {
     name: string
     avatar?: string
@@ -88,8 +93,8 @@ interface CallRecord {
   callAgainIn?: number // hours
   connectionStatus: string // Use actual API values
   outcome: string // Use actual API values
+  nextVisibleAt?: string // Next call time for queued calls
   callReason: string // Use actual API values
-  errorReason?: string // Error reason from API
   vehicleInfo?: {
     make: string
     model: string
@@ -109,29 +114,33 @@ interface LiveActivityTableProps {
   searchTerm?: string
   statusFilter?: string[]
   connectionFilter?: string[]
+  callTypeFilter?: string
+  campaignFilter?: string
   outcomeFilter?: string
-  priorityFilter?: string
-  agentFilter?: string
-  callReasonFilter?: string
+  queryFilter?: string
+  timePeriodFilter?: string
   campaignId?: string
   onFilteredCountChange?: (count: number) => void
   refreshTrigger?: number // Add this to trigger refresh from parent
+  authKey?: string // Add auth_key support
 }
 
-export function LiveActivityTable({ 
+export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) => Promise<void> }, LiveActivityTableProps>(function LiveActivityTable({ 
   isCallDetailsOpen = false, 
   onCallSelect, 
   searchTerm = "", 
   statusFilter = ["all"],
   connectionFilter = ["all"],
+  callTypeFilter = "all",
+  campaignFilter = "all", 
   outcomeFilter = "all",
-  priorityFilter = "all",
-  agentFilter = "all",
-  callReasonFilter = "all",
+  queryFilter = "all",
+  timePeriodFilter = "30",
   campaignId,
   onFilteredCountChange,
-  refreshTrigger
-}: LiveActivityTableProps) {
+  refreshTrigger,
+  authKey
+}: LiveActivityTableProps, ref) {
   const [sortField, setSortField] = useState<keyof CallRecord>("timestamp")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
   const [currentPage, setCurrentPage] = useState(1)
@@ -155,78 +164,126 @@ export function LiveActivityTable({
   const [isLoadingCalls, setIsLoadingCalls] = useState(false)
   const [callsError, setCallsError] = useState<string | null>(null)
   const [totalRecords, setTotalRecords] = useState(0)
+  
+  // Search mode state
+  const [isSearchMode, setIsSearchMode] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
+
+  // Utility function to format next call time for queued calls
+  const formatNextCallTime = (nextVisibleAt: string | undefined): string => {
+    if (!nextVisibleAt) return ""
+    
+    try {
+      const nextTime = new Date(nextVisibleAt)
+      const now = new Date()
+      const diffMs = nextTime.getTime() - now.getTime()
+      
+      // If the time has passed or is very close (within 1 minute), show "Now"
+      if (diffMs <= 60000) {
+        return "Now"
+      }
+      
+      // Calculate time difference
+      const diffMinutes = Math.floor(diffMs / (1000 * 60))
+      const diffHours = Math.floor(diffMinutes / 60)
+      const diffDays = Math.floor(diffHours / 24)
+      
+      if (diffDays > 0) {
+        return `${diffDays}d ${diffHours % 24}h`
+      } else if (diffHours > 0) {
+        return `${diffHours}h ${diffMinutes % 60}m`
+      } else {
+        return `${diffMinutes}m`
+      }
+    } catch (error) {
+      console.error('Error parsing nextVisibleAt:', error)
+      return "Unknown"
+    }
+  }
 
   // Utility function to parse and format call duration from API
   const parseCallDuration = (callDuration: string | number | undefined, status: string, connectionStatus: string, outcome?: string): string => {
-    if (!callDuration) {
-      // Generate realistic fallback based on status when no duration provided
-      if (status === 'CALL_COMPLETED' && outcome) {
-        const baseDuration = 60 + Math.floor(Math.random() * 120) // 60-180 seconds
-        const minutes = Math.floor(baseDuration / 60)
-        const seconds = baseDuration % 60
-        return `${minutes}min ${seconds}sec`
-      } else if (status === 'CALL_CONNECTED') {
-        const baseDuration = 20 + Math.floor(Math.random() * 40) // 20-60 seconds
-        const minutes = Math.floor(baseDuration / 60)
-        const seconds = baseDuration % 60
-        return `${minutes}min ${seconds}sec`
-      } else if (connectionStatus === 'not connected' || status === 'CALL_FAILED') {
-        const baseDuration = 3 + Math.floor(Math.random() * 12) // 3-15 seconds
-        const minutes = Math.floor(baseDuration / 60)
-        const seconds = baseDuration % 60
-        return `${minutes}min ${seconds}sec`
-      }
-      return "0min 0sec"
+    // Debug: Log the input to see what we're parsing
+    if (callDuration !== undefined && callDuration !== null) {
+      console.log('⏱️ Parsing duration:', { callDuration, type: typeof callDuration, status, connectionStatus })
     }
-
+    
+    // PRIORITY: Always try to show actual duration first if available
     let durationInSeconds = 0
     
-    if (typeof callDuration === 'string') {
-      // Handle time format like "2:30" (minutes:seconds)
-      if (callDuration.includes(':')) {
-        const [minutes, seconds] = callDuration.split(':').map(Number)
-        if (!isNaN(minutes) && !isNaN(seconds)) {
-          durationInSeconds = (minutes * 60) + seconds
+    if (callDuration !== undefined && callDuration !== null) {
+      if (typeof callDuration === 'string') {
+        // Handle time format like "2:30" (minutes:seconds)
+        if (callDuration.includes(':')) {
+          const [minutes, seconds] = callDuration.split(':').map(Number)
+          if (!isNaN(minutes) && !isNaN(seconds)) {
+            durationInSeconds = (minutes * 60) + seconds
+            console.log('⏱️ Parsed M:S format:', { input: callDuration, minutes, seconds, totalSeconds: durationInSeconds })
+          }
+        } else {
+          // Parse as number string
+          const numValue = parseFloat(callDuration)
+          if (!isNaN(numValue)) {
+            // Determine if it's likely milliseconds or seconds based on magnitude
+            durationInSeconds = numValue > 1000 ? Math.floor(numValue / 1000) : Math.floor(numValue)
+          }
         }
-      } else {
-        // Parse as number string
-        const numValue = parseFloat(callDuration)
-        if (!isNaN(numValue)) {
-          // Determine if it's likely milliseconds or seconds based on magnitude
-          durationInSeconds = numValue > 1000 ? Math.floor(numValue / 1000) : Math.floor(numValue)
-        }
+      } else if (typeof callDuration === 'number') {
+        // Determine if it's likely milliseconds or seconds based on magnitude
+        durationInSeconds = callDuration > 1000 ? Math.floor(callDuration / 1000) : Math.floor(callDuration)
       }
-    } else if (typeof callDuration === 'number') {
-      // Determine if it's likely milliseconds or seconds based on magnitude
-      durationInSeconds = callDuration > 1000 ? Math.floor(callDuration / 1000) : Math.floor(callDuration)
     }
     
-    // Format the duration if we have a valid value
+    // If we have a valid parsed duration, always show it regardless of status
     if (durationInSeconds > 0) {
       const minutes = Math.floor(durationInSeconds / 60)
       const seconds = durationInSeconds % 60
       return `${minutes}min ${seconds}sec`
     }
     
-    // Fallback generation for unparseable durations
-    if (status === 'CALL_COMPLETED' && outcome) {
-      const baseDuration = 45 + Math.floor(Math.random() * 180) // 45-225 seconds
-      const minutes = Math.floor(baseDuration / 60)
-      const seconds = baseDuration % 60
-      return `${minutes}min ${seconds}sec`
-    } else if (status === 'CALL_CONNECTED') {
-      const baseDuration = 15 + Math.floor(Math.random() * 60) // 15-75 seconds
-      const minutes = Math.floor(baseDuration / 60)
-      const seconds = baseDuration % 60
-      return `${minutes}min ${seconds}sec`
-    } else if (connectionStatus === 'not connected' || status === 'CALL_FAILED') {
-      const baseDuration = 5 + Math.floor(Math.random() * 15) // 5-20 seconds
-      const minutes = Math.floor(baseDuration / 60)
-      const seconds = baseDuration % 60
-      return `${minutes}min ${seconds}sec`
+    // If duration is explicitly 0, show it as such
+    if (durationInSeconds === 0 && callDuration !== undefined && callDuration !== null) {
+      return "0min 0sec"
+    }
+
+    // Only show status messages when no duration data is available at all
+    
+    // Queue status means call hasn't started yet
+    if (connectionStatus === 'queue' || status === 'QUEUED') {
+      return "In queue"
     }
     
-    return "0min 0sec"
+    // Live calls are ongoing
+    if (connectionStatus === 'live' || status === 'LIVE') {
+      return "Live call"
+    }
+    
+    // Failed calls with no duration data
+    if (connectionStatus === 'failed' || 
+        connectionStatus === 'not connected' || 
+        connectionStatus === 'not_connected' ||
+        status === 'CALL_FAILED' ||
+        status === 'failed') {
+      return "Call failed"
+    }
+    
+    // Voicemail calls with no duration data
+    if (connectionStatus === 'voicemail') {
+      return "Voicemail"
+    }
+    
+    // Connected calls with no duration data
+    if (connectionStatus === 'connected' || status === 'CALL_CONNECTED') {
+      return "Connected"
+    }
+    
+    // Completed calls with no duration data
+    if (status === 'CALL_COMPLETED' && outcome && outcome !== 'No Outcome') {
+      return "Completed"
+    }
+    
+    // Default case - no duration available
+    return "No duration"
   }
 
   // Function to transform new API data to CallRecord format
@@ -245,43 +302,8 @@ export function LiveActivityTable({
         hour12: true 
       })
 
-      // Map connection status directly from API connectionStatus field
-      let connectionStatus: CallRecord['connectionStatus'] = 'not_connected'
-      
-      // Check errorReason first for voicemail
-      if (task.errorReason === 'voicemail') {
-        connectionStatus = 'voice_mail'
-      } else {
-        switch (task.connectionStatus) {
-          case 'connected':
-            connectionStatus = 'connected'
-            break
-          case 'live':
-            connectionStatus = 'live'
-            break
-          case 'queue':
-            connectionStatus = 'queue'
-            break
-          case 'not connected':
-            connectionStatus = 'not_connected'
-            break
-          case 'voice_mail':
-          case 'voicemail':
-            connectionStatus = 'voice_mail'
-            break
-          case 'call_failed':
-            connectionStatus = 'call_failed'
-            break
-          case 'busy':
-            connectionStatus = 'busy'
-            break
-          case 'do_not_call':
-            connectionStatus = 'do_not_call'
-            break
-          default:
-            connectionStatus = 'not_connected'
-        }
-      }
+      // Use API connectionStatus value directly for display
+      const connectionStatus = task.connectionStatus || 'not_connected'
 
       // Use status directly from API
       const callStatus = task.status || 'Unknown'
@@ -289,11 +311,36 @@ export function LiveActivityTable({
       // Use outcome directly from API - no mapping/transformation
       const outcome = task.outcome || 'No Outcome'
 
-      // Format call duration using utility function - only real API data
-      const duration = parseCallDuration(task.callDuration, task.status, task.connectionStatus, task.outcome)
+      // Format call duration using utility function - try both field names
+      const durationValue = task.duration || task.callDuration // Try 'duration' first, then 'callDuration'
+      const duration = parseCallDuration(durationValue, task.status, task.connectionStatus, task.outcome)
+
+      // Debug logging to verify duration parsing logic - log ALL tasks to see the pattern
+      console.log('🔍 Duration parsing for task:', {
+        outboundTaskId: task.outboundTaskId,
+        leadName: task.leadName,
+        status: task.status,
+        connectionStatus: task.connectionStatus,
+        // Check both field names
+        duration: task.duration,
+        durationValue: durationValue, // The value we actually use
+        durationValueType: typeof durationValue,
+        durationValueRaw: JSON.stringify(durationValue),
+        nextVisibleAt: task.nextVisibleAt, // Next call time for queue
+        aiQuality: task.aiQuality, // AI Quality score
+        aiSentimentScore: task.aiSentimentScore, // Legacy sentiment score
+        taskCallId: task.callId, // Call ID for API calls
+        outcome: task.outcome,
+        parsedDuration: duration,
+        isCallConnected: task.isCallConnected,
+        callAnswered: task.callAnswered
+      })
+
+     
 
       return {
-        id: task.outboundTaskId,
+        id: task.callId, // Keep outboundTaskId as unique identifier
+        call_id: task.callId, // Use callId first, fallback to outboundTaskId if needed
         customer: {
           name: task.leadName,
           phone: task.phoneNumber,
@@ -307,20 +354,36 @@ export function LiveActivityTable({
         callStatus,
         connectionStatus,
         outcome,
+        nextVisibleAt: task.nextVisibleAt, // Add nextVisibleAt for queue timing
         callReason: "Unknown", // API doesn't provide this field
-        errorReason: task.errorReason, // Include errorReason from API
         priority: "Unknown", // API doesn't provide this field  
         agent: {
-          name: apiData.agentName || "Unknown",
+          name: apiData.agentName || "AI Agent",
           avatar: "/placeholder-user.jpg"
         },
-        qualityScore: task.aiSentimentScore ? parseFloat(task.aiSentimentScore) : 0
+        // Store agent info in the format expected by other components
+        agentInfo: {
+          agentName: apiData.agentName || "AI Agent",
+          agentType: "AI Agent"
+        },
+        qualityScore: task.aiQuality ? parseFloat(task.aiQuality) : 0
       }
     })
   }
 
   // Fetch campaign status data (includes all call types: live, queued, completed, failed)
-  const fetchCampaignStatus = useCallback(async (showLoading = true, currentStatusFilter = statusFilter, page = currentPage, limit = itemsPerPage) => {
+  const fetchCampaignStatus = useCallback(async (
+    showLoading = true, 
+    currentStatusFilter = statusFilter, 
+    page = currentPage, 
+    limit = itemsPerPage,
+    currentSearchTerm = searchTerm,
+    currentConnectionFilter = connectionFilter,
+    currentOutcomeFilter = outcomeFilter,
+    currentTimePeriodFilter = timePeriodFilter,
+    currentSortField = sortField,
+    currentSortDirection = sortDirection
+  ) => {
     if (!campaignId) return
 
     if (showLoading) {
@@ -329,25 +392,123 @@ export function LiveActivityTable({
     setCallsError(null)
     
     try {
-      // Build URL with status filters if they are not "all"
+      // Build URL with all filters for server-side filtering and pagination
       let url = `/api/fetch-campaign-status?campaignId=${campaignId}&page=${page}&limit=${limit}`
       
-      // Add status type filters if not showing all
-      const activeStatusFilters = currentStatusFilter.filter(status => status !== 'all')
-      if (activeStatusFilters.length > 0) {
-        // Map frontend filter values to API expected values
-        const apiStatusTypes = activeStatusFilters.map(status => {
-          switch (status) {
-            case 'connected': return 'connected'
-            case 'live': return 'live'  
-            case 'queue': return 'queue'
-            case 'not_connected': return 'not-connected'
-            case 'voice_mail': return 'voicemail'
-            default: return status
-          }
-        })
-        url += `&statusTypes=${apiStatusTypes.join(',')}`
+      // Add auth_key if provided
+      if (authKey) {
+        url += `&auth_key=${encodeURIComponent(authKey)}`
       }
+      
+      // Add search query if provided
+      if (currentSearchTerm && currentSearchTerm.trim()) {
+        url += `&q=${encodeURIComponent(currentSearchTerm.trim())}`
+      }
+      
+      // Combine status and connection filters into connectionStatus parameter
+      const allActiveFilters = [
+        ...currentStatusFilter.filter(status => status !== 'all'),
+        ...currentConnectionFilter.filter(status => status !== 'all')
+      ]
+      
+      // Remove duplicates
+      const uniqueActiveFilters = Array.from(new Set(allActiveFilters))
+      
+      if (uniqueActiveFilters.length > 0) {
+        // Filter values now match API values exactly: connected, live, queue, failed, voicemail
+        const apiConnectionStatus = uniqueActiveFilters.filter(status => 
+          ['connected', 'live', 'queue', 'failed', 'voicemail'].includes(status)
+        )
+        
+        if (apiConnectionStatus.length > 0) {
+          url += `&connectionStatus=${apiConnectionStatus.join(',')}`
+        }
+      }
+      
+      // Add outcome filter if not showing all
+      if (currentOutcomeFilter && currentOutcomeFilter !== 'all') {
+        url += `&outcomes=${encodeURIComponent(currentOutcomeFilter)}`
+        console.log('🎯 Outcome filter applied:', {
+          outcomeFilter: currentOutcomeFilter,
+          encoded: encodeURIComponent(currentOutcomeFilter)
+        })
+      }
+
+      // Add time period filter (always apply date range for proper filtering)
+      if (currentTimePeriodFilter) {
+        // Convert time period to date range for API
+        const now = new Date()
+        let startDate: Date
+        
+        // Handle different time period options
+        switch (currentTimePeriodFilter) {
+          case '1':
+            // Today (from start of day to now)
+            startDate = new Date(now)
+            startDate.setHours(0, 0, 0, 0)
+            break
+          case '7':
+            // Last 7 days
+            startDate = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000))
+            break
+          case '30':
+            // Last 30 days (default)
+            startDate = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000))
+            break
+          case '90':
+            // Last 90 days
+            startDate = new Date(now.getTime() - (90 * 24 * 60 * 60 * 1000))
+            break
+          case 'yesterday':
+            // Yesterday only
+            const yesterday = new Date(now)
+            yesterday.setDate(yesterday.getDate() - 1)
+            startDate = new Date(yesterday)
+            startDate.setHours(0, 0, 0, 0)
+            // For yesterday, also set end date to end of yesterday
+            const endOfYesterday = new Date(yesterday)
+            endOfYesterday.setHours(23, 59, 59, 999)
+            url += `&startDate=${startDate.toISOString()}`
+            url += `&endDate=${endOfYesterday.toISOString()}`
+            break
+          default:
+            // Default to parsing as number of days
+            const days = parseInt(currentTimePeriodFilter) || 7
+            startDate = new Date(now.getTime() - (days * 24 * 60 * 60 * 1000))
+        }
+        
+        // Add date parameters (full ISO format with time) - skip for yesterday as it's handled above
+        if (currentTimePeriodFilter !== 'yesterday') {
+          url += `&startDate=${startDate.toISOString()}`
+          url += `&endDate=${now.toISOString()}`
+        }
+        
+        console.log('📅 Date filter applied:', {
+          timePeriodFilter: currentTimePeriodFilter,
+          startDate: startDate.toISOString(),
+          endDate: currentTimePeriodFilter === 'yesterday' ? 'end of yesterday' : now.toISOString()
+        })
+      }
+      
+      // Add sorting parameters
+      const sortFieldMapping: { [key: string]: string } = {
+        'timestamp': 'statusUpdatedAt',
+        'customer': 'leadName', 
+        'connectionStatus': 'connectionStatus',
+        'qualityScore': 'aiQuality',
+        'duration': 'duration'
+      }
+      
+      const apiSortField = sortFieldMapping[currentSortField as string] || 'statusUpdatedAt'
+      url += `&sortBy=${apiSortField}`
+      url += `&sortOrder=${currentSortDirection}`
+      
+      console.log('🔄 Sorting applied:', {
+        frontendField: currentSortField,
+        apiField: apiSortField,
+        sortOrder: currentSortDirection
+      })
+      
       
       const response = await fetch(url)
       if (!response.ok) {
@@ -355,9 +516,94 @@ export function LiveActivityTable({
       }
       
       const apiData: CampaignStatusResponse = await response.json()
+      
+    
+      
+      if (apiData.tasks && apiData.tasks.length > 0) {
+        
+        // Analyze duration and status patterns
+        const statusAnalysis = apiData.tasks.slice(0, 10).map(task => ({
+          outboundTaskId: task.outboundTaskId,
+          status: task.status,
+          connectionStatus: task.connectionStatus,
+          
+          outcome: task.outcome,
+          isCallConnected: task.isCallConnected,
+          callAnswered: task.callAnswered
+        }))
+        
+        
+        // Get unique values to understand the data
+        const uniqueStatuses = [...new Set(apiData.tasks.map(t => t.status))]
+        const uniqueConnectionStatuses = [...new Set(apiData.tasks.map(t => t.connectionStatus))]
+        const uniqueOutcomes = [...new Set(apiData.tasks.map(t => t.outcome).filter(Boolean))]
+        const durationTypes = [...new Set(apiData.tasks.map(t => typeof t.callDuration))]
+        
+       
+        // Debug outcome filter specifically
+        if (currentOutcomeFilter && currentOutcomeFilter !== 'all') {
+          const matchingTasks = apiData.tasks.filter(t => t.outcome === currentOutcomeFilter)
+          console.log('🎯 Outcome Filter Debug:', {
+            filterValue: currentOutcomeFilter,
+            totalTasks: apiData.tasks.length,
+            matchingTasks: matchingTasks.length,
+            sampleMatches: matchingTasks.slice(0, 3).map(t => ({ 
+              leadName: t.leadName, 
+              outcome: t.outcome 
+            }))
+          })
+        }
+      }
+      
+      
       const transformedData = transformApiDataToCallRecords(apiData)
       setCallRecords(transformedData)
-      setTotalRecords(apiData.totalLeads || transformedData.length)
+      // Use pagination total for filtered results, fallback to totalLeads for unfiltered
+      const hasFilters = Boolean(
+        searchTerm?.trim() || 
+        (outcomeFilter && outcomeFilter !== 'all') || 
+        (connectionFilter && connectionFilter.length > 0 && connectionFilter.some(f => f !== 'all')) || 
+        (statusFilter && statusFilter.length > 0 && statusFilter.some(f => f !== 'all')) ||
+        (timePeriodFilter && timePeriodFilter !== '30')
+      )
+      
+      console.log('Debug filters:', {
+        searchTerm,
+        outcomeFilter, 
+        connectionFilter,
+        statusFilter,
+        timePeriodFilter,
+        hasFilters,
+        paginationTotal: apiData.pagination?.total,
+        totalLeads: apiData.totalLeads,
+        transformedDataLength: transformedData.length
+      })
+      
+      // Prioritize API pagination total when available (especially for search/filtered results)
+      // Fall back to totalLeads only when pagination total is not provided
+      let finalTotalRecords: number
+      
+      if (apiData.pagination?.total !== undefined && apiData.pagination.total >= 0) {
+        // API provided pagination total - use it (this is the filtered/search result count)
+        finalTotalRecords = apiData.pagination.total
+      } else if (apiData.totalLeads !== undefined) {
+        // No pagination total, use total leads
+        finalTotalRecords = apiData.totalLeads
+      } else {
+        // Fallback to actual data length
+        finalTotalRecords = transformedData.length
+      }
+      
+      console.log('Setting total records:', {
+        hasFilters,
+        paginationTotal: apiData.pagination?.total,
+        totalLeads: apiData.totalLeads,
+        transformedLength: transformedData.length,
+        finalTotalRecords,
+        isSearchMode: Boolean(searchTerm?.trim())
+      })
+      
+      setTotalRecords(finalTotalRecords)
     } catch (error) {
       console.error('Error fetching campaign status:', error)
       setCallsError(error instanceof Error ? error.message : 'Failed to fetch campaign status')
@@ -367,57 +613,68 @@ export function LiveActivityTable({
         setIsLoadingCalls(false)
       }
     }
-  }, [campaignId, currentPage, itemsPerPage])
+  }, [campaignId, authKey])
 
-  // Initial data fetch
-  useEffect(() => {
-    if (campaignId) {
-      fetchCampaignStatus(true)
+  // Dedicated search API function for text-based queries
+  const performAPISearch = useCallback(async (query: string) => {
+    if (!campaignId || !query.trim()) {
+      setIsSearchMode(false)
+      return
     }
-  }, [campaignId])
+
+    // When searching, use the main fetch function with search term
+    // This ensures consistent filtering and pagination behavior
+    setIsSearchMode(true)
+    setCurrentPage(1) // Reset to first page for search
+    fetchCampaignStatus(true, statusFilter, 1, itemsPerPage, query.trim(), connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
+  }, [campaignId, fetchCampaignStatus, statusFilter, itemsPerPage, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection])
+
+  // Expose performAPISearch function to parent components
+  useImperativeHandle(ref, () => ({
+    performAPISearch
+  }), [performAPISearch])
+
+  // Clear search when search term is empty
+  useEffect(() => {
+    if (!searchTerm || searchTerm.trim() === '') {
+      setIsSearchMode(false)
+      setSearchError(null)
+    } else {
+      setIsSearchMode(true)
+    }
+  }, [searchTerm])
 
   // Handle refresh trigger from parent
   useEffect(() => {
     if (refreshTrigger && refreshTrigger > 0 && campaignId) {
-      fetchCampaignStatus(false)
+      fetchCampaignStatus(false, statusFilter, currentPage, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
     }
-  }, [refreshTrigger, campaignId])
+  }, [refreshTrigger, campaignId, fetchCampaignStatus, statusFilter, currentPage, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection])
 
-  // Refetch when statusFilter changes
+  // Initial load when component mounts
+  useEffect(() => {
+    if (campaignId && callRecords.length === 0 && !isLoadingCalls) {
+      console.log('Initial load triggered for campaignId:', campaignId)
+      fetchCampaignStatus(true, statusFilter, currentPage, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
+    }
+  }, [campaignId, fetchCampaignStatus, callRecords.length, isLoadingCalls, statusFilter, currentPage, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection])
+
+  // Fetch data when filters change and reset pagination
   useEffect(() => {
     if (campaignId) {
-      fetchCampaignStatus(false, statusFilter)
+      setCurrentPage(1)
+      fetchCampaignStatus(true, statusFilter, 1, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
     }
-  }, [statusFilter, campaignId])
-
-  // Refetch when pagination changes
-  useEffect(() => {
-    if (campaignId) {
-      fetchCampaignStatus(false, statusFilter, currentPage, itemsPerPage)
-    }
-  }, [currentPage, itemsPerPage, campaignId, statusFilter])
+  }, [searchTerm, outcomeFilter, connectionFilter, statusFilter, timePeriodFilter, campaignId, fetchCampaignStatus, itemsPerPage, sortField, sortDirection])
 
   // Component uses callRecords state populated from the new campaign status API
   // This includes all call types: live, queued, completed, failed calls with real-time updates
 
-  const filteredCalls = callRecords
-    .filter(call => {
-      const matchesSearch = searchTerm === "" || 
-                           call.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           call.customer.phone.includes(searchTerm) ||
-                           call.agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           call.callReason.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           (call.vehicleInfo && `${call.vehicleInfo.year} ${call.vehicleInfo.make} ${call.vehicleInfo.model}`.toLowerCase().includes(searchTerm.toLowerCase()))
-      
-      const matchesStatus = statusFilter.includes("all") || statusFilter.includes(call.callStatus)
-      const matchesConnection = connectionFilter.includes("all") || connectionFilter.includes(call.connectionStatus)
-      const matchesOutcome = outcomeFilter === "all" || call.outcome === outcomeFilter
-      const matchesPriority = priorityFilter === "all" || call.priority === priorityFilter
-      const matchesAgent = agentFilter === "all" || call.agent.name === agentFilter
-      const matchesCallReason = callReasonFilter === "all" || call.callReason === callReasonFilter
-      
-      return matchesSearch && matchesStatus && matchesConnection && matchesOutcome && matchesPriority && matchesAgent && matchesCallReason
-    })
+  // Server-side filtering: Use the data as-is from API since filtering is done server-side
+  const filteredCalls = useMemo(() => {
+    // All filtering is done server-side, so we use the call records as-is
+    return callRecords
+  }, [callRecords])
 
   // Notify parent of filtered count changes
   useEffect(() => {
@@ -431,40 +688,39 @@ export function LiveActivityTable({
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = Math.min(startIndex + itemsPerPage, totalRecords)
 
-  // Apply client-side filtering and sorting to the API data
-  const filteredAndSortedCalls = filteredCalls
-    .sort((a, b) => {
-      let aValue: any, bValue: any
-      
-      // Handle nested object sorting
-      if (sortField === 'customer') {
-        aValue = a.customer.name
-        bValue = b.customer.name
-      } else if (sortField === 'timestamp') {
-        aValue = new Date(a.timestamp.date + ' ' + a.timestamp.time)
-        bValue = new Date(b.timestamp.date + ' ' + b.timestamp.time)
-      } else {
-        aValue = a[sortField as keyof CallRecord]
-        bValue = b[sortField as keyof CallRecord]
-      }
-      
-      if (sortDirection === "asc") {
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0
-      } else {
-        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0
-      }
-    })
+  // Server-side sorting: Data comes pre-sorted from API, no client-side sorting needed
+  const displayCalls = filteredCalls
 
   const handleSort = (field: keyof CallRecord) => {
+    let newSortDirection: "asc" | "desc" = "desc"
+    
     if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc")
+      newSortDirection = sortDirection === "asc" ? "desc" : "asc"
     } else {
-      setSortField(field)
-      setSortDirection("desc")
+      newSortDirection = "desc" // Default to desc for new fields
     }
+    
+    // Update sort state
+    setSortField(field)
+    setSortDirection(newSortDirection)
+    
+    // Reset to first page and fetch with new sorting
+    setCurrentPage(1)
+    fetchCampaignStatus(
+      true, 
+      statusFilter, 
+      1, 
+      itemsPerPage, 
+      searchTerm, 
+      connectionFilter, 
+      outcomeFilter, 
+      timePeriodFilter,
+      field,
+      newSortDirection
+    )
   }
 
-  const getCallStatusBadge = (callStatus: string, callAgainIn?: number) => {
+  const getCallStatusBadge = useCallback((callStatus: string, callAgainIn?: number) => {
     switch (callStatus) {
       case "completed":
         return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Completed</Badge>
@@ -489,17 +745,9 @@ export function LiveActivityTable({
       default:
         return <Badge variant="secondary">{callStatus}</Badge>
     }
-  }
+  }, [])
 
-  const getConnectionStatusBadge = (status: string, errorReason?: string) => {
-    // Check if errorReason is voicemail first
-    if (errorReason === "voicemail") {
-      return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
-        <Voicemail className="w-3 h-3 mr-1" />
-        Voicemail
-      </Badge>
-    }
-
+  const getConnectionStatusBadge = useCallback((status: string, nextVisibleAt?: string) => {
     switch (status) {
       case "connected":
         return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
@@ -512,19 +760,26 @@ export function LiveActivityTable({
           Live
         </Badge>
       case "queue":
+        const nextCallTime = formatNextCallTime(nextVisibleAt)
         return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
           <Timer className="w-3 h-3 mr-1" />
-          Queue
+          {nextCallTime ? `Next call in ${nextCallTime}` : "Queue"}
         </Badge>
+      case "failed":
+        return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
+          <X className="w-3 h-3 mr-1" />
+          Failed
+        </Badge>
+      case "voicemail":
+        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
+          <Voicemail className="w-3 h-3 mr-1" />
+          Voicemail
+        </Badge>
+      // Legacy/additional status values that might come from API
       case "not_connected":
         return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">
           <PhoneOff className="w-3 h-3 mr-1" />
           Not Connected
-        </Badge>
-      case "voice_mail":
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
-          <Voicemail className="w-3 h-3 mr-1" />
-          Voice Mail
         </Badge>
       case "call_failed":
         return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
@@ -544,9 +799,9 @@ export function LiveActivityTable({
       default:
         return <Badge variant="secondary">{status}</Badge>
     }
-  }
+  }, [formatNextCallTime])
 
-  const getOutcomeBadge = (outcome: string) => {
+  const getOutcomeBadge = useCallback((outcome: string) => {
     const originalLabel = outcome && outcome.trim().length > 0 ? outcome : "No Outcome"
     const normalized = originalLabel
       .toLowerCase()
@@ -609,7 +864,7 @@ export function LiveActivityTable({
     }
 
     return <Badge variant="secondary">{originalLabel}</Badge>
-  }
+  }, [])
 
   const getCallReasonBadge = (reason: string) => {
     switch (reason) {
@@ -650,7 +905,7 @@ export function LiveActivityTable({
     }
   }
 
-  const getAvatarColor = (name: string) => {
+  const getAvatarColor = useCallback((name: string) => {
     const colors = [
       "bg-blue-100 text-blue-600",      // Blue
       "bg-green-100 text-green-600",    // Green
@@ -676,7 +931,7 @@ export function LiveActivityTable({
     const colorIndex = hash % colors.length
     
     return `${colors[colorIndex]} text-sm`
-  }
+  }, [])
 
   const QualityScoreBar = ({ score, call }: { score: number, call: CallRecord }) => {
     const handleClick = (e: React.MouseEvent) => {
@@ -904,6 +1159,33 @@ export function LiveActivityTable({
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      {/* Search Mode Indicator */}
+      {isSearchMode && (
+        <div className="px-6 py-3 bg-blue-50 border-b border-blue-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-blue-800">
+              <Search className="h-4 w-4" />
+              <span className="text-sm font-medium">
+                Search Results for "{searchTerm}" ({filteredCalls.length} found)
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setIsSearchMode(false)
+                // This will trigger the parent component to clear the search term
+                // which will then trigger a new API call without the search parameter
+              }}
+              className="text-blue-600 hover:text-blue-800"
+            >
+              <X className="h-4 w-4 mr-1" />
+              Clear Search
+            </Button>
+          </div>
+        </div>
+      )}
+      
       <div className="overflow-x-auto">
         <Table className="min-w-[1100px]">
             <TableHeader>
@@ -935,7 +1217,7 @@ export function LiveActivityTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredAndSortedCalls.map((call, index) => (
+              {displayCalls.map((call, index) => (
                 <TableRow 
                   key={call.id} 
                   className={`hover:bg-gray-50 transition-colors ${
@@ -945,6 +1227,11 @@ export function LiveActivityTable({
                     e.preventDefault()
                     e.stopPropagation()
                     if (!isTransitioning) {
+                      console.log('🖱️ Row clicked - Call selected:', {
+                        outboundTaskId: call.id, // This is the row identifier
+                        callId: call.call_id,    // This should be the API callId
+                        customerName: call.customer.name
+                      })
                       // Add small delay to ensure single execution
                       setTimeout(() => {
                         onCallSelect?.(call)
@@ -969,7 +1256,7 @@ export function LiveActivityTable({
                   
                   {/* Connection Status */}
                   <TableCell>
-                    {getConnectionStatusBadge(call.connectionStatus, call.errorReason)}
+                    {getConnectionStatusBadge(call.connectionStatus, call.nextVisibleAt)}
                   </TableCell>
                   
                   {/* Timestamp */}
@@ -1012,112 +1299,79 @@ export function LiveActivityTable({
           </Table>
         </div>
       
-      {filteredAndSortedCalls.length === 0 && (
+      {displayCalls.length === 0 && (
         <div className="text-center py-12 px-6">
           <div className="text-gray-400 mb-2">
-            <Search className="w-12 h-12 mx-auto mb-4" />
+            {searchError ? (
+              <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-red-400" />
+            ) : (
+              <Search className="w-12 h-12 mx-auto mb-4" />
+            )}
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-1">No calls found</h3>
-          <p className="text-gray-500">Try adjusting your search or filter criteria</p>
+          {searchError ? (
+            <>
+              <h3 className="text-lg font-medium text-red-900 mb-1">Search Error</h3>
+              <p className="text-red-600 mb-4">{searchError}</p>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setSearchError(null)
+                  if (searchTerm.trim()) {
+                    performAPISearch(searchTerm.trim())
+                  }
+                }}
+              >
+                Try Again
+              </Button>
+            </>
+          ) : (
+            <>
+              <h3 className="text-lg font-medium text-gray-900 mb-1">
+                {isSearchMode ? 'No search results found' : 'No calls found'}
+              </h3>
+              <p className="text-gray-500">
+                {isSearchMode 
+                  ? `No results found for "${searchTerm}". Try a different search term.`
+                  : 'Try adjusting your search or filter criteria'
+                }
+              </p>
+              {isSearchMode && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsSearchMode(false)
+                    // This will trigger the parent component to clear the search term
+                  }}
+                  className="mt-4"
+                >
+                  Clear Search
+                </Button>
+              )}
+            </>
+          )}
         </div>
       )}
       
-      {/* Pagination Controls */}
+      {/* Smart Pagination Controls */}
       {filteredCalls.length > 0 && (
-        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <span className="text-sm text-gray-700">
-              Showing {startIndex + 1} to {Math.min(endIndex, totalRecords)} of {totalRecords} results
-            </span>
-          </div>
-          
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Select value={itemsPerPage.toString()} onValueChange={(value) => {
-              const newItemsPerPage = parseInt(value)
-              setItemsPerPage(newItemsPerPage)
-              setCurrentPage(1)
-              fetchCampaignStatus(true, statusFilter, 1, newItemsPerPage)
-            }}>
-              <SelectTrigger className="w-20 h-8 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="5">5</SelectItem>
-                <SelectItem value="10">10</SelectItem>
-                <SelectItem value="25">25</SelectItem>
-                <SelectItem value="50">50</SelectItem>
-              </SelectContent>
-            </Select>
-            <span className="text-sm text-gray-700">per page</span>
-          </div>
-          
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const newPage = Math.max(1, currentPage - 1)
-                setCurrentPage(newPage)
-                fetchCampaignStatus(true, statusFilter, newPage, itemsPerPage)
-              }}
-              disabled={currentPage === 1}
-              className="h-8 w-8 p-0"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            
-            <div className="flex items-center gap-1">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = i + 1
-                const isActive = page === currentPage
-                return (
-                  <Button
-                    key={page}
-                    variant={isActive ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => {
-                      setCurrentPage(page)
-                      fetchCampaignStatus(true, statusFilter, page, itemsPerPage)
-                    }}
-                    className="h-8 w-8 p-0"
-                  >
-                    {page}
-                  </Button>
-                )
-              })}
-              {totalPages > 5 && (
-                <>
-                  <span className="text-sm text-gray-500">...</span>
-                  <Button
-                    variant={currentPage === totalPages ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => {
-                      setCurrentPage(totalPages)
-                      fetchCampaignStatus(true, statusFilter, totalPages, itemsPerPage)
-                    }}
-                    className="h-8 w-8 p-0"
-                  >
-                    {totalPages}
-                  </Button>
-                </>
-              )}
-            </div>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const newPage = Math.min(totalPages, currentPage + 1)
-                setCurrentPage(newPage)
-                fetchCampaignStatus(true, statusFilter, newPage, itemsPerPage)
-              }}
-              disabled={currentPage === totalPages}
-              className="h-8 w-8 p-0"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+        <SmartPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalRecords={totalRecords}
+          itemsPerPage={itemsPerPage}
+          onPageChange={(page) => {
+            setCurrentPage(page)
+            fetchCampaignStatus(true, statusFilter, page, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
+          }}
+          onItemsPerPageChange={(newItemsPerPage) => {
+            setItemsPerPage(newItemsPerPage)
+            setCurrentPage(1)
+            fetchCampaignStatus(true, statusFilter, 1, newItemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
+          }}
+          showProgressIndicator={true}
+          showGoToPage={true}
+          itemsPerPageOptions={[5, 10, 25, 50, 100]}
+        />
       )}
       
       {/* AI Score Breakdown Modal - Temporarily disabled to test double modal issue */}
@@ -1131,4 +1385,4 @@ export function LiveActivityTable({
       /> */}
     </div>
   )
-}
+})

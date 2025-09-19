@@ -5,6 +5,14 @@ export interface UrlParams {
   tab: string | null;
   callDetailsTab: string | null;
   selectedCall: string | null;
+  // Filter parameters
+  search?: string | null;
+  status?: string | null;
+  connection?: string | null;
+  outcome?: string | null;
+  timePeriod?: string | null;
+  page?: string | null;
+  limit?: string | null;
 }
 
 export function extractUrlParams(): UrlParams {
@@ -16,6 +24,13 @@ export function extractUrlParams(): UrlParams {
       tab: null,
       callDetailsTab: null,
       selectedCall: null,
+      search: null,
+      status: null,
+      connection: null,
+      outcome: null,
+      timePeriod: null,
+      page: null,
+      limit: null,
     };
   }
 
@@ -29,6 +44,15 @@ export function extractUrlParams(): UrlParams {
   const callDetailsTab = urlParams.get('callDetailsTab');
   const selectedCall = urlParams.get('selectedCall');
   
+  // Filter parameters
+  const search = urlParams.get('search');
+  const status = urlParams.get('status');
+  const connection = urlParams.get('connection');
+  const outcome = urlParams.get('outcome');
+  const timePeriod = urlParams.get('timePeriod');
+  const page = urlParams.get('page');
+  const limit = urlParams.get('limit');
+  
   return {
     enterprise_id: enterpriseId,
     team_id: teamId,
@@ -36,6 +60,13 @@ export function extractUrlParams(): UrlParams {
     tab: tab,
     callDetailsTab: callDetailsTab,
     selectedCall: selectedCall,
+    search: search,
+    status: status,
+    connection: connection,
+    outcome: outcome,
+    timePeriod: timePeriod,
+    page: page,
+    limit: limit,
   };
 }
 
@@ -105,4 +136,93 @@ export function buildUrlWithState(basePath: string, stateParams?: {
   }
   
   return buildUrlWithParams(basePath, mergedParams);
+}
+
+// Filter state interface for URL synchronization
+export interface FilterState {
+  search?: string;
+  status?: string[];
+  connection?: string[];
+  outcome?: string;
+  timePeriod?: string;
+  page?: number;
+  limit?: number;
+}
+
+// Function to update filter parameters in URL
+export function updateUrlWithFilters(basePath: string, filters: FilterState): void {
+  if (typeof window === 'undefined') return;
+  
+  const currentParams = extractUrlParams();
+  const searchParams = new URLSearchParams();
+  
+  // Preserve essential parameters
+  if (currentParams.enterprise_id) {
+    searchParams.set('enterprise_id', currentParams.enterprise_id);
+  }
+  if (currentParams.team_id) {
+    searchParams.set('team_id', currentParams.team_id);
+  }
+  if (currentParams.auth_key) {
+    searchParams.set('auth_key', currentParams.auth_key);
+  }
+  if (currentParams.tab) {
+    searchParams.set('tab', currentParams.tab);
+  }
+  if (currentParams.callDetailsTab) {
+    searchParams.set('callDetailsTab', currentParams.callDetailsTab);
+  }
+  if (currentParams.selectedCall) {
+    searchParams.set('selectedCall', currentParams.selectedCall);
+  }
+  
+  // Add filter parameters (only if they have meaningful values)
+  if (filters.search && filters.search.trim()) {
+    searchParams.set('search', filters.search.trim());
+  }
+  
+  if (filters.status && filters.status.length > 0 && !filters.status.includes('all')) {
+    searchParams.set('status', filters.status.join(','));
+  }
+  
+  if (filters.connection && filters.connection.length > 0 && !filters.connection.includes('all')) {
+    searchParams.set('connection', filters.connection.join(','));
+  }
+  
+  if (filters.outcome && filters.outcome !== 'all') {
+    searchParams.set('outcome', filters.outcome);
+  }
+  
+  if (filters.timePeriod && filters.timePeriod !== '30') {
+    searchParams.set('timePeriod', filters.timePeriod);
+  }
+  
+  if (filters.page && filters.page > 1) {
+    searchParams.set('page', filters.page.toString());
+  }
+  
+  if (filters.limit && filters.limit !== 50) {
+    searchParams.set('limit', filters.limit.toString());
+  }
+  
+  const queryString = searchParams.toString();
+  const newUrl = queryString ? `${basePath}?${queryString}` : basePath;
+  
+  // Update URL without triggering navigation
+  window.history.replaceState({}, '', newUrl);
+}
+
+// Function to restore filter state from URL
+export function restoreFiltersFromUrl(): FilterState {
+  const params = extractUrlParams();
+  
+  return {
+    search: params.search || '',
+    status: params.status ? params.status.split(',') : ['all'],
+    connection: params.connection ? params.connection.split(',') : ['all'],
+    outcome: params.outcome || 'all',
+    timePeriod: params.timePeriod || '30',
+    page: params.page ? parseInt(params.page) : 1,
+    limit: params.limit ? parseInt(params.limit) : 50,
+  };
 }

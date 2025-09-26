@@ -259,6 +259,7 @@ export function LiveActivityFilters({
             <SelectItem value="all">All Outcomes</SelectItem>
             <SelectItem value="Appointment for Purchase Discussion">Appointment for Purchase Discussion</SelectItem>
             <SelectItem value="Cancel Test Drive">Cancel Test Drive</SelectItem>
+            <SelectItem value="Service Outcomes">Service Outcomes</SelectItem>
             <SelectItem value="Check Order/Delivery Status">Check Order/Delivery Status</SelectItem>
             <SelectItem value="Check Recall Status">Check Recall Status</SelectItem>
             <SelectItem value="Complaint Registered">Complaint Registered</SelectItem>

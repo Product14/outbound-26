@@ -1658,7 +1658,7 @@ export const LiveActivityTable = forwardRef<{
             }}
             showProgressIndicator={true}
             showGoToPage={true}
-            itemsPerPageOptions={[5, 10, 25, 50, 100]}
+            itemsPerPageOptions={[5, 10, 25, 50]}
           />
         </div>
       )}

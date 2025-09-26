@@ -65,7 +65,7 @@ export function useFilterState(options: UseFilterStateOptions = {}): UseFilterSt
       setOutcomeFilterState(restored.outcome || 'all')
       setTimePeriodFilterState(restored.timePeriod || '30')
       setCurrentPageState(restored.page || 1)
-      setItemsPerPageState(restored.limit || 10)
+      setItemsPerPageState(Math.min(restored.limit || 10, 50))
       setIsInitialized(true)
     } else if (!enableUrlSync && !isInitialized) {
       setIsInitialized(true)
@@ -158,7 +158,9 @@ export function useFilterState(options: UseFilterStateOptions = {}): UseFilterSt
   }, [])
 
   const setItemsPerPage = useCallback((limit: number) => {
-    setItemsPerPageState(limit)
+    // Cap limit to maximum of 50 to comply with API constraints
+    const cappedLimit = Math.min(limit, 50)
+    setItemsPerPageState(cappedLimit)
     if (currentPage > 1) {
       setCurrentPageState(1)
     }

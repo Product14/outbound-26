@@ -30,7 +30,7 @@ export function SmartPagination({
   className,
   showProgressIndicator = true,
   showGoToPage = true,
-  itemsPerPageOptions = [5, 10, 25, 50, 100]
+  itemsPerPageOptions = [5, 10, 25, 50]
 }: SmartPaginationProps) {
   const [goToPageInput, setGoToPageInput] = useState("")
   const [showGoToInput, setShowGoToInput] = useState(false)

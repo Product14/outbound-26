@@ -55,6 +55,8 @@ interface LiveActivityFiltersProps {
   // Search-related props
   onSearchAPI?: (searchTerm: string) => void
   isSearching?: boolean
+  // Agent type for dynamic outcome filtering
+  agentType?: 'Sales' | 'Service' | string
 }
 
 export function LiveActivityFilters({
@@ -83,7 +85,8 @@ export function LiveActivityFilters({
   showAllFilters: externalShowAllFilters,
   setShowAllFilters: externalSetShowAllFilters,
   onSearchAPI,
-  isSearching = false
+  isSearching = false,
+  agentType
 }: LiveActivityFiltersProps) {
   const [internalShowAllFilters, setInternalShowAllFilters] = useState(false)
   const [compactFilters, setCompactFilters] = useState(false)
@@ -161,7 +164,10 @@ export function LiveActivityFilters({
     { value: 'live', label: 'Live', icon: <div className="w-4 h-4 flex items-center justify-center"><div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div></div> },
     { value: 'queue', label: 'Queue', icon: <Timer className="h-4 w-4 text-blue-600" /> },
     { value: 'failed', label: 'Failed', icon: <X className="h-4 w-4 text-red-600" /> },
-    { value: 'voicemail', label: 'Voicemail', icon: <Voicemail className="h-4 w-4 text-yellow-600" /> }
+    { value: 'voicemail', label: 'Voicemail', icon: <Voicemail className="h-4 w-4 text-yellow-600" /> },
+    { value: 'did-not-answer', label: 'Did Not Answer', icon: <Phone className="h-4 w-4 text-orange-600" /> },
+    { value: 'customer-ended', label: 'Customer Ended', icon: <X className="h-4 w-4 text-red-500" /> },
+    { value: 'customer-busy', label: 'Customer Busy', icon: <Timer className="h-4 w-4 text-yellow-500" /> }
   ];
 
   // Count active filters
@@ -175,6 +181,114 @@ export function LiveActivityFilters({
     queryFilter !== "all",
     timePeriodFilter !== "30"
   ].filter(Boolean).length
+
+  // Helper function to format status display names
+  const formatStatusName = (status: string) => {
+    const statusMap: { [key: string]: string } = {
+      'QUEUED': 'Queued',
+      'CALL_COMPLETED': 'Call Completed',
+      'CALL_COMPLETED_VOICEMAIL': 'Voicemail',
+      'CUSTOMER_BUSY': 'Customer Busy',
+      'CALL_FAILED': 'Call Failed',
+      'LIVE_CALL': 'Live Call',
+      'CALL_IN_PROGRESS': 'In Progress',
+      'DO_NOT_CALL': 'Do Not Call',
+      'connected': 'Connected',
+      'live': 'Live',
+      'queue': 'Queue',
+      'failed': 'Failed',
+      'voicemail': 'Voicemail',
+      'not_connected': 'Not Connected',
+      'not-connected': 'Not Connected',
+      'busy': 'Busy',
+      'did-not-answer': 'Did Not Answer',
+      'customer-ended': 'Customer Ended',
+      'customer-busy': 'Customer Busy'
+    }
+    return statusMap[status] || status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  }
+
+  // Define outcome options based on campaign type
+  const serviceOutcomes = [
+    'Schedule Service Appointment',
+    'Schedule Test Drive',
+    'Service Appointment Booked',
+    'Service Appointment Rescheduled',
+    'Service History Shared',
+    'Service Pricing Shared',
+    'Trade-in Inquiry',
+    'Transferred to Human',
+    'Vehicle Availability Inquiry',
+    'Warranty Info Shared',
+    'No Availability',
+    'No Intent'
+  ]
+
+  const salesOutcomes = [
+    'Appointment for Purchase Discussion',
+    'Cancel Test Drive',
+    'Check Order/Delivery Status',
+    'Check Recall Status',
+    'Complaint Registered',
+    'Drop-off/Pickup Info Shared',
+    'Extended Warranty/Protection Plan Inquiry',
+    'Financing/Leasing Inquiry',
+    'General Information Shared',
+    'General Sales Inquiry',
+    'General Service Inquiry',
+    'Inventory/Brochure Request',
+    'Operating Hours/Location Inquiry',
+    'Parts Availability Shared',
+    'Promotions/Incentives Inquiry',
+    'Recall Check Completed',
+    'Repair Status Shared',
+    'Request Vehicle Information',
+    'Request Price/Quote',
+    'Request service history',
+    'Reschedule Test Drive',
+    'Safety Recall',
+    'Salesperson/Manager Request',
+    'Schedule PDI before purchase',
+    'Schedule Recall'
+  ]
+
+  // Get outcomes based on agent type
+  const getOutcomeOptions = () => {
+    console.log('🎯 Outcome Filter Debug:', {
+      agentType,
+      isService: agentType === 'Service',
+      isSales: agentType === 'Sales'
+    })
+    
+    // Check for explicit Service type
+    if (agentType === 'Service') {
+      return serviceOutcomes
+    }
+    
+    // Check for explicit Sales type
+    if (agentType === 'Sales') {
+      return salesOutcomes
+    }
+    
+    // Check if agent type contains service-related keywords
+    const serviceKeywords = ['service', 'maintenance', 'repair', 'warranty', 'inspection']
+    const lowerAgentType = (agentType || '').toLowerCase()
+    
+    if (serviceKeywords.some(keyword => lowerAgentType.includes(keyword))) {
+      console.log('🔧 Detected service agent from keywords:', lowerAgentType)
+      return serviceOutcomes
+    }
+    
+    // Default to sales outcomes for unknown types
+    console.log('📈 Defaulting to sales outcomes for agent type:', agentType)
+    return salesOutcomes
+  }
+
+  // Outcome search functionality
+  const [outcomeSearchTerm, setOutcomeSearchTerm] = useState('')
+  const filteredOutcomes = getOutcomeOptions().filter(outcome =>
+    outcome.toLowerCase().includes(outcomeSearchTerm.toLowerCase())
+  )
 
   // Clear all filters
   const clearAllFilters = () => {
@@ -213,7 +327,7 @@ export function LiveActivityFilters({
             placeholder="Search by customer, phone"
             value={internalSearchTerm}
             onChange={handleSearchChange}
-            className="pl-10 pr-20 h-12 rounded-lg border border-gray-300 bg-white text-sm w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-200 shadow-sm"
+            className="flex h-10 w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3 py-2 pl-10 pr-20 text-sm shadow-sm transition-all duration-200 ease-out focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none"
           />
           
           {/* Typing/Search indicators */}
@@ -249,60 +363,56 @@ export function LiveActivityFilters({
 
         {/* Outcomes Filter */}
         <Select value={outcomeFilter} onValueChange={setOutcomeFilter}>
-          <SelectTrigger className="w-auto min-w-[140px] h-12 px-4 rounded-lg border border-gray-300 bg-white text-sm hover:bg-gray-50 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 shadow-sm">
+          <SelectTrigger className="flex w-auto min-w-[170px] items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm transition-all duration-150 ease-out hover:bg-gray-50 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none h-10">
             <div className="flex items-center gap-2">
               <Target className="h-4 w-4 text-gray-500" />
               <SelectValue placeholder="All Outcomes" />
             </div>
           </SelectTrigger>
-          <SelectContent className="bg-white border border-gray-200 rounded-lg shadow-lg max-h-[300px] overflow-y-auto">
-            <SelectItem value="all">All Outcomes</SelectItem>
-            <SelectItem value="Appointment for Purchase Discussion">Appointment for Purchase Discussion</SelectItem>
-            <SelectItem value="Cancel Test Drive">Cancel Test Drive</SelectItem>
-            <SelectItem value="Service Outcomes">Service Outcomes</SelectItem>
-            <SelectItem value="Check Order/Delivery Status">Check Order/Delivery Status</SelectItem>
-            <SelectItem value="Check Recall Status">Check Recall Status</SelectItem>
-            <SelectItem value="Complaint Registered">Complaint Registered</SelectItem>
-            <SelectItem value="Drop-off/Pickup Info Shared">Drop-off/Pickup Info Shared</SelectItem>
-            <SelectItem value="Extended Warranty/Protection Plan Inquiry">Extended Warranty/Protection Plan Inquiry</SelectItem>
-            <SelectItem value="Financing/Leasing Inquiry">Financing/Leasing Inquiry</SelectItem>
-            <SelectItem value="General Information Shared">General Information Shared</SelectItem>
-            <SelectItem value="General Sales Inquiry">General Sales Inquiry</SelectItem>
-            <SelectItem value="General Service Inquiry">General Service Inquiry</SelectItem>
-            <SelectItem value="Inventory/Brochure Request">Inventory/Brochure Request</SelectItem>
-            <SelectItem value="Operating Hours/Location Inquiry">Operating Hours/Location Inquiry</SelectItem>
-            <SelectItem value="Parts Availability Shared">Parts Availability Shared</SelectItem>
-            <SelectItem value="Promotions/Incentives Inquiry">Promotions/Incentives Inquiry</SelectItem>
-            <SelectItem value="Recall Check Completed">Recall Check Completed</SelectItem>
-            <SelectItem value="Repair Status Shared">Repair Status Shared</SelectItem>
-            <SelectItem value="Request Vehicle Information">Request Vehicle Information</SelectItem>
-            <SelectItem value="Request Price/Quote">Request Price/Quote</SelectItem>
-            <SelectItem value="Request service history">Request service history</SelectItem>
-            <SelectItem value="Reschedule Test Drive">Reschedule Test Drive</SelectItem>
-            <SelectItem value="Safety Recall">Safety Recall</SelectItem>
-            <SelectItem value="Salesperson/Manager Request">Salesperson/Manager Request</SelectItem>
-            <SelectItem value="Schedule PDI before purchase">Schedule PDI before purchase</SelectItem>
-            <SelectItem value="Schedule Recall">Schedule Recall</SelectItem>
-            <SelectItem value="Schedule recall">Schedule recall</SelectItem>
-            <SelectItem value="Schedule Service Appointment">Schedule Service Appointment</SelectItem>
-            <SelectItem value="Schedule Test Drive">Schedule Test Drive</SelectItem>
-            <SelectItem value="Service Appointment Booked">Service Appointment Booked</SelectItem>
-            <SelectItem value="Service Appointment Rescheduled">Service Appointment Rescheduled</SelectItem>
-            <SelectItem value="Service History Shared">Service History Shared</SelectItem>
-            <SelectItem value="Service Pricing Shared">Service Pricing Shared</SelectItem>
-            <SelectItem value="Trade-in Inquiry">Trade-in Inquiry</SelectItem>
-            <SelectItem value="Transferred to Human">Transferred to Human</SelectItem>
-            <SelectItem value="Vehicle Availability Inquiry">Vehicle Availability Inquiry</SelectItem>
-            <SelectItem value="Warranty Info Shared">Warranty Info Shared</SelectItem>
-            <SelectItem value="No Availability">No Availability</SelectItem>
-            <SelectItem value="No Intent">No Intent</SelectItem>
+          <SelectContent className="bg-white border border-gray-200 rounded-lg shadow-lg max-h-[400px] p-0">
+            {/* Search input for outcomes - Fixed at top */}
+            <div className="sticky top-0 z-50 bg-white border-b border-gray-100 p-3 rounded-t-lg shadow-sm">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search outcomes..."
+                  value={outcomeSearchTerm}
+                  onChange={(e) => setOutcomeSearchTerm(e.target.value)}
+                  className="pl-9 pr-8 h-9 text-sm border-gray-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200 bg-gray-50 focus:bg-white transition-colors"
+                />
+                {outcomeSearchTerm && (
+                  <button
+                    onClick={() => setOutcomeSearchTerm('')}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            {/* Scrollable content area */}
+            <div className="max-h-[320px] overflow-y-auto">
+              <SelectItem value="all">All Outcomes</SelectItem>
+              {filteredOutcomes.length > 0 ? (
+                filteredOutcomes.map((outcome) => (
+                  <SelectItem key={outcome} value={outcome}>
+                    {outcome}
+                  </SelectItem>
+                ))
+              ) : (
+                <div className="px-4 py-6 text-sm text-gray-500 text-center">
+                  No outcomes found
+                </div>
+              )}
+            </div>
           </SelectContent>
         </Select>
 
 
         {/* Statuses Filter (Connection Status) */}
         <Select value={connectionFilter[0]} onValueChange={(value) => setConnectionFilter([value])}>
-          <SelectTrigger className="w-auto min-w-[130px] h-12 px-4 rounded-lg border border-gray-300 bg-white text-sm hover:bg-gray-50 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 shadow-sm">
+          <SelectTrigger className="flex w-auto min-w-[170px] items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm transition-all duration-150 ease-out hover:bg-gray-50 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none h-10">
             <div className="flex items-center gap-2">
               <Activity className="h-4 w-4 text-gray-500" />
               <SelectValue placeholder="All Statuses" />
@@ -315,12 +425,15 @@ export function LiveActivityFilters({
             <SelectItem value="queue">Queue</SelectItem>
             <SelectItem value="failed">Failed</SelectItem>
             <SelectItem value="voicemail">Voicemail</SelectItem>
+            <SelectItem value="did-not-answer">Did Not Answer</SelectItem>
+            <SelectItem value="customer-ended">Customer Ended</SelectItem>
+            <SelectItem value="customer-busy">Customer Busy</SelectItem>
           </SelectContent>
         </Select>
 
         {/* Time Period Filter */}
         <Select value={timePeriodFilter} onValueChange={setTimePeriodFilter}>
-          <SelectTrigger className="w-auto min-w-[130px] h-12 px-4 rounded-lg border border-gray-300 bg-white text-sm hover:bg-gray-50 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 shadow-sm">
+          <SelectTrigger className="flex w-auto min-w-[170px] items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm transition-all duration-150 ease-out hover:bg-gray-50 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none h-10">
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-gray-500" />
               <SelectValue placeholder="Last 30 Days" />
@@ -405,12 +518,38 @@ export function LiveActivityFilters({
             </div>
           )}
           
-          {(connectionFilter.length > 1 || (connectionFilter.length === 1 && connectionFilter[0] !== "all")) && (
+          {(statusFilter.length > 1 || (statusFilter.length === 1 && statusFilter[0] !== "all")) && (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium border-blue-600 text-blue-600 bg-blue-50">
-              <span>Status: {connectionFilter.length === 1 ? connectionFilter[0].replace("_", " ") : `${connectionFilter.length} selected`}</span>
+              <span>
+                Status: {statusFilter.length === 1 
+                  ? formatStatusName(statusFilter[0]) 
+                  : statusFilter.length <= 3 
+                    ? statusFilter.map(s => formatStatusName(s)).join(', ')
+                    : `${statusFilter.length} selected`
+                }
+              </span>
+              <button
+                onClick={() => setStatusFilter(["all"])}
+                className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-blue-100 transition-colors text-blue-600"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {(connectionFilter.length > 1 || (connectionFilter.length === 1 && connectionFilter[0] !== "all")) && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium border-purple-600 text-purple-600 bg-purple-50">
+              <span>
+                Connection: {connectionFilter.length === 1 
+                  ? formatStatusName(connectionFilter[0]) 
+                  : connectionFilter.length <= 3 
+                    ? connectionFilter.map(s => formatStatusName(s)).join(', ')
+                    : `${connectionFilter.length} selected`
+                }
+              </span>
               <button
                 onClick={() => setConnectionFilter(["all"])}
-                className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-blue-100 transition-colors text-blue-600"
+                className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-purple-100 transition-colors text-purple-600"
               >
                 ×
               </button>

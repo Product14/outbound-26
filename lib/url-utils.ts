@@ -201,7 +201,7 @@ export function updateUrlWithFilters(basePath: string, filters: FilterState): vo
     searchParams.set('page', filters.page.toString());
   }
   
-  if (filters.limit && filters.limit !== 50) {
+  if (filters.limit && filters.limit !== 10) {
     searchParams.set('limit', filters.limit.toString());
   }
   
@@ -223,6 +223,6 @@ export function restoreFiltersFromUrl(): FilterState {
     outcome: params.outcome || 'all',
     timePeriod: params.timePeriod || '30',
     page: params.page ? parseInt(params.page) : 1,
-    limit: params.limit ? parseInt(params.limit) : 50,
+    limit: params.limit ? parseInt(params.limit) : 10,
   };
 }

@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const authKey = searchParams.get('auth_key')
     const statusTypes = searchParams.get('statusTypes') // Legacy support
     const page = searchParams.get('page') || '1'
-    const limit = searchParams.get('limit') || '50'
+    const limit = searchParams.get('limit') || '10'
     const q = searchParams.get('q') // Search query
     const connectionStatus = searchParams.get('connectionStatus') || statusTypes // Use connectionStatus or fallback to statusTypes
     const startDate = searchParams.get('startDate')
@@ -20,11 +20,19 @@ export async function GET(request: NextRequest) {
     const maxAiQuality = searchParams.get('maxAiQuality')
     const sortBy = searchParams.get('sortBy')
     const sortOrder = searchParams.get('sortOrder')
+    const showCallbacks = searchParams.get('showCallbacks')
     
     if (!campaignId) {
       return NextResponse.json(
         { error: 'Campaign ID is required' },
         { status: 400 }
+      )
+    }
+
+    if (!authKey) {
+      return NextResponse.json(
+        { error: 'Missing required parameter: auth_key is required for authentication' },
+        { status: 401 }
       )
     }
 
@@ -44,6 +52,7 @@ export async function GET(request: NextRequest) {
     if (maxAiQuality) queryParams.append('maxAiQuality', maxAiQuality)
     if (sortBy) queryParams.append('sortBy', sortBy)
     if (sortOrder) queryParams.append('sortOrder', sortOrder)
+    if (showCallbacks) queryParams.append('showCallbacks', showCallbacks)
     
     queryParams.append('page', page)
     queryParams.append('limit', limit)
@@ -61,7 +70,7 @@ export async function GET(request: NextRequest) {
 
     // Add authorization header if auth_key is provided
     if (authKey) {
-      headers['Authorization'] = authKey.startsWith('Bearer ') ? authKey : `Bearer ${authKey}`
+      headers['Authorization'] = `Bearer ${authKey}`
     }
     
     const response = await fetch(url, {

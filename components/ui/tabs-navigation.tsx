@@ -99,18 +99,17 @@ export function TabsNavigation({
         {(showSearch || showFilters) && (
           <div className="flex items-center gap-3 py-3">
             {showSearch && (
-              <div className="bg-[rgba(255,255,255,0.9)] border border-[rgba(0,9,50,0.12)] flex items-center px-1 py-0 rounded-[6px] w-[200px] h-8">
-                <div className="flex items-center justify-center px-1 py-0">
-                  <Search size={20} className="text-[rgba(0,5,29,0.45)]" />
+              <div className="flex items-center w-[200px] h-10 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm transition-all duration-200 ease-out focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-200">
+                <div className="flex items-center justify-center pr-2">
+                  <Search size={16} className="text-gray-400" />
                 </div>
-                <div className="flex-1 px-1 py-0">
+                <div className="flex-1">
                   <input
                     type="text"
                     placeholder="Search"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm?.(e.target.value)}
-                    className="w-full bg-transparent text-[14px] text-[rgba(0,5,29,0.45)] leading-5 outline-none font-normal"
-                    style={{ fontFamily: 'SF Pro, sans-serif' }}
+                    className="w-full bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none font-normal"
                   />
                 </div>
               </div>

@@ -275,7 +275,7 @@ export function useEndCallReport(callId: string | null): UseEndCallReportReturn 
         duration: calculateCallDuration(rawData.callDetails.startedAt, rawData.callDetails.endedAt),
         transcript: processTranscript(rawData.callDetails.messages),
         summary: rawData.callDetails.analysis.summary || 'No summary available',
-        outcome: rawData.report.Outcome || 'No outcome specified',
+        outcome: rawData.report.Outcome || '--',
         sentiment: {
           score: rawData.report.overview.overall.sentimentScore || 0,
           label: rawData.report.overview.overall.sentiment || 'neutral'

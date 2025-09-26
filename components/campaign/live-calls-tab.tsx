@@ -3,7 +3,11 @@
 import { useState, useRef } from 'react'
 import { LiveActivityTable } from '@/components/live-activity-table'
 import { LiveActivityFilters } from '@/components/live-activity-filters'
-import { RefreshCountdown } from '@/components/ui/refresh-countdown'
+import { downloadCampaignPDF } from '@/lib/pdf-utils'
+import { downloadCampaignCSV } from '@/lib/csv-utils'
+import { Button } from '@/components/ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Download, FileText, FileSpreadsheet, ChevronDown, Loader2 } from 'lucide-react'
 import { MetricsGrid } from '@/components/ui/metrics-grid'
 import AppointmentFunnel from '@/components/ui/appointment-funnel'
 import { getAppointmentFunnelData } from '@/lib/funnel-utils'
@@ -65,7 +69,10 @@ export function LiveCallsTab({
 
   // We'll get the total results from the LiveActivityTable
   const [totalResults, setTotalResults] = useState(0)
+  const [isLoadingResults, setIsLoadingResults] = useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [isDownloadingCSV, setIsDownloadingCSV] = useState(false)
+  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false)
   
   // Ref to access LiveActivityTable's search function
   const tableRef = useRef<any>(null)
@@ -76,17 +83,89 @@ export function LiveCallsTab({
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-4">
           <h2 className="text-lg font-semibold text-gray-900">Calls & Analytics</h2>
-          <span className="text-sm text-gray-500">
-            {totalLeads || 0} {totalLeads === 1 ? 'customer' : 'customers'} total
-          </span>
         </div>
-        <RefreshCountdown 
-          onRefresh={() => {
-            // Trigger refresh by updating the refresh trigger
-            setRefreshTrigger(prev => prev + 1)
-          }}
-          className="text-sm"
-        />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2 text-sm"
+            >
+              <Download className="h-4 w-4" />
+              Download
+              <ChevronDown className="h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem
+              onClick={async () => {
+                if (campaignId && !isDownloadingPDF) {
+                  try {
+                    setIsDownloadingPDF(true)
+                    await downloadCampaignPDF(campaignId, authKey, {
+                      includeAllPages: true, // Multi-page for better UI
+                      quality: 0.85, // Good quality for professional output
+                      scale: 1.8, // Higher scale for better readability
+                      showErrorToasts: false // Handle errors gracefully without showing toasts
+                    })
+                  } catch (error) {
+                    console.error('Failed to download PDF:', error)
+                    // Error is handled by the PDF utility with toast notifications
+                  } finally {
+                    setIsDownloadingPDF(false)
+                  }
+                }
+              }}
+              className={`flex items-center gap-2 ${isDownloadingPDF ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+              disabled={isDownloadingPDF}
+            >
+              {isDownloadingPDF ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-blue-600"></div>
+              ) : (
+                <FileText className="h-4 w-4" />
+              )}
+              <div className="flex flex-col">
+                <span className="font-medium">
+                  {isDownloadingPDF ? 'Generating PDF...' : 'Download PDF'}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {isDownloadingPDF ? 'Please wait...' : 'Visual campaign report'}
+                </span>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={async () => {
+                if (campaignId && !isDownloadingCSV) {
+                  try {
+                    setIsDownloadingCSV(true)
+                    await downloadCampaignCSV(campaignId, authKey)
+                  } catch (error) {
+                    console.error('Failed to download CSV:', error)
+                  } finally {
+                    setIsDownloadingCSV(false)
+                  }
+                }
+              }}
+              className={`flex items-center gap-2 ${isDownloadingCSV ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+              disabled={isDownloadingCSV}
+            >
+              {isDownloadingCSV ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileSpreadsheet className="h-4 w-4" />
+              )}
+              <div className="flex flex-col">
+                <span className="font-medium flex items-center gap-2">
+                  Download CSV
+                  {isDownloadingCSV && (
+                    <span className="text-xs text-gray-500">Preparing...</span>
+                  )}
+                </span>
+                <span className="text-xs text-gray-500">All campaign data</span>
+              </div>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Campaign Funnel and Metrics Section */}
@@ -259,12 +338,24 @@ export function LiveCallsTab({
           showAllFilters={showFilters}
           setShowAllFilters={() => onToggleFilters?.()}
           onSearchAPI={(searchTerm) => tableRef.current?.performAPISearch?.(searchTerm)}
+          agentType={isSalesCampaign ? 'Sales' : 'Service'}
           isSearching={false} // We'll get this from the table if needed
         />
       </div>
 
       {/* Main Content Area - Full Width (Modal is positioned absolutely) */}
       <div className="w-full">
+        {/* Results Count */}
+        <div className="mb-4 px-1">
+          {isLoadingResults ? (
+            <div className="h-4 w-28 bg-gray-200 rounded animate-pulse"></div>
+          ) : (
+            <span className="text-sm text-gray-700 font-semibold">
+              {totalResults || 0} {totalResults === 1 ? 'result' : 'results'} found
+            </span>
+          )}
+        </div>
+        
         {/* Live Activity Feed */}
         <LiveActivityTable 
           ref={tableRef}
@@ -280,6 +371,7 @@ export function LiveCallsTab({
           timePeriodFilter={timePeriodFilter}
           campaignId={campaignId}
           onFilteredCountChange={setTotalResults}
+          onLoadingChange={setIsLoadingResults}
           refreshTrigger={refreshTrigger}
           authKey={authKey}
         />

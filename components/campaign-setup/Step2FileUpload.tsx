@@ -362,10 +362,10 @@ export default function Step2FileUpload({
                             setErrors(prev => ({ ...prev, crmSelection: false }))
                           }
                         }}>
-                          <SelectTrigger className={`w-full h-10 text-[14px] bg-white ${
+                          <SelectTrigger className={`flex w-full items-center justify-between gap-2 rounded-xl border bg-white px-3 py-2 text-sm transition-all duration-150 ease-out hover:bg-gray-50 focus:outline-none h-10 ${
                             errors.crmSelection
-                              ? 'border-red-500 focus:border-red-500' 
-                              : 'border-[#E5E7EB] focus:border-[#4600F2]'
+                              ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-200' 
+                              : 'border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200'
                           }`}>
                             <SelectValue placeholder="Select your CRM" />
                           </SelectTrigger>

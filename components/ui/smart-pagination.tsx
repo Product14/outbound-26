@@ -99,11 +99,13 @@ export function SmartPagination({
   }
 
   return (
-    <div className={cn("flex items-center justify-between px-6 py-4 border-t border-gray-200", className)}>
+    <div className={cn("flex items-center justify-between px-6 py-4 border-t border-gray-200", className)} data-total-pages={totalPages}>
       {/* Results info and progress indicator */}
       <div className="flex items-center gap-4 min-w-0 flex-1">
         <span className="text-sm text-gray-700">
-          Showing {startIndex + 1} to {endIndex} of {totalRecords.toLocaleString()} results
+          Showing <span data-start-index>{startIndex + 1}</span> to <span data-end-index>{endIndex}</span> of <span data-total-records>{totalRecords.toLocaleString()}</span> results
+          <span data-current-page style={{ display: 'none' }}>{currentPage}</span>
+          <span data-page-size style={{ display: 'none' }}>{itemsPerPage}</span>
         </span>
         
         {showProgressIndicator && totalRecords > 0 && (
@@ -126,6 +128,7 @@ export function SmartPagination({
         <Select 
           value={itemsPerPage.toString()} 
           onValueChange={(value) => onItemsPerPageChange(parseInt(value))}
+          data-page-size-select
         >
           <SelectTrigger className="w-20 h-8 text-sm">
             <SelectValue />
@@ -150,6 +153,7 @@ export function SmartPagination({
           onClick={() => onPageChange(Math.max(1, currentPage - 1))}
           disabled={currentPage === 1}
           className="h-8 w-8 p-0"
+          data-pagination-prev
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -189,6 +193,7 @@ export function SmartPagination({
           onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
           disabled={currentPage === totalPages}
           className="h-8 w-8 p-0"
+          data-pagination-next
         >
           <ChevronRight className="h-4 w-4" />
         </Button>

@@ -407,7 +407,7 @@ export default function CampaignResults() {
                     placeholder="Search campaigns..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-12 h-10 text-[#666666] font-semibold border-border bg-surface focus:bg-surface transition-all duration-200"
+                    className="flex h-10 w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3 py-2 pl-12 text-sm shadow-sm transition-all duration-200 ease-out focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none"
                   />
                 </div>
               </div>
@@ -648,7 +648,7 @@ export default function CampaignResults() {
                         </div>
                         <div className="flex flex-col items-start p-3 bg-gray-50 rounded-lg min-w-0">
                           <span className="text-xs text-text-secondary">Answer Rate</span>
-                          <span className="text-sm font-medium text-text-primary">{campaign.answerRate}%</span>
+                          <span className="text-sm font-medium text-text-primary">{campaign.answerRate.toFixed(2)}%</span>
                         </div>
                         <div className="flex flex-col items-start p-3 bg-gray-50 rounded-lg min-w-0">
                           <span className="text-xs text-text-secondary">Appointments</span>

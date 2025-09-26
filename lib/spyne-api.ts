@@ -1,11 +1,11 @@
 import type { CallRecord, TranscriptEntry } from "@/types/call-record"
 import type { SpyneApiResponse, SpyneCallData, SpyneApiParams, SpyneMessage, SpyneFormattedMessage } from "@/types/spyne-api"
 import { getTenantIdsFromReferrer } from "@/lib/utils"
-import { getApiBaseUrl } from "@/config"
+import { configs } from "@/configs"
 import { CallOutcome, SALES_OUTCOMES, SERVICE_OUTCOMES } from "@/lib/call-status-utils"
 
-// API Configuration - now uses config.tsx
-const SPYNE_API_BASE_URL = getApiBaseUrl()
+// API Configuration - now uses configs.tsx
+const SPYNE_API_BASE_URL = configs.base_url
 // No .env dependencies - enterprise and team IDs come from URL parameters only
 const DEFAULT_ENTERPRISE_ID = ''
 const DEFAULT_TEAM_ID = ''

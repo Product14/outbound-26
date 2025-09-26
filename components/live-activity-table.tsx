@@ -106,6 +106,7 @@ interface CallRecord {
     avatar?: string
   }
   qualityScore: number // Use 0 when no score from API
+  retryCount: number // Number of retry attempts for this call
 }
 
 interface LiveActivityTableProps {
@@ -121,11 +122,15 @@ interface LiveActivityTableProps {
   timePeriodFilter?: string
   campaignId?: string
   onFilteredCountChange?: (count: number) => void
+  onLoadingChange?: (isLoading: boolean) => void
   refreshTrigger?: number // Add this to trigger refresh from parent
   authKey?: string // Add auth_key support
 }
 
-export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) => Promise<void> }, LiveActivityTableProps>(function LiveActivityTable({ 
+export const LiveActivityTable = forwardRef<{ 
+  performAPISearch: (query: string) => Promise<void>
+  exportAllData: () => Promise<void>
+}, LiveActivityTableProps>(function LiveActivityTable({ 
   isCallDetailsOpen = false, 
   onCallSelect, 
   searchTerm = "", 
@@ -138,13 +143,14 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
   timePeriodFilter = "30",
   campaignId,
   onFilteredCountChange,
+  onLoadingChange,
   refreshTrigger,
   authKey
 }: LiveActivityTableProps, ref) {
   const [sortField, setSortField] = useState<keyof CallRecord>("timestamp")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(50)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [aiScoreBreakdownOpen, setAiScoreBreakdownOpen] = useState(false)
   const [selectedCallForBreakdown, setSelectedCallForBreakdown] = useState<AICallRecord | null>(null)
@@ -253,12 +259,12 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
     
     // Queue status means call hasn't started yet
     if (connectionStatus === 'queue' || status === 'QUEUED') {
-      return "In queue"
+      return "--"
     }
     
     // Live calls are ongoing
     if (connectionStatus === 'live' || status === 'LIVE') {
-      return "Live call"
+      return "--"
     }
     
     // Failed calls with no duration data
@@ -267,26 +273,26 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
         connectionStatus === 'not_connected' ||
         status === 'CALL_FAILED' ||
         status === 'failed') {
-      return "Call failed"
+      return "--"
     }
     
     // Voicemail calls with no duration data
     if (connectionStatus === 'voicemail') {
-      return "Voicemail"
+      return "--"
     }
     
     // Connected calls with no duration data
     if (connectionStatus === 'connected' || status === 'CALL_CONNECTED') {
-      return "Connected"
+      return "--"
     }
     
     // Completed calls with no duration data
-    if (status === 'CALL_COMPLETED' && outcome && outcome !== 'No Outcome') {
-      return "Completed"
+    if (status === 'CALL_COMPLETED' && outcome && outcome !== '--') {
+      return "--"
     }
     
     // Default case - no duration available
-    return "No duration"
+    return "--"
   }
 
   // Function to transform new API data to CallRecord format
@@ -305,14 +311,14 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
         hour12: true 
       })
 
-      // Use API connectionStatus value directly for display
+      // Use API status value directly for display (this is the main status field)
+      const callStatus = task.status || 'Unknown'
+      
+      // Keep connectionStatus for backward compatibility but prioritize status
       const connectionStatus = task.connectionStatus || 'not_connected'
 
-      // Use status directly from API
-      const callStatus = task.status || 'Unknown'
-
-      // Use outcome directly from API - no mapping/transformation
-      const outcome = task.outcome || 'No Outcome'
+      // Use outcome from API with proper formatting
+      const outcome = formatOutcomeText(task.outcome || '--')
 
       // Format call duration using utility function - try both field names
       const durationValue = task.duration || task.callDuration // Try 'duration' first, then 'callDuration'
@@ -369,7 +375,8 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
           agentName: apiData.agentName || "AI Agent",
           agentType: "AI Agent"
         },
-        qualityScore: task.aiQuality ? parseFloat(task.aiQuality) : 0
+        qualityScore: task.aiQuality ? parseFloat(task.aiQuality) : 0,
+        retryCount: task.retryCount || 0 // Map retry count from API
       }
     })
   }
@@ -402,7 +409,8 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
       connectionFilter: currentConnectionFilter,
       timePeriodFilter: currentTimePeriodFilter,
       sortField: currentSortField,
-      sortDirection: currentSortDirection
+      sortDirection: currentSortDirection,
+      showCallbacks: false
     })
     
     // Prevent duplicate API calls
@@ -432,7 +440,7 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
     
     try {
       // Build URL with all filters for server-side filtering and pagination
-      let url = `/api/fetch-campaign-status?campaignId=${campaignId}&page=${page}&limit=${limit}`
+      let url = `/api/fetch-campaign-status?campaignId=${campaignId}&page=${page}&limit=${limit}&showCallbacks=false`
       
       // Add auth_key if provided
       if (authKey) {
@@ -454,9 +462,9 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
       const uniqueActiveFilters = Array.from(new Set(allActiveFilters))
       
       if (uniqueActiveFilters.length > 0) {
-        // Filter values now match API values exactly: connected, live, queue, failed, voicemail
+        // Filter values now match API values exactly: connected, live, queue, failed, voicemail, did-not-answer, customer-ended, customer-busy
         const apiConnectionStatus = uniqueActiveFilters.filter(status => 
-          ['connected', 'live', 'queue', 'failed', 'voicemail'].includes(status)
+          ['connected', 'live', 'queue', 'failed', 'voicemail', 'did-not-answer', 'customer-ended', 'customer-busy'].includes(status)
         )
         
         if (apiConnectionStatus.length > 0) {
@@ -684,10 +692,29 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
     fetchCampaignStatus(true, statusFilter, 1, itemsPerPage, query.trim(), connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
   }, [campaignId, fetchCampaignStatus, statusFilter, itemsPerPage, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection])
 
-  // Expose performAPISearch function to parent components
+  // Function to export all data with current filters
+  const exportAllData = useCallback(async () => {
+    if (!campaignId) {
+      console.error('No campaign ID available for export')
+      return
+    }
+
+    try {
+      // Import the downloadCampaignCSV function
+      const { downloadCampaignCSV } = await import('@/lib/csv-utils')
+      
+      // Export all campaign data with current filters applied
+      await downloadCampaignCSV(campaignId, authKey)
+    } catch (error) {
+      console.error('Failed to export campaign data:', error)
+    }
+  }, [campaignId, authKey])
+
+  // Expose functions to parent components
   useImperativeHandle(ref, () => ({
-    performAPISearch
-  }), [performAPISearch])
+    performAPISearch,
+    exportAllData
+  }), [performAPISearch, exportAllData])
 
   // Clear search when search term is empty
   useEffect(() => {
@@ -743,12 +770,19 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
     return callRecords
   }, [callRecords])
 
-  // Notify parent of filtered count changes
+  // Notify parent of total records count from API
   useEffect(() => {
     if (onFilteredCountChange) {
-      onFilteredCountChange(filteredCalls.length)
+      onFilteredCountChange(totalRecords)
     }
-  }, [filteredCalls.length, onFilteredCountChange])
+  }, [totalRecords, onFilteredCountChange])
+
+  // Notify parent of loading state changes
+  useEffect(() => {
+    if (onLoadingChange) {
+      onLoadingChange(isLoadingCalls)
+    }
+  }, [isLoadingCalls, onLoadingChange])
 
   // Use API pagination data instead of client-side pagination
   const totalPages = Math.ceil(totalRecords / itemsPerPage)
@@ -814,8 +848,104 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
     }
   }, [])
 
-  const getConnectionStatusBadge = useCallback((status: string, nextVisibleAt?: string) => {
+  const getStatusBadge = useCallback((status: string, nextVisibleAt?: string) => {
     switch (status) {
+      case "QUEUED":
+        const nextCallTime = formatNextCallTime(nextVisibleAt)
+        return (
+          <div className="flex flex-col items-start gap-2">
+            <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+              <Timer className="w-3 h-3 mr-1" />
+              Queue
+            </Badge>
+            {nextCallTime && (
+              <div className="text-xs font-semibold text-gray-700">
+                Next call in {nextCallTime}
+              </div>
+            )}
+          </div>
+        )
+      case "CALL_COMPLETED":
+        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+          <PhoneCall className="w-3 h-3 mr-1" />
+          Call Completed
+        </Badge>
+      case "CALL_COMPLETED_VOICEMAIL":
+        const nextCallTimeVoicemail = formatNextCallTime(nextVisibleAt)
+        return (
+          <div className="flex flex-col items-start gap-2">
+            <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
+              <Voicemail className="w-3 h-3 mr-1" />
+              Voicemail
+            </Badge>
+            {nextCallTimeVoicemail && (
+              <div className="text-xs font-semibold text-gray-700">
+                Next call in {nextCallTimeVoicemail}
+              </div>
+            )}
+          </div>
+        )
+      case "CUSTOMER_BUSY":
+        const nextCallTimeBusy = formatNextCallTime(nextVisibleAt)
+        return (
+          <div className="flex flex-col items-start gap-2">
+            <Badge className="bg-orange-50 text-orange-600 hover:bg-orange-100 hover:border-orange-200 transition-all duration-200">
+              <PhoneMissed className="w-3 h-3 mr-1" />
+              Customer Busy
+            </Badge>
+            {nextCallTimeBusy && (
+              <div className="text-xs font-semibold text-gray-700">
+                Next call in {nextCallTimeBusy}
+              </div>
+            )}
+          </div>
+        )
+      case "CUSTOMER_DID_NOT_ANSWER":
+        const nextCallTimeNoAnswer = formatNextCallTime(nextVisibleAt)
+        return (
+          <div className="flex flex-col items-start gap-2">
+            <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">
+              <PhoneOff className="w-3 h-3 mr-1" />
+              Customer Did Not Answer
+            </Badge>
+            {nextCallTimeNoAnswer && (
+              <div className="text-xs font-semibold text-gray-700">
+                Next call in {nextCallTimeNoAnswer}
+              </div>
+            )}
+          </div>
+        )
+      case "CALL_FAILED":
+        const nextCallTimeFailed = formatNextCallTime(nextVisibleAt)
+        return (
+          <div className="flex flex-col items-start gap-2">
+            <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
+              <X className="w-3 h-3 mr-1" />
+              Call Failed
+            </Badge>
+            {nextCallTimeFailed && (
+              <div className="text-xs font-semibold text-gray-700">
+                Next call in {nextCallTimeFailed}
+              </div>
+            )}
+          </div>
+        )
+      case "LIVE_CALL":
+        return <Badge className="bg-red-100 text-red-800 hover:bg-red-100 animate-pulse">
+          <div className="w-2 h-2 bg-red-500 rounded-full mr-1"></div>
+          Live Call
+        </Badge>
+      case "CALL_IN_PROGRESS":
+        return <Badge className="bg-red-100 text-red-800 hover:bg-red-100 animate-pulse">
+          <div className="w-2 h-2 bg-red-500 rounded-full mr-1"></div>
+          In Progress
+        </Badge>
+      case "DO_NOT_CALL":
+        return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
+          <Ban className="w-3 h-3 mr-1" />
+          Do Not Call
+        </Badge>
+      // Legacy connectionStatus values for backward compatibility
       case "connected":
         return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
           <PhoneCall className="w-3 h-3 mr-1" />
@@ -827,49 +957,116 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
           Live
         </Badge>
       case "queue":
-        const nextCallTime = formatNextCallTime(nextVisibleAt)
-        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
-          <Timer className="w-3 h-3 mr-1" />
-          {nextCallTime ? `Next call in ${nextCallTime}` : "Queue"}
-        </Badge>
+        const nextCallTimeLegacy = formatNextCallTime(nextVisibleAt)
+        return (
+          <div className="flex flex-col items-start gap-2">
+            <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+              <Timer className="w-3 h-3 mr-1" />
+              Queue
+            </Badge>
+            {nextCallTimeLegacy && (
+              <div className="text-xs font-semibold text-gray-700">
+                Next call in {nextCallTimeLegacy}
+              </div>
+            )}
+          </div>
+        )
       case "failed":
-        return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
-          <X className="w-3 h-3 mr-1" />
-          Failed
-        </Badge>
+        const nextCallTimeFailedLegacy = formatNextCallTime(nextVisibleAt)
+        return (
+          <div className="flex flex-col items-start gap-2">
+            <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
+              <X className="w-3 h-3 mr-1" />
+              Failed
+            </Badge>
+            {nextCallTimeFailedLegacy && (
+              <div className="text-xs font-semibold text-gray-700">
+                Next call in {nextCallTimeFailedLegacy}
+              </div>
+            )}
+          </div>
+        )
       case "voicemail":
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
-          <Voicemail className="w-3 h-3 mr-1" />
-          Voicemail
-        </Badge>
-      // Legacy/additional status values that might come from API
+        const nextCallTimeVoicemailLegacy = formatNextCallTime(nextVisibleAt)
+        return (
+          <div className="flex flex-col items-start gap-2">
+            <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
+              <Voicemail className="w-3 h-3 mr-1" />
+              Voicemail
+            </Badge>
+            {nextCallTimeVoicemailLegacy && (
+              <div className="text-xs font-semibold text-gray-700">
+                Next call in {nextCallTimeVoicemailLegacy}
+              </div>
+            )}
+          </div>
+        )
       case "not_connected":
-        return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">
-          <PhoneOff className="w-3 h-3 mr-1" />
-          Not Connected
-        </Badge>
-      case "call_failed":
-        return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
-          <X className="w-3 h-3 mr-1" />
-          Call Failed
-        </Badge>
+      case "not-connected":
+        const nextCallTimeNotConnected = formatNextCallTime(nextVisibleAt)
+        return (
+          <div className="flex flex-col items-start gap-2">
+            <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">
+              <PhoneOff className="w-3 h-3 mr-1" />
+              Not Connected
+            </Badge>
+            {nextCallTimeNotConnected && (
+              <div className="text-xs font-semibold text-gray-700">
+                Next call in {nextCallTimeNotConnected}
+              </div>
+            )}
+          </div>
+        )
       case "busy":
-        return <Badge className="bg-orange-50 text-orange-600 hover:bg-orange-100 hover:border-orange-200 transition-all duration-200">
-          <PhoneMissed className="w-3 h-3 mr-1" />
-          Busy
-        </Badge>
-      case "do_not_call":
-        return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
-          <Ban className="w-3 h-3 mr-1" />
-          Do Not Call
-        </Badge>
+        const nextCallTimeBusyLegacy = formatNextCallTime(nextVisibleAt)
+        return (
+          <div className="flex flex-col items-start gap-2">
+            <Badge className="bg-orange-50 text-orange-600 hover:bg-orange-100 hover:border-orange-200 transition-all duration-200">
+              <PhoneMissed className="w-3 h-3 mr-1" />
+              Busy
+            </Badge>
+            {nextCallTimeBusyLegacy && (
+              <div className="text-xs font-semibold text-gray-700">
+                Next call in {nextCallTimeBusyLegacy}
+              </div>
+            )}
+          </div>
+        )
       default:
-        return <Badge variant="secondary">{status}</Badge>
+        const nextCallTimeDefault = formatNextCallTime(nextVisibleAt)
+        return (
+          <div className="flex flex-col items-start gap-2">
+            <Badge variant="secondary">{status.replace(/_/g, ' ')}</Badge>
+            {nextCallTimeDefault && (
+              <div className="text-xs font-semibold text-gray-700">
+                Next call in {nextCallTimeDefault}
+              </div>
+            )}
+          </div>
+        )
     }
   }, [formatNextCallTime])
 
+  // Helper function to format text to proper case
+  const formatOutcomeText = useCallback((text: string) => {
+    if (!text || text === "--") return text
+    
+    // Convert to proper case (first letter of each word capitalized)
+    return text
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+  }, [])
+
   const getOutcomeBadge = useCallback((outcome: string) => {
-    const originalLabel = outcome && outcome.trim().length > 0 ? outcome : "No Outcome"
+    // Show plain dash text if outcome is empty, null, or just dashes - no badge
+    if (!outcome || outcome.trim().length === 0 || outcome.trim() === '--' || outcome.trim() === '-') {
+      return <span className="text-gray-400">--</span>
+    }
+    
+    const originalLabel = outcome
+    const formattedLabel = formatOutcomeText(originalLabel)
     const normalized = originalLabel
       .toLowerCase()
       .replace(/\s+/g, "_")
@@ -893,7 +1090,7 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
       return (
         <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
           <Calendar className="w-3 h-3 mr-1" />
-          {originalLabel}
+          {formattedLabel}
         </Badge>
       )
     }
@@ -901,37 +1098,37 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
       return (
         <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
           <Car className="w-3 h-3 mr-1" />
-          {originalLabel}
+          {formattedLabel}
         </Badge>
       )
     }
     if (isCallback) {
-      return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100">{originalLabel}</Badge>
+      return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100">{formattedLabel}</Badge>
     }
     if (isNotInterested) {
-      return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">{originalLabel}</Badge>
+      return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">{formattedLabel}</Badge>
     }
     if (isWrongNumber) {
-      return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">{originalLabel}</Badge>
+      return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">{formattedLabel}</Badge>
     }
     if (isInfoProvided) {
-      return <Badge className="bg-cyan-100 text-cyan-800 hover:bg-cyan-100">{originalLabel}</Badge>
+      return <Badge className="bg-cyan-100 text-cyan-800 hover:bg-cyan-100">{formattedLabel}</Badge>
     }
     if (isTradeIn) {
-      return <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">{originalLabel}</Badge>
+      return <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">{formattedLabel}</Badge>
     }
     if (isGeneralSalesInquiry) {
-      return <Badge className="bg-indigo-100 text-indigo-800 hover:bg-indigo-100">{originalLabel}</Badge>
+      return <Badge className="bg-indigo-100 text-indigo-800 hover:bg-indigo-100">{formattedLabel}</Badge>
     }
     if (isVoicemailOutcome) {
-      return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">{originalLabel}</Badge>
+      return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">{formattedLabel}</Badge>
     }
     if (isNoOutcome) {
-      return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">{originalLabel}</Badge>
+      return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">{formattedLabel}</Badge>
     }
 
-    return <Badge variant="secondary">{originalLabel}</Badge>
-  }, [])
+    return <Badge variant="secondary">{formattedLabel}</Badge>
+  }, [formatOutcomeText])
 
   const getCallReasonBadge = (reason: string) => {
     switch (reason) {
@@ -1073,6 +1270,20 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
       setAiScoreBreakdownOpen(true)
     }
 
+    // Check if we should show quality score or dash
+    // Show quality score only when status is 'connected' or 'CALL_COMPLETED'
+    const shouldShowScore = call.connectionStatus === 'connected' || 
+                           call.callStatus === 'CALL_COMPLETED' ||
+                           call.connectionStatus === 'CALL_COMPLETED'
+
+    if (!shouldShowScore) {
+      return (
+        <div className="flex items-center justify-start">
+          <div className="text-sm text-gray-500 font-medium">--</div>
+        </div>
+      )
+    }
+
     return (
       <div className="flex items-center justify-start">
         <button 
@@ -1144,19 +1355,11 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
               <div className="col-span-1">
                 <div className="h-4 bg-gray-200 rounded w-12 animate-pulse" />
               </div>
-              <div className="col-span-1">
-                <div className="h-4 bg-gray-200 rounded w-16 animate-pulse" />
-              </div>
             </div>
             
             {/* Call rows skeleton */}
             {Array.from({ length: 8 }).map((_, index) => (
               <div key={index} className="grid grid-cols-12 gap-4 py-4 border-b border-gray-50">
-                {/* Call ID */}
-                <div className="col-span-2">
-                  <div className="h-4 bg-gray-200 rounded w-20 animate-pulse" />
-                </div>
-                
                 {/* Customer */}
                 <div className="col-span-2">
                   <div className="space-y-1">
@@ -1170,14 +1373,14 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
                   <div className="h-6 bg-gray-200 rounded-full w-16 animate-pulse" />
                 </div>
                 
+                {/* Timestamp */}
+                <div className="col-span-1">
+                  <div className="h-4 bg-gray-200 rounded w-14 animate-pulse" />
+                </div>
+                
                 {/* Duration */}
                 <div className="col-span-1">
                   <div className="h-4 bg-gray-200 rounded w-12 animate-pulse" />
-                </div>
-                
-                {/* Quality Score */}
-                <div className="col-span-1">
-                  <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse" />
                 </div>
                 
                 {/* Outcome */}
@@ -1190,19 +1393,9 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
                   <div className="h-4 bg-gray-200 rounded w-16 animate-pulse" />
                 </div>
                 
-                {/* Time */}
+                {/* Quality Score */}
                 <div className="col-span-1">
-                  <div className="h-4 bg-gray-200 rounded w-14 animate-pulse" />
-                </div>
-                
-                {/* Actions */}
-                <div className="col-span-1">
-                  <div className="h-8 bg-gray-200 rounded w-8 animate-pulse" />
-                </div>
-                
-                {/* Revenue */}
-                <div className="col-span-1">
-                  <div className="h-4 bg-gray-200 rounded w-12 animate-pulse" />
+                  <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse" />
                 </div>
               </div>
             ))}
@@ -1225,7 +1418,7 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
   }
 
   return (
-    <div className="space-y-0">
+    <div className="space-y-0" data-campaign-container>
       {/* Main Table Content */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {/* Search Mode Indicator */}
@@ -1256,7 +1449,7 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
         )}
         
         <div className="overflow-x-auto">
-          <Table className="min-w-[1100px]">
+          <Table className="min-w-[1000px]">
               <TableHeader>
                 <TableRow className="bg-gray-50">
                   <TableHead className="font-semibold text-gray-900 cursor-pointer whitespace-nowrap min-w-[250px]" onClick={() => handleSort("customer")}>
@@ -1266,7 +1459,7 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
                       <ArrowUpDown className="w-3 h-3" />
                     </div>
                   </TableHead>
-                  <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[140px]">Connection Status</TableHead>
+                  <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[160px]">Status</TableHead>
                   <TableHead className="font-semibold text-gray-900 cursor-pointer whitespace-nowrap min-w-[160px]" onClick={() => handleSort("timestamp")}>
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4" />
@@ -1289,16 +1482,17 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
                 {displayCalls.map((call, index) => (
                   <TableRow 
                     key={call.id} 
+                    data-table-row
                   className={`hover:bg-gray-50 transition-colors ${
                     isTransitioning ? 'pointer-events-none' : 
-                    call.connectionStatus === 'connected' ? 'cursor-pointer' : 'cursor-default'
+                    (call.callStatus === 'CALL_COMPLETED' || call.connectionStatus === 'connected') ? 'cursor-pointer' : 'cursor-default'
                   }`}
                   onClick={(e) => {
                     e.preventDefault()
                     e.stopPropagation()
                     if (!isTransitioning) {
-                      // Only open call drawer for connected calls
-                      if (call.connectionStatus !== 'connected') {
+                      // Only open call drawer for completed calls
+                      if (call.callStatus !== 'CALL_COMPLETED' && call.connectionStatus !== 'connected') {
                        
                         return
                       }
@@ -1321,14 +1515,34 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
                         </Avatar>
                         <div>
                           <div className="font-medium text-gray-900">{call.customer.name}</div>
-                          <div className="text-sm text-gray-500 whitespace-nowrap">{call.customer.phone}</div>
+                          <div className="flex items-center gap-2 text-sm text-gray-500 whitespace-nowrap">
+                            <span>{call.customer.phone}</span>
+                            {call.retryCount > 0 && (
+                              <div className="relative group">
+                                <Badge 
+                                  variant="outline" 
+                                  className={`text-xs cursor-help ${
+                                    call.retryCount >= 3 ? 'bg-red-50 text-red-700 border-red-200' :
+                                    call.retryCount >= 2 ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                                    'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                  }`}
+                                >
+                                  {call.retryCount}
+                                </Badge>
+                                {/* Tooltip */}
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                                  Retry Count
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </TableCell>
                     
-                    {/* Connection Status */}
+                    {/* Status */}
                     <TableCell>
-                      {getConnectionStatusBadge(call.connectionStatus, call.nextVisibleAt)}
+                      {getStatusBadge(call.callStatus, call.nextVisibleAt)}
                     </TableCell>
                     
                     {/* Timestamp */}
@@ -1427,7 +1641,7 @@ export const LiveActivityTable = forwardRef<{ performAPISearch: (query: string) 
 
       {/* Bottom Navbar - Pagination Controls */}
       {filteredCalls.length > 0 && (
-        <div className="pt-6">
+        <div className="pt-6" data-pagination-container>
           <SmartPagination
             currentPage={currentPage}
             totalPages={totalPages}

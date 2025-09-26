@@ -52,7 +52,7 @@ export function useFilterState(options: UseFilterStateOptions = {}): UseFilterSt
   const [outcomeFilter, setOutcomeFilterState] = useState('all')
   const [timePeriodFilter, setTimePeriodFilterState] = useState('30')
   const [currentPage, setCurrentPageState] = useState(1)
-  const [itemsPerPage, setItemsPerPageState] = useState(50)
+  const [itemsPerPage, setItemsPerPageState] = useState(10)
   const [isInitialized, setIsInitialized] = useState(false)
 
   // Restore state from URL on mount
@@ -65,7 +65,7 @@ export function useFilterState(options: UseFilterStateOptions = {}): UseFilterSt
       setOutcomeFilterState(restored.outcome || 'all')
       setTimePeriodFilterState(restored.timePeriod || '30')
       setCurrentPageState(restored.page || 1)
-      setItemsPerPageState(restored.limit || 50)
+      setItemsPerPageState(restored.limit || 10)
       setIsInitialized(true)
     } else if (!enableUrlSync && !isInitialized) {
       setIsInitialized(true)
@@ -177,7 +177,7 @@ export function useFilterState(options: UseFilterStateOptions = {}): UseFilterSt
     setOutcomeFilterState('all')
     setTimePeriodFilterState('30')
     setCurrentPageState(1)
-    setItemsPerPageState(50)
+    setItemsPerPageState(10)
   }, [])
 
   return {

@@ -85,7 +85,7 @@ export const FilterControls = React.memo(function FilterControls({
               placeholder="Search by customer, phone, agent..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 h-10 rounded-lg border border-gray-200 bg-white text-sm w-full transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[placeholder]:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-10 w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3 py-2 pl-10 text-sm shadow-sm transition-all duration-200 ease-out focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none"
             />
           </div>
         </div>
@@ -93,7 +93,7 @@ export const FilterControls = React.memo(function FilterControls({
         {/* Filter Controls - Wrap on smaller screens */}
         <div ref={filtersRowRef} className="flex flex-wrap items-center gap-3 lg:justify-end">
           <Select value={outcomeFilter} onValueChange={setOutcomeFilter}>
-            <SelectTrigger className={`${compactFilters ? "w-10 h-10 px-0 justify-center" : "w-auto min-w-[170px] justify-between px-3 h-10"} rounded-lg border border-gray-200 bg-white text-sm data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] transition-[color,box-shadow] outline-none disabled:cursor-not-allowed disabled:opacity-50 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 flex items-center gap-2`}>
+            <SelectTrigger className={`${compactFilters ? "w-10 h-10 px-0 justify-center" : "w-auto min-w-[170px] justify-between px-3 h-10"} flex items-center gap-2 rounded-xl border border-gray-200 bg-white text-sm transition-all duration-150 ease-out hover:bg-gray-50 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none`}>
               {compactFilters ? (
                 <CheckCircle className="h-4 w-4 text-muted-foreground" />
               ) : (
@@ -116,7 +116,7 @@ export const FilterControls = React.memo(function FilterControls({
           {/* Sentiment filter removed per requirements */}
 
           <Select value={timeFilter} onValueChange={setTimeFilter}>
-            <SelectTrigger className={`${compactFilters ? "w-10 h-10 px-0 justify-center" : "w-auto min-w-[130px] justify-between px-3 h-10"} rounded-lg border border-gray-200 bg-white text-sm data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] transition-[color,box-shadow] outline-none disabled:cursor-not-allowed disabled:opacity-50 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 flex items-center gap-2`}>
+            <SelectTrigger className={`${compactFilters ? "w-10 h-10 px-0 justify-center" : "w-auto min-w-[170px] justify-between px-3 h-10"} flex items-center gap-2 rounded-xl border border-gray-200 bg-white text-sm transition-all duration-150 ease-out hover:bg-gray-50 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none`}>
               {compactFilters ? (
                 <Clock className="h-4 w-4 text-muted-foreground" />
               ) : (

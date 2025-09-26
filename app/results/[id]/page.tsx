@@ -44,7 +44,16 @@ const mapCampaignType = (campaignType: string, campaignTypes?: any | null): stri
     }
   }
   
-  if (campaignType === 'recall') return 'Service'
+  // Enhanced fallback mapping for service-related campaign types
+  const serviceKeywords = ['recall', 'service', 'maintenance', 'repair', 'warranty', 'inspection']
+  const lowerCampaignType = campaignType.toLowerCase()
+  
+  if (serviceKeywords.some(keyword => lowerCampaignType.includes(keyword))) {
+    return 'Service'
+  }
+  
+  // Default fallback - return the original campaign type if no mapping found
+  // This allows for explicit checking in components
   return campaignType
 }
 
@@ -107,6 +116,15 @@ export default function CampaignDetail() {
     : ''
   const isSalesCampaign = mappedCampaignType === 'Sales'
   const isServiceCampaign = mappedCampaignType === 'Service'
+  
+  // Debug logging for campaign type mapping
+  console.log('🔍 Campaign Type Debug:', {
+    originalCampaignType: campaignData?.campaign?.campaignType,
+    mappedCampaignType,
+    isSalesCampaign,
+    isServiceCampaign,
+    campaignTypes: campaignTypes?.data
+  })
 
   // Fetch analytics and completed calls data
   useEffect(() => {
@@ -366,9 +384,6 @@ export default function CampaignDetail() {
     setSelectedCall(convertedCall)
     setIsCallDetailsOpen(true)
     
-    // Prevent body scroll when drawer opens
-    document.body.style.overflow = 'hidden'
-    
     // Update URL to include selected call
     const newUrl = buildUrlWithParams(`/results/${campaignId}`, { 
       tab: activeTab,
@@ -393,9 +408,6 @@ export default function CampaignDetail() {
     setIsClosing(true)
     setIsCallDetailsOpen(false)
     setSelectedCall(null)
-    
-    // Restore body scroll when drawer closes
-    document.body.style.overflow = 'auto'
     
     // Add a temporary click blocker to the document
     const clickBlocker = (e: Event) => {
@@ -494,32 +506,35 @@ export default function CampaignDetail() {
     setIsPlaying(playing)
   }
 
-  // Cleanup effect to restore body scroll on unmount
-  useEffect(() => {
-    // Ensure body scroll is enabled when component mounts
-    document.body.style.overflow = 'unset'
-    document.body.style.position = 'unset'
-    document.body.style.top = 'unset'
-    
-    return () => {
-      // Restore body scroll when component unmounts
-      document.body.style.overflow = 'unset'
-      document.body.style.position = 'unset'
-      document.body.style.top = 'unset'
-    }
-  }, [])
-
   // Handle body scroll when drawer state changes
   useEffect(() => {
     if (isCallDetailsOpen) {
+      // Store original overflow values
+      const originalBodyOverflow = document.body.style.overflow
+      const originalHtmlOverflow = document.documentElement.style.overflow
+      
+      // Prevent body scroll when drawer opens
       document.body.style.overflow = 'hidden'
+      document.documentElement.style.overflow = 'hidden'
+      
+      // Return cleanup function that restores original values
+      return () => {
+        document.body.style.overflow = originalBodyOverflow || ''
+        document.documentElement.style.overflow = originalHtmlOverflow || ''
+      }
     } else {
-      document.body.style.overflow = 'auto'
-    }
-    
-    // Cleanup when effect re-runs or component unmounts
-    return () => {
-      document.body.style.overflow = 'auto'
+      // Ensure scroll is restored when drawer is closed
+      document.body.style.overflow = ''
+      document.documentElement.style.overflow = ''
+      
+      // Force a reflow to ensure the style change takes effect
+      document.body.offsetHeight
+      
+      // Additional restoration with timeout to ensure it happens after other JS
+      setTimeout(() => {
+        document.body.style.overflow = ''
+        document.documentElement.style.overflow = ''
+      }, 100)
     }
   }, [isCallDetailsOpen])
 
@@ -738,6 +753,24 @@ export default function CampaignDetail() {
     }
   }, [selectedCall])
 
+
+  // Handle Escape key to close drawer
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isCallDetailsOpen) {
+        handleCallDetailsClose()
+      }
+    }
+
+    if (isCallDetailsOpen) {
+      document.addEventListener('keydown', handleEscape)
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [isCallDetailsOpen])
+
   // Loading state
   if (isLoading) {
     return <CampaignPageShimmer />
@@ -772,7 +805,7 @@ export default function CampaignDetail() {
   }
 
   return (
-    <div className="min-h-screen overflow-auto" style={{ backgroundColor: 'hsl(var(--background))' }}>
+    <div className="min-h-screen overflow-auto" style={{ backgroundColor: 'hsl(var(--background))' }} data-campaign-container>
       <CampaignHeader
         campaignData={campaignData}
         conversationData={conversationData}

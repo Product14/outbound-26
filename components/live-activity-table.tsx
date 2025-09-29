@@ -214,7 +214,6 @@ export const LiveActivityTable = forwardRef<{
   const parseCallDuration = (callDuration: string | number | undefined, status: string, connectionStatus: string, outcome?: string): string => {
     // Debug: Log the input to see what we're parsing
     if (callDuration !== undefined && callDuration !== null) {
-      console.log('⏱️ Parsing duration:', { callDuration, type: typeof callDuration, status, connectionStatus })
     }
     
     // PRIORITY: Always try to show actual duration first if available
@@ -227,7 +226,6 @@ export const LiveActivityTable = forwardRef<{
           const [minutes, seconds] = callDuration.split(':').map(Number)
           if (!isNaN(minutes) && !isNaN(seconds)) {
             durationInSeconds = (minutes * 60) + seconds
-            console.log('⏱️ Parsed M:S format:', { input: callDuration, minutes, seconds, totalSeconds: durationInSeconds })
           }
         } else {
           // Parse as number string
@@ -324,27 +322,7 @@ export const LiveActivityTable = forwardRef<{
       const durationValue = task.duration || task.callDuration // Try 'duration' first, then 'callDuration'
       const duration = parseCallDuration(durationValue, task.status, task.connectionStatus, task.outcome)
 
-      // Debug logging to verify duration parsing logic - log ALL tasks to see the pattern
-      console.log('🔍 Duration parsing for task:', {
-        outboundTaskId: task.outboundTaskId,
-        leadName: task.leadName,
-        status: task.status,
-        connectionStatus: task.connectionStatus,
-        // Check both field names
-        duration: task.duration,
-        durationValue: durationValue, // The value we actually use
-        durationValueType: typeof durationValue,
-        durationValueRaw: JSON.stringify(durationValue),
-        nextVisibleAt: task.nextVisibleAt, // Next call time for queue
-        aiQuality: task.aiQuality, // AI Quality score
-        aiSentimentScore: task.aiSentimentScore, // Legacy sentiment score
-        taskCallId: task.callId, // Call ID for API calls
-        outcome: task.outcome,
-        parsedDuration: duration,
-        isCallConnected: task.isCallConnected,
-        callAnswered: task.callAnswered
-      })
-
+     
      
 
       return {
@@ -395,7 +373,6 @@ export const LiveActivityTable = forwardRef<{
     currentSortDirection = sortDirection
   ) => {
     if (!campaignId) {
-      console.log('❌ No campaignId provided, skipping API call')
       return
     }
 
@@ -415,23 +392,11 @@ export const LiveActivityTable = forwardRef<{
     
     // Prevent duplicate API calls
     if (lastApiCallRef.current === apiCallKey) {
-      console.log('🚫 Duplicate API call prevented:', apiCallKey)
       return
     }
     
     lastApiCallRef.current = apiCallKey
     
-    console.log('🚀 Starting API call with parameters:', {
-      campaignId,
-      showLoading,
-      page,
-      limit,
-      searchTerm: currentSearchTerm,
-      outcomeFilter: currentOutcomeFilter,
-      connectionFilter: currentConnectionFilter,
-      timePeriodFilter: currentTimePeriodFilter,
-      apiCallKey: apiCallKey.substring(0, 100) + '...' // Truncated for readability
-    })
 
     if (showLoading) {
       setIsLoadingCalls(true)
@@ -475,13 +440,8 @@ export const LiveActivityTable = forwardRef<{
       // Add outcome filter if not showing all
       if (currentOutcomeFilter && currentOutcomeFilter !== 'all') {
         url += `&outcomes=${encodeURIComponent(currentOutcomeFilter)}`
-        console.log('🎯 Outcome filter applied:', {
-          originalFilter: currentOutcomeFilter,
-          encoded: encodeURIComponent(currentOutcomeFilter),
-          urlWithFilter: url
-        })
+       
       } else {
-        console.log('🎯 No outcome filter applied:', { currentOutcomeFilter })
       }
 
       // Add time period filter (always apply date range for proper filtering)

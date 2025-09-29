@@ -61,7 +61,6 @@ export async function GET(request: NextRequest) {
       url += `?${queryParams.toString()}`
     }
 
-    console.log('Fetching from URL:', url) // Debug log
     
     // Build headers
     const headers: HeadersInit = {

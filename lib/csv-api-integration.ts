@@ -61,10 +61,6 @@ export async function integrateCsvWithApis(
       }
     });
     
-    console.log('🔄 CSV API Integration - Key mapping transformation:', {
-      originalApiResponse: keyMappingResponse,
-      transformedMapping: transformedApiMapping
-    });
     
     // Step 5: Generate fallback mapping suggestions for unmapped fields
     const fallbackMappings = generateMappingSuggestions(csvHeaders, requiredFields);

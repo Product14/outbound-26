@@ -121,7 +121,7 @@ export function AnalyticsTab({
                   <div className="flex-1 min-w-0">
                     <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Answer Rate (Service)</h3>
                     <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
-                      {serviceStats?.serviceAnswerRate ?? campaignData?.campaign.answerRate ?? 0}%
+                      {(serviceStats?.serviceAnswerRate ?? campaignData?.campaign.answerRate ?? 0)}%
                     </p>
                   </div>
                 </div>
@@ -354,7 +354,7 @@ export function AnalyticsTab({
                   <div className="flex-1 min-w-0">
                     <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Answer Rate (Sales)</h3>
                     <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
-                      {calculatedStats?.answerRate ?? campaignData?.campaign.answerRate ?? 0}%
+                      {(calculatedStats?.answerRate ?? campaignData?.campaign.answerRate ?? 0)}%
                     </p>
                   </div>
                 </div>

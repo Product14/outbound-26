@@ -117,14 +117,7 @@ export default function CampaignDetail() {
   const isSalesCampaign = mappedCampaignType === 'Sales'
   const isServiceCampaign = mappedCampaignType === 'Service'
   
-  // Debug logging for campaign type mapping
-  console.log('🔍 Campaign Type Debug:', {
-    originalCampaignType: campaignData?.campaign?.campaignType,
-    mappedCampaignType,
-    isSalesCampaign,
-    isServiceCampaign,
-    campaignTypes: campaignTypes?.data
-  })
+  
 
   // Fetch analytics and completed calls data
   useEffect(() => {
@@ -139,8 +132,7 @@ export default function CampaignDetail() {
         const analyticsResponse = await fetch(analyticsUrl)
         if (analyticsResponse.ok) {
           const analytics = await analyticsResponse.json()
-          console.log('Analytics API Response:', analytics)
-          console.log('Top Performing Vehicles:', analytics?.topPerformingVehicles)
+         
           setAnalyticsData(analytics)
         } else {
           console.error('Analytics API Error:', analyticsResponse.status, analyticsResponse.statusText)
@@ -667,7 +659,6 @@ export default function CampaignDetail() {
           try {
             const conversationResponse = await fetchCampaignConversationData(campaignId, urlParams.auth_key || undefined)
             setConversationData(conversationResponse)
-            console.log('Conversation data fetched:', conversationResponse)
           } catch (conversationError) {
             console.warn('Failed to fetch conversation data:', conversationError)
           }

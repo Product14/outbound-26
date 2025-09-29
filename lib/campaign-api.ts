@@ -734,9 +734,7 @@ export async function fetchCampaignDetails(campaignId: string, authKey?: string)
 export async function fetchCampaignTypes(authKey?: string): Promise<CampaignTypesResponse> {
   try {
     // Build URL with auth_key parameter
-    console.log('fetchCampaignTypes called with authKey:', authKey ? 'present' : 'missing', 'length:', authKey?.length);
     const url = authKey ? `/api/fetch-campaign-types?auth_key=${authKey}` : '/api/fetch-campaign-types';
-    console.log('fetchCampaignTypes URL:', url);
     const response = await fetch(url);
 
     if (!response.ok) {

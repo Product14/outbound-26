@@ -13,7 +13,6 @@ export async function GET(request: NextRequest) {
     const agentType = searchParams.get('agentType') || 'Service';
     const agentCallType = searchParams.get('agentCallType');
     
-    console.log('API route received params:', { enterpriseId, teamId, authKey, agentUseCase, agentType, agentCallType });
 
     // Validate required parameters
     if (!enterpriseId || !teamId) {

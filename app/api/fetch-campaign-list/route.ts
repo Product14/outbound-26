@@ -44,6 +44,14 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json();
 
+    // Ensure answerRate is never null - set to 0 if null/undefined
+    if (data.campaigns && Array.isArray(data.campaigns)) {
+      data.campaigns = data.campaigns.map((campaign: any) => ({
+        ...campaign,
+        answerRate: campaign.answerRate ?? 0
+      }));
+    }
+
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error in fetch-campaign-list API:', error);

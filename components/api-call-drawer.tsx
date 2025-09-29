@@ -66,13 +66,7 @@ export function ApiCallDrawer({
   // Debug logging to verify call_id and agent info being passed
   React.useEffect(() => {
     if (open && call) {
-      console.log('ApiCallDrawer: call object:', {
-        call_id: call.call_id,
-        customer_name: call.customer?.name,
-        agentInfo: call.agentInfo,
-        agentConfig: call.agentConfig,
-        agent: (call as any).agent // Check if local agent property exists
-      })
+      
     }
   }, [open, call])
 

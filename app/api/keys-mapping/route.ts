@@ -26,7 +26,6 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    console.log('Key Mapping Payload:', JSON.stringify(payload, null, 2));
     
     // Call the Spyne API for key mapping
     const externalResponse = await fetch(`${configs.base_url}conversation/campaign/keys-mapping`, {

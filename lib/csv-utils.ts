@@ -39,7 +39,6 @@ export async function downloadCampaignCSV(
   const loadingToastId = showLoadingToast('Preparing CSV export...')
   
   try {
-    console.log('🔄 Starting CSV export for campaign:', campaignId, 'with authKey:', authKey ? 'provided' : 'not provided')
 
     // Validate inputs
     if (!campaignId) {

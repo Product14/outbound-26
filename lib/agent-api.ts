@@ -111,9 +111,7 @@ export async function fetchAgentList(
     // Add auth_key parameter
     if (authKey) {
       params.append('auth_key', authKey);
-      console.log('Added auth_key to params:', authKey);
     } else {
-      console.warn('No auth_key provided to fetchAgentList');
     }
     
     // Convert agentUseCase to snake_case format specifically for this API

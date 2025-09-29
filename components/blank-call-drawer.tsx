@@ -534,7 +534,6 @@ export function BlankCallDrawer({
   React.useEffect(() => {
     if (call) {
       try {
-        console.log('Drawer audio URL for call', call.call_id, activeAudioUrl || resolvedAudioUrl)
       } catch {}
     }
   }, [call?.call_id, activeAudioUrl, resolvedAudioUrl])
@@ -793,15 +792,9 @@ export function BlankCallDrawer({
 
   // Early return if no call data
   if (!call) {
-    console.log('🔍 BlankCallDrawer: No call data provided')
     return null
   }
   
-  console.log('🔍 BlankCallDrawer: Rendering with call:', call)
-  console.log('🔍 BlankCallDrawer: Audio URLs:', {
-    recording_url: call.recording_url,
-    voice_recording_url: call.voice_recording_url
-  })
 
   // Use the passed helper functions to get consistent data
   const agent = getAgentDetails(call.call_id)

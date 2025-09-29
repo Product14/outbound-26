@@ -648,7 +648,7 @@ export default function CampaignResults() {
                         </div>
                         <div className="flex flex-col items-start p-3 bg-gray-50 rounded-lg min-w-0">
                           <span className="text-xs text-text-secondary">Answer Rate</span>
-                          <span className="text-sm font-medium text-text-primary">{campaign.answerRate.toFixed(2)}%</span>
+                          <span className="text-sm font-medium text-text-primary">{(campaign.answerRate ?? 0).toFixed(2)}%</span>
                         </div>
                         <div className="flex flex-col items-start p-3 bg-gray-50 rounded-lg min-w-0">
                           <span className="text-xs text-text-secondary">Appointments</span>

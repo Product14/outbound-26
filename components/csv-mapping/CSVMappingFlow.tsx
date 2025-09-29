@@ -91,12 +91,7 @@ export default function CSVMappingFlow({
   const validateAllRequiredFieldsMapped = () => {
     const effectiveRequiredFields = dynamicRequiredFields.length > 0 ? dynamicRequiredFields : apiRequiredFields;
     const validation = validateMappingCompleteness(csvMappings, effectiveRequiredFields);
-    
-    console.log('🔍 Validating required fields mapping:', {
-      requiredFields: effectiveRequiredFields,
-      validation: validation,
-      csvMappings: csvMappings.map(m => ({ header: m.columnHeader, importAs: m.importAs, status: m.mappingStatus }))
-    });
+   
     
     setValidationResult(validation);
     return validation;
@@ -165,7 +160,6 @@ export default function CSVMappingFlow({
               // Check if API result has a mapping for this CSV header
               if (apiResult.keyMapping && apiResult.keyMapping[csvHeader]) {
                 const apiField = apiResult.keyMapping[csvHeader];
-                console.log(`🔄 CSVMappingFlow - Applying API mapping: "${csvHeader}" -> "${apiField}"`);
                 return {
                   ...mapping,
                   importAs: apiField,
@@ -178,7 +172,6 @@ export default function CSVMappingFlow({
                 if (shouldMapToApiField(csvHeader, apiField)) {
                   // Ensure the API field name is in camelCase format
                   const camelCaseApiField = toCamelCase(apiField);
-                  console.log(`🔄 CSVMappingFlow - Auto-mapping detected: "${csvHeader}" -> "${camelCaseApiField}"`);
                   return {
                     ...mapping,
                     importAs: camelCaseApiField,
@@ -346,10 +339,6 @@ export default function CSVMappingFlow({
       mapping => mapping.mappingStatus === 'mapped' && mapping.importAs !== 'do_not_import'
     );
 
-    console.log('🔄 Generating preview data with mapped fields:', mappedFields.map(m => ({ 
-      csvHeader: m.columnHeader, 
-      apiField: m.importAs 
-    })));
 
     return csvData.map(row => {
       const transformedRow: any = {};

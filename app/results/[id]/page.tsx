@@ -566,7 +566,6 @@ export default function CampaignDetail() {
         setIsLoading(true)
         setError(null) // Clear any previous errors
         
-        console.log('Fetching campaign details for ID:', campaignId)
         
         try {
           // Fetch campaign details with fallback
@@ -895,7 +894,6 @@ export default function CampaignDetail() {
           <div 
             className="fixed inset-0 bg-black/20 backdrop-blur-sm"
             onClick={(e) => {
-              console.log('🔍 Custom overlay clicked')
               e.preventDefault()
               e.stopPropagation()
               handleCallDetailsClose()

@@ -45,7 +45,6 @@ export async function downloadCampaignCSV(
       throw new Error('Campaign ID is required for CSV export')
     }
 
-    console.log('📊 Fetching campaign data...')
     // Try to fetch all campaign data
     let allData: CallRecord[] = []
     
@@ -61,16 +60,13 @@ export async function downloadCampaignCSV(
         throw new Error(`Failed to fetch campaign data: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`)
       }
       
-      console.log('✅ Using enhanced fallback data extraction method')
     }
     
-    console.log('📋 Fetched records:', allData?.length || 0)
     
     if (!allData || allData.length === 0) {
       throw new Error('No data found for this campaign. The campaign may be empty or you may not have access to view the data.')
     }
 
-    console.log('🔄 Converting to CSV format...')
     // Convert to CSV
     const csvContent = convertToCSV(allData)
     
@@ -78,12 +74,10 @@ export async function downloadCampaignCSV(
       throw new Error('Failed to generate CSV content')
     }
 
-    console.log('💾 Downloading CSV file...')
     // Create and download file (removed campaign ID from filename)
     const filename = `campaign-data-${new Date().toISOString().split('T')[0]}.csv`
     downloadCSVFile(csvContent, filename)
     
-    console.log('✅ CSV export completed successfully')
     
     // Hide loading toast and show success message
     hideLoadingToast(loadingToastId)
@@ -117,13 +111,9 @@ async function fetchAllCampaignData(
   let retryCount = 0
   const maxRetries = 3
 
-  console.log(`📡 Starting AGGRESSIVE data fetch for campaign: ${campaignId}`)
-  console.log(`🎯 Will fetch ALL pages until we get empty results or hit safety limit`)
-  console.log(`📋 Configuration: maxPages=${100}, maxEmptyPages=${3}, itemsPerPage=${itemsPerPage}, maxRetries=${maxRetries}`)
 
   while (hasMoreData) {
     try {
-      console.log(`📄 Fetching page ${currentPage}...`)
       
       // Build API URL with correct parameter names that match the API
       const params = new URLSearchParams({
@@ -139,11 +129,9 @@ async function fetchAllCampaignData(
       }
 
       const apiUrl = `/api/fetch-campaign-status?${params.toString()}`
-      console.log(`🔗 API URL: ${apiUrl}`)
 
       const response = await fetch(apiUrl)
       
-      console.log(`📡 Response status: ${response.status}`)
       
       if (!response.ok) {
         const errorText = await response.text()
@@ -159,25 +147,6 @@ async function fetchAllCampaignData(
       }
 
       const data = await response.json()
-      console.log(`📊 API Response for CSV export (Page ${currentPage}):`, { 
-        success: data.success, 
-        tasksCount: data.tasks?.length || 0, 
-        totalRecords: data.totalRecords,
-        totalPages: data.totalPages,
-        currentPage: currentPage,
-        pagination: data.pagination,
-        apiUrl: apiUrl,
-        // Show all top-level keys to understand API structure
-        responseKeys: Object.keys(data),
-        // Show sample task to understand structure
-        sampleTask: data.tasks?.[0] ? {
-          keys: Object.keys(data.tasks[0]),
-          hasAiQuality: 'aiQuality' in data.tasks[0],
-          aiQualityValue: data.tasks[0].aiQuality,
-          status: data.tasks[0].status,
-          connectionStatus: data.tasks[0].connectionStatus
-        } : null
-      })
       
       // Check if we have tasks data (API doesn't always return success field)
       if (data.tasks && Array.isArray(data.tasks)) {
@@ -237,30 +206,6 @@ async function fetchAllCampaignData(
         const agentNameFromTask = task.agent?.name || task.agentName
         const finalAgentName = agentNameFromData || agentNameFromTask || 'AI Agent'
         
-        if (isRoderickZapanta || isCompletedCall || agentNameFromData) {
-          console.log('🎯 Debug (Quality Score & Agent Name):', {
-            taskId: task.callId || task.outboundTaskId,
-            customerName: task.leadName,
-            status: task.status,
-            connectionStatus: task.connectionStatus,
-            isCompleted: isCompleted,
-            scoreSource: scoreSource,
-            qualityScoreForCSV: qualityScoreForCSV,
-            // Agent name debugging
-            agentDebug: {
-              agentNameFromData: agentNameFromData,
-              agentNameFromTask: agentNameFromTask,
-              finalAgentName: finalAgentName,
-              taskAgentObject: task.agent,
-              taskAgentName: task.agentName
-            },
-            allScoreFields: {
-              aiQuality: aiQualityRaw,
-              qualityScore: qualityScore,
-              customerSentimentScore: customerSentimentScore
-            }
-          })
-        }
 
         return {
           id: task.callId || task.id || `call-${currentPage}-${Math.random()}`,
@@ -284,7 +229,6 @@ async function fetchAllCampaignData(
       })
 
         allRecords.push(...pageRecords)
-        console.log(`✅ Added ${pageRecords.length} records from page ${currentPage}. Total so far: ${allRecords.length}`)
         
         // Reset retry count on successful fetch
         retryCount = 0
@@ -299,7 +243,6 @@ async function fetchAllCampaignData(
         
         if (recordsOnThisPage === 0) {
           consecutiveEmptyPages++
-          console.log(`📭 Empty page ${currentPage}, consecutive empty pages: ${consecutiveEmptyPages}`)
         } else {
           consecutiveEmptyPages = 0 // Reset counter if we got data
         }
@@ -333,17 +276,6 @@ async function fetchAllCampaignData(
         
         hasMoreData = shouldContinue
         
-        console.log(`🔄 IMPROVED Pagination Decision:`, {
-          recordsOnThisPage,
-          consecutiveEmptyPages,
-          currentPage,
-          totalPages,
-          totalRecords,
-          safetyLimit: 100,
-          willContinue: hasMoreData,
-          totalSoFar: allRecords.length,
-          reason: reason
-        })
         
         // Continue to next page if we should
         if (hasMoreData) {
@@ -352,17 +284,6 @@ async function fetchAllCampaignData(
           await new Promise(resolve => setTimeout(resolve, 100))
         }
       } else {
-        console.log(`⚠️ No tasks found in API response for page ${currentPage}`)
-        console.log('📊 API Response structure:', {
-          hasSuccess: 'success' in data,
-          successValue: data.success,
-          hasTasks: 'tasks' in data,
-          tasksType: typeof data.tasks,
-          tasksIsArray: Array.isArray(data.tasks),
-          tasksLength: data.tasks?.length,
-          responseKeys: Object.keys(data),
-          pagination: data.pagination
-        })
         hasMoreData = false
       }
     } catch (error) {
@@ -371,7 +292,6 @@ async function fetchAllCampaignData(
       // Retry logic for failed requests
       if (retryCount < maxRetries) {
         retryCount++
-        console.log(`🔄 Retrying page ${currentPage} (attempt ${retryCount}/${maxRetries})...`)
         await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)) // Exponential backoff
         continue // Retry the same page
       }
@@ -389,23 +309,6 @@ async function fetchAllCampaignData(
     }
   }
 
-  console.log(`🏁 CSV Data fetch completed:`, {
-    totalRecords: allRecords.length,
-    totalPagesProcessed: currentPage - 1,
-    expectedFromAPI: 'Check API response above',
-    sampleRecord: allRecords[0] ? {
-      customerName: allRecords[0].customer?.name,
-      status: allRecords[0].status,
-      outcome: allRecords[0].outcome,
-      duration: allRecords[0].duration,
-      qualityScore: allRecords[0].qualityScore
-    } : null,
-    lastRecord: allRecords[allRecords.length - 1] ? {
-      customerName: allRecords[allRecords.length - 1].customer?.name,
-      status: allRecords[allRecords.length - 1].status,
-      qualityScore: allRecords[allRecords.length - 1].qualityScore
-    } : null
-  })
   return allRecords
 }
 
@@ -413,14 +316,12 @@ async function fetchAllCampaignData(
  * Enhanced fallback: Extract ALL data by navigating through table pages
  */
 async function extractAllDataFromTable(): Promise<CallRecord[]> {
-  console.log('🔄 Enhanced Fallback: Navigating through ALL table pages...')
   
   const allRecords: CallRecord[] = []
   let currentTablePage = 1
   let hasMoreTablePages = true
   
   // First, try to increase the page size to get all data at once
-  console.log(`🔧 Attempting to increase page size to get all data...`)
   const pageSizeSelectors = [
     'select[aria-label*="rows per page" i]',
     'select[aria-label*="items per page" i]',
@@ -433,14 +334,12 @@ async function extractAllDataFromTable(): Promise<CallRecord[]> {
   for (const selector of pageSizeSelectors) {
     const select = document.querySelector(selector) as HTMLSelectElement
     if (select) {
-      console.log(`🔧 Found page size selector: ${selector}`)
       const options = Array.from(select.options)
       const largestOption = options
         .filter(opt => parseInt(opt.value) > 50)
         .sort((a, b) => parseInt(b.value) - parseInt(a.value))[0]
       
       if (largestOption) {
-        console.log(`🔧 Changing page size to ${largestOption.value}`)
         select.value = largestOption.value
         select.dispatchEvent(new Event('change', { bubbles: true }))
         
@@ -456,20 +355,16 @@ async function extractAllDataFromTable(): Promise<CallRecord[]> {
   const currentPageData = await extractDataFromCurrentView()
   allRecords.push(...currentPageData)
   
-  console.log(`📊 After page size adjustment: ${allRecords.length} records`)
   
   // If we got all the data in one page, return early
   if (pageSizeChanged && allRecords.length >= 99) {
-    console.log(`🎉 Got all data in single page! Returning ${allRecords.length} records`)
     return allRecords
   }
   
   // Try to navigate through additional pages
   while (hasMoreTablePages && currentTablePage < 10) { // Safety limit
-    console.log(`🔄 Looking for page ${currentTablePage + 1}...`)
     
     // Try to find pagination controls with more comprehensive selectors
-    console.log(`🔍 Looking for pagination buttons for page ${currentTablePage + 1}...`)
     
     // Try multiple ways to find pagination buttons
     const nextButtons = [
@@ -492,15 +387,12 @@ async function extractAllDataFromTable(): Promise<CallRecord[]> {
       )
     ].filter(Boolean) as HTMLButtonElement[]
     
-    console.log(`🔍 Found ${nextButtons.length} potential pagination buttons`)
     nextButtons.forEach((btn, index) => {
-      console.log(`  Button ${index}: "${btn.textContent?.trim()}" (${btn.getAttribute('aria-label') || 'no aria-label'})`)
     })
     
     const targetButton = nextButtons[0]
     
     if (targetButton && !targetButton.disabled) {
-      console.log(`📄 Clicking to page ${currentTablePage + 1}...`)
       
       // Record current page data count to detect if we got new data
       const beforeCount = allRecords.length
@@ -524,19 +416,15 @@ async function extractAllDataFromTable(): Promise<CallRecord[]> {
       
       if (newUniqueRecords.length > 0) {
         allRecords.push(...newUniqueRecords)
-        console.log(`✅ Added ${newUniqueRecords.length} new records from page ${currentTablePage + 1}. Total: ${allRecords.length}`)
         currentTablePage++
       } else {
-        console.log(`🏁 No new data found, stopping pagination`)
         hasMoreTablePages = false
       }
     } else {
-      console.log(`🏁 No more pages available (no next button found)`)
       hasMoreTablePages = false
     }
   }
   
-  console.log(`🎉 Enhanced extraction completed: ${allRecords.length} total records from ${currentTablePage} pages`)
   return allRecords
 }
 
@@ -544,14 +432,12 @@ async function extractAllDataFromTable(): Promise<CallRecord[]> {
  * Fallback method: Extract data from current table view
  */
 async function extractDataFromCurrentView(): Promise<CallRecord[]> {
-  console.log('🔍 Enhanced fallback: Extracting data with proper column mapping...')
   
   const records: CallRecord[] = []
   
   // Try to find the data table
   const tableRows = document.querySelectorAll('table tbody tr, [data-testid="call-row"], .call-row')
   
-  console.log(`📊 Found ${tableRows.length} table rows`)
   
   tableRows.forEach((row, index) => {
     try {
@@ -615,13 +501,7 @@ async function extractDataFromCurrentView(): Promise<CallRecord[]> {
         
         // Debug log for first few records
         if (index < 3) {
-          console.log(`🔍 Extracted record ${index}:`, {
-            name: customerName,
-            phone: customerPhone,
-            status: status,
-            agent: agentName,
-            qualityScore: qualityScore
-          })
+          
         }
       }
     } catch (error) {
@@ -629,7 +509,6 @@ async function extractDataFromCurrentView(): Promise<CallRecord[]> {
     }
   })
   
-  console.log(`✅ Enhanced extraction: ${records.length} records from current view`)
   return records
 }
 
@@ -996,22 +875,12 @@ export function downloadTableCSV(tableData: CallRecord[], filename?: string): vo
  * Call this from browser console: window.debugCSVExport(campaignId, authKey)
  */
 export async function debugCSVExport(campaignId: string, authKey?: string) {
-  console.log('🔧 DEBUG: Starting CSV export test...')
   
   try {
     const allData = await fetchAllCampaignData(campaignId, authKey)
-    console.log('🔧 DEBUG: Fetched data:', {
-      totalRecords: allData.length,
-      sampleRecords: allData.slice(0, 3).map(record => ({
-        name: record.customer.name,
-        status: record.status,
-        qualityScore: record.qualityScore,
-        outcome: record.outcome
-      }))
-    })
+    
     
     const csvContent = convertToCSV(allData)
-    console.log('🔧 DEBUG: CSV content preview (first 500 chars):', csvContent.substring(0, 500))
     
     return {
       recordCount: allData.length,

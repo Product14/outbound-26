@@ -296,19 +296,8 @@ export function transformCampaignData(
     campaignUseCase = campaignUseCase.replace(/\s+/g, '_');
   }
   
-  // Transform uploaded data to API customers format (flatter structure)
-  console.log('🔍 transformCampaignData - uploadedData:', {
-    uploadedData: campaignData.uploadedData,
-    uploadedDataLength: campaignData.uploadedData?.length,
-    sampleRow: campaignData.uploadedData?.[0]
-  })
-  
-  // Log key mapping information
-  console.log('🗝️ transformCampaignData - keyMapping:', {
-    keyMappingProvided: !!keyMapping,
-    keyMappingKeys: keyMapping ? Object.keys(keyMapping) : [],
-    keyMapping: keyMapping
-  })
+ 
+
   
   if (!keyMapping && campaignData.uploadedData?.[0]) {
     const sampleKeys = Object.keys(campaignData.uploadedData[0]);

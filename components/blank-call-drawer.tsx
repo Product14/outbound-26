@@ -888,11 +888,6 @@ export function BlankCallDrawer({
                   title={!resolvedAudioUrl ? 'No recording available for this call' : (isPlaying ? 'Pause' : 'Play')}
                   onClick={(e) => {
                     e.stopPropagation()
-                    console.log('Right-panel Play button clicked', {
-                      callId: call.call_id,
-                      url: resolvedAudioUrl,
-                      hasPlayer: Boolean(drawerAudioPlayerRef.current)
-                    })
                     
                     // Always switch to transcript tab when button is clicked (if transcript available)
                     if (normalizedTranscript.length > 0 && activeTab !== 'transcript') {
@@ -930,7 +925,6 @@ export function BlankCallDrawer({
                     } else {
                       // Play audio
                       if (drawerAudioPlayerRef.current && drawerAudioPlayerRef.current.play) {
-                        console.log('Attempting to start drawer audio...')
                         drawerAudioPlayerRef.current.play()
                       }
                     }

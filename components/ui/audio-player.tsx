@@ -304,7 +304,6 @@ const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
             .then(() => {
               try { audio.volume = volume / 100 } catch {}
               setHtmlAudioPlaying(true)
-              console.log('HTMLAudioElement play() resolved')
             })
             .catch((err) => {
               console.warn('HTMLAudioElement play() failed', err)

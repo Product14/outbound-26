@@ -316,11 +316,7 @@ export default function CampaignSetupRefactored() {
 
   // Handle CSV mapping completion
   const handleCSVMappingComplete = async (mappedData: any[], keyMappingResult: Record<string, string>) => {
-    console.log('📥 Setup page - CSV mapping completed:', { 
-      mappedDataSample: mappedData[0], 
-      mappedDataLength: mappedData.length,
-      keyMapping: keyMappingResult 
-    })
+    
     
   
     
@@ -343,7 +339,6 @@ export default function CampaignSetupRefactored() {
 
   // Handle skipping CSV mapping (not used in new system)
   const handleSkipCSVMapping = async () => {
-    console.log('Skip mapping called - this should not happen anymore')
   }
 
   // Get display columns
@@ -418,7 +413,6 @@ export default function CampaignSetupRefactored() {
         crmImportData
       )
 
-      console.log('Launching campaign with payload:', payload)
       
       // Call the launch campaign API
       const response = await launchCampaign(payload, urlParams.auth_key || undefined)

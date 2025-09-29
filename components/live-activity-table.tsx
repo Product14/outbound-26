@@ -493,11 +493,6 @@ export const LiveActivityTable = forwardRef<{
           url += `&endDate=${now.toISOString()}`
         }
         
-        console.log('📅 Date filter applied:', {
-          timePeriodFilter: currentTimePeriodFilter,
-          startDate: startDate.toISOString(),
-          endDate: currentTimePeriodFilter === 'yesterday' ? 'end of yesterday' : now.toISOString()
-        })
       }
       
       // Add sorting parameters
@@ -513,14 +508,9 @@ export const LiveActivityTable = forwardRef<{
       url += `&sortBy=${apiSortField}`
       url += `&sortOrder=${currentSortDirection}`
       
-      console.log('🔄 Sorting applied:', {
-        frontendField: currentSortField,
-        apiField: apiSortField,
-        sortOrder: currentSortDirection
-      })
+     
       
       
-      console.log('📡 Making API request to:', url)
       const response = await fetch(url)
       if (!response.ok) {
         const errorText = await response.text()
@@ -529,16 +519,6 @@ export const LiveActivityTable = forwardRef<{
       }
       
       const apiData: CampaignStatusResponse = await response.json()
-      console.log('✅ API response received:', {
-        totalTasks: apiData.tasks?.length || 0,
-        totalLeads: apiData.totalLeads,
-        paginationTotal: apiData.pagination?.total,
-        sampleTasks: apiData.tasks?.slice(0, 3).map(t => ({ 
-          leadName: t.leadName, 
-          outcome: t.outcome, 
-          connectionStatus: t.connectionStatus 
-        })) || []
-      })
       
       if (apiData.tasks && apiData.tasks.length > 0) {
         
@@ -564,15 +544,7 @@ export const LiveActivityTable = forwardRef<{
         // Debug outcome filter specifically
         if (currentOutcomeFilter && currentOutcomeFilter !== 'all') {
           const matchingTasks = apiData.tasks.filter(t => t.outcome === currentOutcomeFilter)
-          console.log('🎯 Outcome Filter Debug:', {
-            filterValue: currentOutcomeFilter,
-            totalTasks: apiData.tasks.length,
-            matchingTasks: matchingTasks.length,
-            sampleMatches: matchingTasks.slice(0, 3).map(t => ({ 
-              leadName: t.leadName, 
-              outcome: t.outcome 
-            }))
-          })
+          
         }
       }
       
@@ -588,17 +560,7 @@ export const LiveActivityTable = forwardRef<{
         (timePeriodFilter && timePeriodFilter !== '30')
       )
       
-      console.log('Debug filters:', {
-        searchTerm,
-        outcomeFilter, 
-        connectionFilter,
-        statusFilter,
-        timePeriodFilter,
-        hasFilters,
-        paginationTotal: apiData.pagination?.total,
-        totalLeads: apiData.totalLeads,
-        transformedDataLength: transformedData.length
-      })
+     
       
       // Prioritize API pagination total when available (especially for search/filtered results)
       // Fall back to totalLeads only when pagination total is not provided
@@ -615,14 +577,7 @@ export const LiveActivityTable = forwardRef<{
         finalTotalRecords = transformedData.length
       }
       
-      console.log('Setting total records:', {
-        hasFilters,
-        paginationTotal: apiData.pagination?.total,
-        totalLeads: apiData.totalLeads,
-        transformedLength: transformedData.length,
-        finalTotalRecords,
-        isSearchMode: Boolean(searchTerm?.trim())
-      })
+     
       
       setTotalRecords(finalTotalRecords)
     } catch (error) {
@@ -689,7 +644,6 @@ export const LiveActivityTable = forwardRef<{
   // Handle refresh trigger from parent
   useEffect(() => {
     if (refreshTrigger && refreshTrigger > 0 && campaignId) {
-      console.log('🔄 Refresh triggered:', refreshTrigger)
       // Use current state values at the time of refresh
       fetchCampaignStatus(false, statusFilter, currentPage, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
     }
@@ -699,12 +653,7 @@ export const LiveActivityTable = forwardRef<{
   useEffect(() => {
     if (!campaignId) return
     
-    console.log('📊 Data fetch triggered:', {
-      campaignId,
-      filters: { searchTerm, outcomeFilter, connectionFilter, statusFilter, timePeriodFilter },
-      pagination: { currentPage, itemsPerPage },
-      sorting: { sortField, sortDirection }
-    })
+   
 
     // Reset to first page when filters change (except for pagination changes)
     const isFilterChange = !callRecords.length || // Initial load
@@ -1160,7 +1109,6 @@ export const LiveActivityTable = forwardRef<{
   const QualityScoreBar = ({ score, call }: { score: number, call: CallRecord }) => {
     const handleClick = (e: React.MouseEvent) => {
       e.stopPropagation()
-      console.log('🔍 Quality score clicked - temporarily disabled')
       return // Temporarily disabled to test double modal issue
       // Convert CallRecord to AICallRecord format for AI breakdown
       const callForBreakdown: AICallRecord = {

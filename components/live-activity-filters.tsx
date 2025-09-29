@@ -254,11 +254,7 @@ export function LiveActivityFilters({
 
   // Get outcomes based on agent type
   const getOutcomeOptions = () => {
-    console.log('🎯 Outcome Filter Debug:', {
-      agentType,
-      isService: agentType === 'Service',
-      isSales: agentType === 'Sales'
-    })
+   
     
     // Check for explicit Service type
     if (agentType === 'Service') {
@@ -275,12 +271,10 @@ export function LiveActivityFilters({
     const lowerAgentType = (agentType || '').toLowerCase()
     
     if (serviceKeywords.some(keyword => lowerAgentType.includes(keyword))) {
-      console.log('🔧 Detected service agent from keywords:', lowerAgentType)
       return serviceOutcomes
     }
     
-    // Default to sales outcomes for unknown types
-    console.log('📈 Defaulting to sales outcomes for agent type:', agentType)
+    
     return salesOutcomes
   }
 
@@ -292,7 +286,6 @@ export function LiveActivityFilters({
 
   // Clear all filters
   const clearAllFilters = () => {
-    console.log('Clearing all filters...')
     setInternalSearchTerm("")
     setSearchTerm("")
     setStatusFilter(["all"])
@@ -308,7 +301,6 @@ export function LiveActivityFilters({
       clearTimeout(debounceTimeoutRef.current)
     }
     
-    console.log('All filters cleared')
   }
 
   // If hiding search and connection, don't render the top section at all

@@ -242,7 +242,6 @@ export function useEndCallReport(callId: string | null): UseEndCallReportReturn 
       return
     }
 
-    console.log('📊 useEndCallReport: Starting fetch for callId:', callId)
 
     setLoading(true)
     setError(null)

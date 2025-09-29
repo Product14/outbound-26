@@ -916,7 +916,6 @@ export function ApiCallDrawer({
 
   useEffect(()=>{
     if (autoScrollTo) {
-      console.log('autoScrollTo', autoScrollTo)
       scrollToSection(summarySectionRef, autoScrollTo)
     }
   }, [autoScrollTo])

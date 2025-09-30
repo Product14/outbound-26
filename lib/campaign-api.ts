@@ -627,14 +627,18 @@ export function transformCampaignData(
 
 export async function launchCampaign(payload: LaunchCampaignPayload, authKey?: string): Promise<CampaignApiResponse> {
   try {
-    // Build URL with auth_key parameter
-    const url = authKey ? `/api/launch-campaign?auth_key=${authKey}` : '/api/launch-campaign';
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
     
-    const response = await fetch(url, {
+    // Add Authorization header if authKey is provided
+    if (authKey) {
+      headers['Authorization'] = `Bearer ${authKey}`;
+    }
+    
+    const response = await fetch('/api/launch-campaign', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(payload),
     });
 
@@ -866,14 +870,21 @@ export async function fetchCampaignLeadsCount(
     // URLSearchParams.append() already handles encoding, so don't double-encode
     params.append('leadsFilterOptions', JSON.stringify(leadsFilterOptions));
 
-    // Add auth_key parameter if provided
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add Authorization header if authKey is provided
     if (authKey) {
-      params.append('auth_key', authKey);
+      headers['Authorization'] = `Bearer ${authKey}`;
     }
 
     const fullUrl = `${configs.base_url}conversation/campaign/campaign-leads-count?${params.toString()}`;
     
-    const response = await fetch(fullUrl);
+    const response = await fetch(fullUrl, {
+      method: 'GET',
+      headers,
+    });
 
     if (!response.ok) {
       let errorMessage = `HTTP error! status: ${response.status}`;
@@ -976,14 +987,21 @@ export async function fetchCampaignLeadsCountByRecurringAge(
     };
     params.append('leadsFilterOptions', JSON.stringify(leadsFilterOptions));
 
-    // Add auth_key parameter if provided
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add Authorization header if authKey is provided
     if (authKey) {
-      params.append('auth_key', authKey);
+      headers['Authorization'] = `Bearer ${authKey}`;
     }
 
     const fullUrl = `${configs.base_url}conversation/campaign/campaign-leads-count?${params.toString()}`;
     
-    const response = await fetch(fullUrl);
+    const response = await fetch(fullUrl, {
+      method: 'GET',
+      headers,
+    });
 
     if (!response.ok) {
       let errorMessage = `HTTP error! status: ${response.status}`;
@@ -1028,14 +1046,21 @@ export async function fetchCampaignLeadsDataByRecurringAge(
     };
     params.append('leadsFilterOptions', JSON.stringify(leadsFilterOptions));
 
-    // Add auth_key parameter if provided
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add Authorization header if authKey is provided
     if (authKey) {
-      params.append('auth_key', authKey);
+      headers['Authorization'] = `Bearer ${authKey}`;
     }
 
     const fullUrl = `/api/fetch-campaign-leads-data?${params.toString()}`;
     
-    const response = await fetch(fullUrl);
+    const response = await fetch(fullUrl, {
+      method: 'GET',
+      headers,
+    });
 
     if (!response.ok) {
       let errorMessage = `HTTP error! status: ${response.status}`;
@@ -1070,14 +1095,18 @@ export async function processKeyMapping(requiredKeys: string[], availableKeys: s
       availableKeys
     };
 
-    // Build URL with auth_key parameter
-    const url = authKey ? `/api/keys-mapping?auth_key=${authKey}` : '/api/keys-mapping';
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add Authorization header if authKey is provided
+    if (authKey) {
+      headers['Authorization'] = `Bearer ${authKey}`;
+    }
 
-    const response = await fetch(url, {
+    const response = await fetch('/api/keys-mapping', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(payload),
     });
 

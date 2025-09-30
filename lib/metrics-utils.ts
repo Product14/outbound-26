@@ -116,18 +116,22 @@ export interface CampaignMetrics {
     percentage: number
   }
   voicemailPercentage: {
+    count: number
     percentage: number
   }
   avgCallDuration: {
     duration: string
   }
   callFailedPercentage: {
+    count: number
     percentage: number
   }
   callRejectedPercentage?: {
+    count: number
     percentage: number
   }
   percentageOfFollowups: {
+    count: number
     percentage: number
   }
 }
@@ -142,10 +146,10 @@ export function calculateCampaignMetrics(calls: CallRecord[]): CampaignMetrics {
       totalCustomersContacted: { count: 0 },
       totalAppointmentsSet: { count: 0 },
       answerRate: { percentage: 0 },
-      voicemailPercentage: { percentage: 0 },
+      voicemailPercentage: { count: 0, percentage: 0 },
       avgCallDuration: { duration: '0:00' },
-      callFailedPercentage: { percentage: 0 },
-      percentageOfFollowups: { percentage: 0 }
+      callFailedPercentage: { count: 0, percentage: 0 },
+      percentageOfFollowups: { count: 0, percentage: 0 }
     }
   }
 
@@ -206,10 +210,10 @@ export function calculateCampaignMetrics(calls: CallRecord[]): CampaignMetrics {
     totalCustomersContacted: { count: customersContacted },
     totalAppointmentsSet: { count: appointmentsSet },
     answerRate: { percentage: answerRate },
-    voicemailPercentage: { percentage: voicemailPercentage },
+    voicemailPercentage: { count: voicemailCalls, percentage: voicemailPercentage },
     avgCallDuration: { duration: avgCallDuration },
-    callFailedPercentage: { percentage: callFailedPercentage },
-    percentageOfFollowups: { percentage: percentageOfFollowups }
+    callFailedPercentage: { count: failedCalls, percentage: callFailedPercentage },
+    percentageOfFollowups: { count: followupCalls, percentage: percentageOfFollowups }
   }
 }
 
@@ -323,10 +327,10 @@ export function calculateCampaignMetricsFromAPI(
     totalCustomersContacted: { count: totalCustomersContacted },
     totalAppointmentsSet: { count: totalAppointments },
     answerRate: { percentage: answerRate },
-    voicemailPercentage: { percentage: voicemailPercentage },
+    voicemailPercentage: { count: voicemailCount, percentage: voicemailPercentage },
     avgCallDuration: { duration: avgCallDuration },
-    callFailedPercentage: { percentage: callFailedPercentage },
-    callRejectedPercentage: { percentage: callRejectedPercentage },
-    percentageOfFollowups: { percentage: percentageOfFollowups }
+    callFailedPercentage: { count: callsFailed, percentage: callFailedPercentage },
+    callRejectedPercentage: { count: callsNotPicked, percentage: callRejectedPercentage },
+    percentageOfFollowups: { count: callbacksRequested, percentage: percentageOfFollowups }
   }
 }

@@ -46,7 +46,7 @@ export function MetricsGrid({ metrics, className }: MetricsGridProps) {
         {/* Row 2 */}
         <MetricCard
           title="Voice Mail %"
-          value={`${metrics.voicemailPercentage.percentage}%`}
+          value={`${metrics.voicemailPercentage.count} (${metrics.voicemailPercentage.percentage}%)`}
           valueColor="text-orange-600"
           icon={<Voicemail className="h-4 w-4" />}
         />
@@ -60,14 +60,14 @@ export function MetricsGrid({ metrics, className }: MetricsGridProps) {
         
         <MetricCard
           title="Call failed %"
-          value={`${metrics.callFailedPercentage.percentage}%`}
+          value={`${metrics.callFailedPercentage.count} (${metrics.callFailedPercentage.percentage}%)`}
           valueColor="text-red-600"
           icon={<PhoneOff className="h-4 w-4" />}
         />
         
         <MetricCard
           title="Call Rejected %"
-          value={`${metrics.percentageOfFollowups.percentage}%`}
+          value={`${metrics.callRejectedPercentage?.count || 0} (${metrics.callRejectedPercentage?.percentage || 0}%)`}
           valueColor="text-indigo-600"
           icon={<MessageSquare className="h-4 w-4" />}
         />
@@ -110,14 +110,14 @@ export function MetricsGrid({ metrics, className }: MetricsGridProps) {
         <div className="grid grid-cols-2 gap-4">
           <MetricCard
             title="Voice Mail %"
-            value={`${metrics.voicemailPercentage.percentage}%`}
+            value={`${metrics.voicemailPercentage.count} (${metrics.voicemailPercentage.percentage}%)`}
             valueColor="text-orange-600"
             icon={<Voicemail className="h-4 w-4" />}
           />
           
           <MetricCard
             title="Call failed %"
-            value={`${metrics.callFailedPercentage.percentage}%`}
+            value={`${metrics.callFailedPercentage.count} (${metrics.callFailedPercentage.percentage}%)`}
             valueColor="text-red-600"
             icon={<PhoneOff className="h-4 w-4" />}
           />
@@ -132,7 +132,7 @@ export function MetricsGrid({ metrics, className }: MetricsGridProps) {
           
           <MetricCard
             title="Call Rejected %"
-            value={`${metrics.percentageOfFollowups.percentage}%`}
+            value={`${metrics.callRejectedPercentage?.count || 0} (${metrics.callRejectedPercentage?.percentage || 0}%)`}
             valueColor="text-indigo-600"
             icon={<MessageSquare className="h-4 w-4" />}
           />

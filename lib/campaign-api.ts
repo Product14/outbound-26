@@ -469,10 +469,10 @@ export function transformCampaignData(
 
   // Add retry logic if available from UI
   const retryLogic: LaunchCampaignPayload['retryLogic'] | undefined = 
-    (campaignData.maxRetryAttempts || campaignData.retryDelayMinutes) ? {
-      maxAttempts: campaignData.maxRetryAttempts || 1,
-      retryDelay: (campaignData.retryDelayMinutes || 60) * 60, // Convert minutes to seconds
-      smsSwitchover: true // Default to true for SMS fallback
+    (campaignData.maxRetryAttempts !== undefined || campaignData.retryDelayMinutes !== undefined) ? {
+      maxAttempts: campaignData.maxRetryAttempts ?? 1,
+      retryDelay: (campaignData.retryDelayMinutes ?? 60) * 60, // Convert minutes to seconds
+      smsSwitchover: campaignData.maxRetryAttempts === 0 ? false : true // Disable SMS switchover if no retry
     } : undefined;
 
   // Add handoff settings if available from UI

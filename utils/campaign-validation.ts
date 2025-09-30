@@ -360,9 +360,17 @@ export const validateStep = (
     }
     
     // Retry Settings validation
-    if (!campaignData.maxRetryAttempts || !campaignData.retryDelayMinutes) {
+    // If maxRetryAttempts or retryDelayMinutes are undefined/null, it's invalid
+    if (campaignData.maxRetryAttempts === undefined || campaignData.maxRetryAttempts === null || 
+        campaignData.retryDelayMinutes === undefined || campaignData.retryDelayMinutes === null) {
       newErrors.retrySettings = true
       missingFields.push('Retry Settings')
+      isValid = false
+    }
+    // If user selects retry attempts (1+), they MUST select a retry delay (not 0)
+    else if (campaignData.maxRetryAttempts > 0 && campaignData.retryDelayMinutes === 0) {
+      newErrors.retrySettings = true
+      missingFields.push('Retry Delay is required when retry attempts are selected')
       isValid = false
     }
     

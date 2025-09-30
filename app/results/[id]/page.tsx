@@ -228,10 +228,10 @@ export default function CampaignDetail() {
       totalCustomersContacted: { count: 0 },
       totalAppointmentsSet: { count: 0 },
       answerRate: { percentage: 0 },
-      voicemailPercentage: { percentage: 0 },
+      voicemailPercentage: { count: 0, percentage: 0 },
       avgCallDuration: { duration: '0:00' },
-      callFailedPercentage: { percentage: 0 },
-      percentageOfFollowups: { percentage: 0 }
+      callFailedPercentage: { count: 0, percentage: 0 },
+      percentageOfFollowups: { count: 0, percentage: 0 }
     }
   }, [analyticsData, completedCallsData])
 

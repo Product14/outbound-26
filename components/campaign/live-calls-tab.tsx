@@ -176,7 +176,7 @@ export function LiveCallsTab({
                         <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Voice Mail %</h3>
                       </div>
                       <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
-                        {campaignMetrics.voicemailPercentage?.percentage || 0}%
+                        {campaignMetrics.voicemailPercentage?.count || 0} ({campaignMetrics.voicemailPercentage?.percentage || 0}%)
                       </p>
                     </div>
                     <Tooltip>
@@ -201,7 +201,7 @@ export function LiveCallsTab({
                         <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Call Failed %</h3>
                       </div>
                       <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
-                        {campaignMetrics.callFailedPercentage?.percentage || 0}%
+                        {campaignMetrics.callFailedPercentage?.count || 0} ({campaignMetrics.callFailedPercentage?.percentage || 0}%)
                       </p>
                     </div>
                     <Tooltip>
@@ -251,7 +251,7 @@ export function LiveCallsTab({
                         <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Call Rejected %</h3>
                       </div>
                       <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
-                        {campaignMetrics.callRejectedPercentage?.percentage || 0}%
+                        {campaignMetrics.callRejectedPercentage?.count || 0} ({campaignMetrics.callRejectedPercentage?.percentage || 0}%)
                       </p>
                     </div>
                     <Tooltip>

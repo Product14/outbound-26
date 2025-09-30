@@ -530,12 +530,22 @@ export default function Step3CallSettings({
                   </Label>
                   <Select
                     value={campaignData.maxRetryAttempts.toString()}
-                    onValueChange={(value) => setCampaignData(prev => ({ ...prev, maxRetryAttempts: parseInt(value) }))}
+                    onValueChange={(value) => {
+                      const attempts = parseInt(value);
+                      setCampaignData(prev => ({ 
+                        ...prev, 
+                        maxRetryAttempts: attempts,
+                        // If "No retry" is selected, set retry delay to 0
+                        // If retry is selected and current delay is 0, set to default (60 minutes = 1 hour)
+                        retryDelayMinutes: attempts === 0 ? 0 : (prev.retryDelayMinutes === 0 ? 60 : prev.retryDelayMinutes)
+                      }));
+                    }}
                   >
                     <SelectTrigger className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="0">No retry</SelectItem>
                       <SelectItem value="1">1 attempt</SelectItem>
                       <SelectItem value="2">2 attempts</SelectItem>
                       <SelectItem value="3">3 attempts</SelectItem>
@@ -550,11 +560,12 @@ export default function Step3CallSettings({
                     Retry Delay
                   </Label>
                   <Select
-                    value={campaignData.retryDelayMinutes.toString()}
+                    value={campaignData.maxRetryAttempts === 0 ? "0" : campaignData.retryDelayMinutes.toString()}
                     onValueChange={(value) => setCampaignData(prev => ({ ...prev, retryDelayMinutes: parseInt(value) }))}
+                    disabled={campaignData.maxRetryAttempts === 0}
                   >
-                    <SelectTrigger className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2]">
-                      <SelectValue />
+                    <SelectTrigger className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2] disabled:opacity-50 disabled:cursor-not-allowed">
+                      <SelectValue placeholder="Select delay" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="2">2 minutes</SelectItem>

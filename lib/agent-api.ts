@@ -119,7 +119,7 @@ export async function fetchAgentList(
     
     // Add Authorization header if authKey is provided
     if (authKey) {
-      headers['Authorization'] = `Bearer ${authKey}`;
+      headers['Authorization'] = authKey.startsWith('Bearer ') ? authKey : `Bearer ${authKey}`;
     }
     
     // Use internal API route to avoid CORS issues

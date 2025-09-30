@@ -414,7 +414,7 @@ export const LiveActivityTable = forwardRef<{
       
       // Add Authorization header if authKey is provided
       if (authKey) {
-        headers['Authorization'] = `Bearer ${authKey}`
+        headers['Authorization'] = authKey.startsWith('Bearer ') ? authKey : `Bearer ${authKey}`
       }
       
       // Add search query if provided

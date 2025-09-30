@@ -256,7 +256,7 @@ export function useEndCallReport(callId: string | null): UseEndCallReportReturn 
       
       // Add Authorization header if authKey is available
       if (urlParams.auth_key) {
-        headers['Authorization'] = `Bearer ${urlParams.auth_key}`
+        headers['Authorization'] = urlParams.auth_key.startsWith('Bearer ') ? urlParams.auth_key : `Bearer ${urlParams.auth_key}`
       }
       
       const apiUrl = `/api/fetch-end-call-report?callId=${encodeURIComponent(callId)}`

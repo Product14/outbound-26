@@ -130,7 +130,7 @@ async function fetchAllCampaignData(
 
       // Add Authorization header if authKey is provided
       if (authKey) {
-        headers['Authorization'] = `Bearer ${authKey}`
+        headers['Authorization'] = authKey.startsWith('Bearer ') ? authKey : `Bearer ${authKey}`
       }
 
       const apiUrl = `/api/fetch-campaign-status?${params.toString()}`

@@ -633,7 +633,7 @@ export async function launchCampaign(payload: LaunchCampaignPayload, authKey?: s
     
     // Add Authorization header if authKey is provided
     if (authKey) {
-      headers['Authorization'] = `Bearer ${authKey}`;
+      headers['Authorization'] = authKey.startsWith('Bearer ') ? authKey : `Bearer ${authKey}`;
     }
     
     const response = await fetch('/api/launch-campaign', {
@@ -665,7 +665,7 @@ export async function fetchCampaignList(enterpriseId: string, teamId: string, au
     
     // Add Authorization header if authKey is provided
     if (authKey) {
-      headers['Authorization'] = `Bearer ${authKey}`;
+      headers['Authorization'] = authKey.startsWith('Bearer ') ? authKey : `Bearer ${authKey}`;
     }
     
     const response = await fetch(`/api/fetch-campaign-list?${params.toString()}`, {
@@ -695,7 +695,7 @@ export async function fetchCampaignDetails(campaignId: string, authKey?: string)
     
     // Add Authorization header if authKey is provided
     if (authKey) {
-      headers['Authorization'] = `Bearer ${authKey}`;
+      headers['Authorization'] = authKey.startsWith('Bearer ') ? authKey : `Bearer ${authKey}`;
     }
     
     const response = await fetch(`/api/fetch-campaign-details?${params.toString()}`, {
@@ -743,7 +743,7 @@ export async function fetchCampaignTypes(authKey?: string): Promise<CampaignType
     
     // Add Authorization header if authKey is provided
     if (authKey) {
-      headers['Authorization'] = `Bearer ${authKey}`;
+      headers['Authorization'] = authKey.startsWith('Bearer ') ? authKey : `Bearer ${authKey}`;
     }
     
     const response = await fetch('/api/fetch-campaign-types', {
@@ -876,7 +876,7 @@ export async function fetchCampaignLeadsCount(
     
     // Add Authorization header if authKey is provided
     if (authKey) {
-      headers['Authorization'] = `Bearer ${authKey}`;
+      headers['Authorization'] = authKey.startsWith('Bearer ') ? authKey : `Bearer ${authKey}`;
     }
 
     const fullUrl = `${configs.base_url}conversation/campaign/campaign-leads-count?${params.toString()}`;
@@ -935,14 +935,21 @@ export async function fetchCampaignLeadsData(
     };
     params.append('leadsFilterOptions', JSON.stringify(leadsFilterOptions));
 
-    // Add auth_key parameter if provided
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add Authorization header if authKey is provided
     if (authKey) {
-      params.append('auth_key', authKey);
+      headers['Authorization'] = authKey.startsWith('Bearer ') ? authKey : `Bearer ${authKey}`;
     }
 
     const fullUrl = `/api/fetch-campaign-leads-data?${params.toString()}`;
     
-    const response = await fetch(fullUrl);
+    const response = await fetch(fullUrl, {
+      method: 'GET',
+      headers,
+    });
 
     if (!response.ok) {
       let errorMessage = `HTTP error! status: ${response.status}`;
@@ -993,7 +1000,7 @@ export async function fetchCampaignLeadsCountByRecurringAge(
     
     // Add Authorization header if authKey is provided
     if (authKey) {
-      headers['Authorization'] = `Bearer ${authKey}`;
+      headers['Authorization'] = authKey.startsWith('Bearer ') ? authKey : `Bearer ${authKey}`;
     }
 
     const fullUrl = `${configs.base_url}conversation/campaign/campaign-leads-count?${params.toString()}`;
@@ -1052,7 +1059,7 @@ export async function fetchCampaignLeadsDataByRecurringAge(
     
     // Add Authorization header if authKey is provided
     if (authKey) {
-      headers['Authorization'] = `Bearer ${authKey}`;
+      headers['Authorization'] = authKey.startsWith('Bearer ') ? authKey : `Bearer ${authKey}`;
     }
 
     const fullUrl = `/api/fetch-campaign-leads-data?${params.toString()}`;
@@ -1101,7 +1108,7 @@ export async function processKeyMapping(requiredKeys: string[], availableKeys: s
     
     // Add Authorization header if authKey is provided
     if (authKey) {
-      headers['Authorization'] = `Bearer ${authKey}`;
+      headers['Authorization'] = authKey.startsWith('Bearer ') ? authKey : `Bearer ${authKey}`;
     }
 
     const response = await fetch('/api/keys-mapping', {
@@ -1129,12 +1136,19 @@ export async function fetchCampaignConversationData(
     const params = new URLSearchParams();
     params.append('campaignId', campaignId);
     
-    // Add auth_key parameter if provided
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add Authorization header if authKey is provided
     if (authKey) {
-      params.append('auth_key', authKey);
+      headers['Authorization'] = authKey.startsWith('Bearer ') ? authKey : `Bearer ${authKey}`;
     }
 
-    const response = await fetch(`/api/fetch-campaign-conversation?${params.toString()}`);
+    const response = await fetch(`/api/fetch-campaign-conversation?${params.toString()}`, {
+      method: 'GET',
+      headers,
+    });
 
     if (!response.ok) {
       let errorMessage = `HTTP error! status: ${response.status}`;

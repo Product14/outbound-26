@@ -134,7 +134,7 @@ export default function CampaignDetail() {
         
         // Add Authorization header if authKey is available
         if (urlParams.auth_key) {
-          headers['Authorization'] = `Bearer ${urlParams.auth_key}`
+          headers['Authorization'] = urlParams.auth_key.startsWith('Bearer ') ? urlParams.auth_key : `Bearer ${urlParams.auth_key}`
         }
         
         // Fetch analytics data

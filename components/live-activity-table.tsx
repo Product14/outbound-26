@@ -407,9 +407,14 @@ export const LiveActivityTable = forwardRef<{
       // Build URL with all filters for server-side filtering and pagination
       let url = `/api/fetch-campaign-status?campaignId=${campaignId}&page=${page}&limit=${limit}&showCallbacks=false`
       
-      // Add auth_key if provided
+      // Prepare headers for authenticated requests
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      }
+      
+      // Add Authorization header if authKey is provided
       if (authKey) {
-        url += `&auth_key=${encodeURIComponent(authKey)}`
+        headers['Authorization'] = `Bearer ${authKey}`
       }
       
       // Add search query if provided
@@ -511,7 +516,10 @@ export const LiveActivityTable = forwardRef<{
      
       
       
-      const response = await fetch(url)
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+      })
       if (!response.ok) {
         const errorText = await response.text()
         console.error('❌ API request failed:', { status: response.status, statusText: response.statusText, errorText })

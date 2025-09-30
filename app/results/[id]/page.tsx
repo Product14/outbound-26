@@ -127,9 +127,22 @@ export default function CampaignDetail() {
       setIsLoadingAnalytics(true)
       
       try {
+        // Prepare headers for authenticated requests
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        }
+        
+        // Add Authorization header if authKey is available
+        if (urlParams.auth_key) {
+          headers['Authorization'] = `Bearer ${urlParams.auth_key}`
+        }
+        
         // Fetch analytics data
-        const analyticsUrl = `/api/fetch-campaign-analytics?campaignId=${campaignId}${urlParams.auth_key ? `&auth_key=${encodeURIComponent(urlParams.auth_key)}` : ''}`
-        const analyticsResponse = await fetch(analyticsUrl)
+        const analyticsUrl = `/api/fetch-campaign-analytics?campaignId=${campaignId}`
+        const analyticsResponse = await fetch(analyticsUrl, {
+          method: 'GET',
+          headers,
+        })
         if (analyticsResponse.ok) {
           const analytics = await analyticsResponse.json()
          
@@ -139,7 +152,10 @@ export default function CampaignDetail() {
         }
 
         // Fetch campaign status data for additional metrics
-        const campaignStatusResponse = await fetch(`/api/fetch-campaign-status?campaignId=${campaignId}`)
+        const campaignStatusResponse = await fetch(`/api/fetch-campaign-status?campaignId=${campaignId}`, {
+          method: 'GET',
+          headers,
+        })
         if (campaignStatusResponse.ok) {
           const campaignStatus = await campaignStatusResponse.json()
           setCompletedCallsData(campaignStatus)

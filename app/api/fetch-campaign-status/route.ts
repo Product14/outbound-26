@@ -5,7 +5,6 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const campaignId = searchParams.get('campaignId')
-    const authKey = searchParams.get('auth_key')
     const statusTypes = searchParams.get('statusTypes') // Legacy support
     const page = searchParams.get('page') || '1'
     const limit = searchParams.get('limit') || '10'
@@ -22,6 +21,10 @@ export async function GET(request: NextRequest) {
     const sortOrder = searchParams.get('sortOrder')
     const showCallbacks = searchParams.get('showCallbacks')
     
+    // Extract bearer token from Authorization header
+    const authHeader = request.headers.get('Authorization');
+    const authKey = authHeader?.replace('Bearer ', '');
+    
     if (!campaignId) {
       return NextResponse.json(
         { error: 'Campaign ID is required' },
@@ -31,7 +34,7 @@ export async function GET(request: NextRequest) {
 
     if (!authKey) {
       return NextResponse.json(
-        { error: 'Missing required parameter: auth_key is required for authentication' },
+        { error: 'Missing required header: Authorization header with Bearer token is required for authentication' },
         { status: 401 }
       )
     }

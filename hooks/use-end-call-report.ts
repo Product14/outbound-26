@@ -249,12 +249,22 @@ export function useEndCallReport(callId: string | null): UseEndCallReportReturn 
     try {
       // Get URL parameters for authentication
       const urlParams = extractUrlParams()
-      const authKeyParam = urlParams.auth_key ? `&auth_key=${encodeURIComponent(urlParams.auth_key)}` : ''
       
-      const apiUrl = `/api/fetch-end-call-report?callId=${encodeURIComponent(callId)}${authKeyParam}`
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      }
       
+      // Add Authorization header if authKey is available
+      if (urlParams.auth_key) {
+        headers['Authorization'] = `Bearer ${urlParams.auth_key}`
+      }
       
-      const response = await fetch(apiUrl)
+      const apiUrl = `/api/fetch-end-call-report?callId=${encodeURIComponent(callId)}`
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers,
+      })
       
       if (!response.ok) {
         throw new Error(`Failed to fetch end call report: ${response.status} ${response.statusText}`)

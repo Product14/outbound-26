@@ -124,13 +124,21 @@ async function fetchAllCampaignData(
         // Don't add any filters - we want ALL data for CSV export
       })
 
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      }
+
+      // Add Authorization header if authKey is provided
       if (authKey) {
-        params.append('auth_key', authKey)
+        headers['Authorization'] = `Bearer ${authKey}`
       }
 
       const apiUrl = `/api/fetch-campaign-status?${params.toString()}`
 
-      const response = await fetch(apiUrl)
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers,
+      })
       
       
       if (!response.ok) {

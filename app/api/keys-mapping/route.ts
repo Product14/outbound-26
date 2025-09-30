@@ -5,9 +5,9 @@ export async function POST(request: NextRequest) {
   try {
     const payload = await request.json();
     
-    // Extract auth_key from URL parameters
-    const { searchParams } = new URL(request.url);
-    const authKey = searchParams.get('auth_key');
+    // Extract bearer token from Authorization header
+    const authHeader = request.headers.get('Authorization');
+    const authKey = authHeader?.replace('Bearer ', '');
     
     // Validate the payload
     if (!payload.requiredKeys || !Array.isArray(payload.requiredKeys) ||
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     // Validate auth_key requirement
     if (!authKey) {
       return NextResponse.json(
-        { error: 'Missing required parameter: auth_key is required for authentication' },
+        { error: 'Missing required header: Authorization header with Bearer token is required for authentication' },
         { status: 401 }
       );
     }

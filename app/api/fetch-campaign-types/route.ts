@@ -3,14 +3,14 @@ import { configs } from '@/configs';
 
 export async function GET(request: NextRequest) {
   try {
-    // Extract auth_key from URL parameters
-    const { searchParams } = new URL(request.url);
-    const authKey = searchParams.get('auth_key');
+    // Extract bearer token from Authorization header
+    const authHeader = request.headers.get('Authorization');
+    const authKey = authHeader?.replace('Bearer ', '');
 
     // Validate auth_key requirement
     if (!authKey) {
       return NextResponse.json(
-        { error: 'Missing required parameter: auth_key is required for authentication' },
+        { error: 'Missing required header: Authorization header with Bearer token is required for authentication' },
         { status: 401 }
       );
     }

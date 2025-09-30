@@ -654,12 +654,20 @@ export async function fetchCampaignList(enterpriseId: string, teamId: string, au
     const params = new URLSearchParams();
     params.append('enterpriseId', enterpriseId);
     params.append('teamId', teamId);
-    // Add auth_key parameter
+    
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add Authorization header if authKey is provided
     if (authKey) {
-      params.append('auth_key', authKey);
+      headers['Authorization'] = `Bearer ${authKey}`;
     }
     
-    const response = await fetch(`/api/fetch-campaign-list?${params.toString()}`);
+    const response = await fetch(`/api/fetch-campaign-list?${params.toString()}`, {
+      method: 'GET',
+      headers,
+    });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -676,16 +684,19 @@ export async function fetchCampaignDetails(campaignId: string, authKey?: string)
   try {
     const params = new URLSearchParams();
     params.append('campaignId', campaignId);
-    // Add auth_key parameter
+    
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add Authorization header if authKey is provided
     if (authKey) {
-      params.append('auth_key', authKey);
+      headers['Authorization'] = `Bearer ${authKey}`;
     }
     
     const response = await fetch(`/api/fetch-campaign-details?${params.toString()}`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
     });
 
     if (!response.ok) {
@@ -722,9 +733,19 @@ export async function fetchCampaignDetails(campaignId: string, authKey?: string)
 
 export async function fetchCampaignTypes(authKey?: string): Promise<CampaignTypesResponse> {
   try {
-    // Build URL with auth_key parameter
-    const url = authKey ? `/api/fetch-campaign-types?auth_key=${authKey}` : '/api/fetch-campaign-types';
-    const response = await fetch(url);
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add Authorization header if authKey is provided
+    if (authKey) {
+      headers['Authorization'] = `Bearer ${authKey}`;
+    }
+    
+    const response = await fetch('/api/fetch-campaign-types', {
+      method: 'GET',
+      headers,
+    });
 
     if (!response.ok) {
       let errorMessage = `HTTP error! status: ${response.status}`;

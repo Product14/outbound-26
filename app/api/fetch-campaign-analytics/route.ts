@@ -5,7 +5,10 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const campaignId = searchParams.get('campaignId')
-    const authKey = searchParams.get('auth_key')
+    
+    // Extract bearer token from Authorization header
+    const authHeader = request.headers.get('Authorization');
+    const authKey = authHeader?.replace('Bearer ', '');
     
     if (!campaignId) {
       return NextResponse.json(

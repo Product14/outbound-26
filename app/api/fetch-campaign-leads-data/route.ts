@@ -7,7 +7,10 @@ export async function GET(request: NextRequest) {
     const enterpriseId = searchParams.get('enterpriseId')
     const teamId = searchParams.get('teamId')
     const leadsFilterOptions = searchParams.get('leadsFilterOptions')
-    const authKey = searchParams.get('auth_key')
+    
+    // Extract bearer token from Authorization header
+    const authHeader = request.headers.get('Authorization');
+    const authKey = authHeader?.replace('Bearer ', '');
 
     if (!enterpriseId || !teamId || !leadsFilterOptions) {
       return NextResponse.json(
@@ -22,13 +25,22 @@ export async function GET(request: NextRequest) {
     params.append('teamId', teamId)
     params.append('leadsFilterOptions', leadsFilterOptions)
 
-    if (authKey) {
-      params.append('auth_key', authKey)
-    }
-
     const fullUrl = `${configs.base_url}conversation/campaign/campaign-leads-data?${params.toString()}`
 
-    const response = await fetch(fullUrl)
+    // Build headers
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    }
+
+    // Add authorization header if auth_key is provided
+    if (authKey) {
+      headers['Authorization'] = `Bearer ${authKey}`
+    }
+
+    const response = await fetch(fullUrl, {
+      method: 'GET',
+      headers,
+    })
 
     if (!response.ok) {
       let errorMessage = `HTTP error! status: ${response.status}`

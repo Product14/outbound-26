@@ -105,12 +105,6 @@ export async function fetchAgentList(
     params.append('enterpriseId', enterpriseId);
     params.append('teamId', teamId);
     
-    // Add auth_key parameter
-    if (authKey) {
-      params.append('auth_key', authKey);
-    } else {
-    }
-    
     // Convert agentUseCase to snake_case format specifically for this API
     if (agentUseCase) {
       const convertedUseCase = await convertUseCaseToSnakeCase(agentUseCase, authKey);
@@ -119,14 +113,21 @@ export async function fetchAgentList(
     if (agentType) params.append('agentType', agentType);
     if (agentCallType) params.append('agentCallType', agentCallType);
     
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add Authorization header if authKey is provided
+    if (authKey) {
+      headers['Authorization'] = `Bearer ${authKey}`;
+    }
+    
     // Use internal API route to avoid CORS issues
     const url = `/api/fetch-agent-list?${params.toString()}`;
         
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
     });
 
     if (!response.ok) {

@@ -218,11 +218,12 @@ export default function CampaignResults() {
     // Date filter - check if any date field matches the selected date
     let matchesDate = true
     if (dateFilter) {
-      const selectedDate = new Date(dateFilter)
+      // Parse the date filter in local timezone
+      const selectedDate = new Date(dateFilter + 'T00:00:00')
       const campaignCreatedDate = new Date(campaign.createdAt || campaign.startDate || '')
       const campaignCompletedDate = new Date(campaign.completedAt || '')
       
-      // Check if any date field matches the selected date (within the same day)
+      // Check if any date field matches the selected date (within the same day in local timezone)
       const isSameDay = (date1: Date, date2: Date) => {
         return date1.getFullYear() === date2.getFullYear() &&
                date1.getMonth() === date2.getMonth() &&
@@ -435,7 +436,7 @@ export default function CampaignResults() {
                 </Select>
                 
                 {/* Campaign Type Filter - Medium content, medium width */}
-                <Select value="" onValueChange={addCampaignTypeFilter}>
+                {/* <Select value="" onValueChange={addCampaignTypeFilter}>
                   <SelectTrigger className="w-full sm:w-40 h-10 text-[#666666] font-semibold border-border bg-surface">
                     <SelectValue placeholder="Campaign Type" />
                   </SelectTrigger>
@@ -447,7 +448,7 @@ export default function CampaignResults() {
                       Service {activeCampaignTypeFilters.includes('service') && '✓'}
                     </SelectItem>
                   </SelectContent>
-                </Select>
+                </Select> */}
 
                 {/* Sort Filter - Short content, smaller width */}
                 <Select value={`${sortBy.field}-${sortBy.order}`} onValueChange={(value) => {
@@ -474,14 +475,24 @@ export default function CampaignResults() {
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateFilter ? new Date(dateFilter).toLocaleDateString() : <span>Date</span>}
+                      {dateFilter ? new Date(dateFilter + 'T00:00:00').toLocaleDateString() : <span>Date</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0 z-50" align="start" side="bottom" sideOffset={4}>
                     <Calendar
                       mode="single"
-                      selected={dateFilter ? new Date(dateFilter) : undefined}
-                      onSelect={(date) => setDateFilter(date ? date.toISOString().split('T')[0] : '')}
+                      selected={dateFilter ? new Date(dateFilter + 'T00:00:00') : undefined}
+                      onSelect={(date) => {
+                        if (date) {
+                          // Format date in local timezone to avoid timezone shift
+                          const year = date.getFullYear()
+                          const month = String(date.getMonth() + 1).padStart(2, '0')
+                          const day = String(date.getDate()).padStart(2, '0')
+                          setDateFilter(`${year}-${month}-${day}`)
+                        } else {
+                          setDateFilter('')
+                        }
+                      }}
                       initialFocus
                     />
                   </PopoverContent>
@@ -534,7 +545,7 @@ export default function CampaignResults() {
               {/* Date Filter Chip */}
               {dateFilter && (
                 <div className="flex items-center gap-1 px-3 py-1 rounded-full border border-[#4600F2] text-[#4600F2] text-sm">
-                  <span>Date: {new Date(dateFilter).toLocaleDateString()}</span>
+                  <span>Date: {new Date(dateFilter + 'T00:00:00').toLocaleDateString()}</span>
                   <button
                     onClick={clearDateFilter}
                     className="ml-1 hover:bg-[#4600F2]/10 rounded-full p-0.5"

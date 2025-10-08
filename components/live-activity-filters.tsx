@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { MultiSelect, MultiSelectOption } from "@/components/ui/multi-select"
+import { SERVICE_OUTCOMES, SALES_OUTCOMES } from "@/lib/call-status-utils"
 import { 
   Search, 
   Filter, 
@@ -208,62 +209,16 @@ export function LiveActivityFilters({
     return statusMap[status] || status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
-  // Define outcome options based on campaign type
-  const serviceOutcomes = [
-    'Schedule Service Appointment',
-    'Schedule Test Drive',
-    'Service Appointment Booked',
-    'Service Appointment Rescheduled',
-    'Service History Shared',
-    'Service Pricing Shared',
-    'Trade-in Inquiry',
-    'Transferred to Human',
-    'Vehicle Availability Inquiry',
-    'Warranty Info Shared',
-    'No Availability',
-    'No Intent'
-  ]
-
-  const salesOutcomes = [
-    'Appointment for Purchase Discussion',
-    'Cancel Test Drive',
-    'Check Order/Delivery Status',
-    'Check Recall Status',
-    'Complaint Registered',
-    'Drop-off/Pickup Info Shared',
-    'Extended Warranty/Protection Plan Inquiry',
-    'Financing/Leasing Inquiry',
-    'General Information Shared',
-    'General Sales Inquiry',
-    'General Service Inquiry',
-    'Inventory/Brochure Request',
-    'Operating Hours/Location Inquiry',
-    'Parts Availability Shared',
-    'Promotions/Incentives Inquiry',
-    'Recall Check Completed',
-    'Repair Status Shared',
-    'Request Vehicle Information',
-    'Request Price/Quote',
-    'Request service history',
-    'Reschedule Test Drive',
-    'Safety Recall',
-    'Salesperson/Manager Request',
-    'Schedule PDI before purchase',
-    'Schedule Recall'
-  ]
-
   // Get outcomes based on agent type
   const getOutcomeOptions = () => {
-   
-    
     // Check for explicit Service type
     if (agentType === 'Service') {
-      return serviceOutcomes
+      return SERVICE_OUTCOMES
     }
     
     // Check for explicit Sales type
     if (agentType === 'Sales') {
-      return salesOutcomes
+      return SALES_OUTCOMES
     }
     
     // Check if agent type contains service-related keywords
@@ -271,11 +226,10 @@ export function LiveActivityFilters({
     const lowerAgentType = (agentType || '').toLowerCase()
     
     if (serviceKeywords.some(keyword => lowerAgentType.includes(keyword))) {
-      return serviceOutcomes
+      return SERVICE_OUTCOMES
     }
     
-    
-    return salesOutcomes
+    return SALES_OUTCOMES
   }
 
   // Outcome search functionality

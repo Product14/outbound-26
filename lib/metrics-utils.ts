@@ -244,16 +244,20 @@ export function calculateMockCampaignMetrics(totalCalls: number, campaignType: '
   const appointmentsSet = Math.round(customersContacted * (campaignType === 'sales' ? 0.35 : 0.42))
   const avgDurationSec = Math.round(avgDurationMin * 60)
   const avgCallDuration = `${Math.floor(avgDurationSec / 60)}:${(avgDurationSec % 60).toString().padStart(2, '0')}`
+  
+  const voicemailCount = Math.round((voicemailRate / 100) * totalCalls)
+  const failedCount = Math.round((callFailedRate / 100) * totalCalls)
+  const followupCount = Math.round((followupRate / 100) * totalCalls)
 
   return {
     totalCallsMade: { count: totalCalls },
     totalCustomersContacted: { count: customersContacted },
     totalAppointmentsSet: { count: appointmentsSet },
     answerRate: { percentage: Math.round(answerRate) },
-    voicemailPercentage: { percentage: Math.round(voicemailRate) },
+    voicemailPercentage: { count: voicemailCount, percentage: Math.round(voicemailRate) },
     avgCallDuration: { duration: avgCallDuration },
-    callFailedPercentage: { percentage: Math.round(callFailedRate) },
-    percentageOfFollowups: { percentage: Math.round(followupRate) }
+    callFailedPercentage: { count: failedCount, percentage: Math.round(callFailedRate) },
+    percentageOfFollowups: { count: followupCount, percentage: Math.round(followupRate) }
   }
 }
 
@@ -270,11 +274,11 @@ export function calculateCampaignMetricsFromAPI(
       totalCustomersContacted: { count: 0 },
       totalAppointmentsSet: { count: 0 },
       answerRate: { percentage: 0 },
-      voicemailPercentage: { percentage: 0 },
+      voicemailPercentage: { count: 0, percentage: 0 },
       avgCallDuration: { duration: '0:00' },
-      callFailedPercentage: { percentage: 0 },
-      callRejectedPercentage: { percentage: 0 },
-      percentageOfFollowups: { percentage: 0 }
+      callFailedPercentage: { count: 0, percentage: 0 },
+      callRejectedPercentage: { count: 0, percentage: 0 },
+      percentageOfFollowups: { count: 0, percentage: 0 }
     }
   }
 

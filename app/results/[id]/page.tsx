@@ -267,6 +267,11 @@ export default function CampaignDetail() {
   const toggleCampaignStatus = () => {
     setCampaignRunning(!campaignRunning)
   }
+  
+  // Handler to update conversation data after status change
+  const handleUpdateConversationData = (updatedData: any) => {
+    setConversationData(updatedData)
+  }
 
   const handleCallSelect = (call: any) => {
     
@@ -674,6 +679,12 @@ export default function CampaignDetail() {
           try {
             const conversationResponse = await fetchCampaignConversationData(campaignId, urlParams.auth_key || undefined)
             setConversationData(conversationResponse)
+            
+            // Set campaign running state based on actual API status
+            if (conversationResponse?.campaignStatus) {
+              const status = conversationResponse.campaignStatus.toLowerCase()
+              setCampaignRunning(status === 'running')
+            }
           } catch (conversationError) {
             console.warn('Failed to fetch conversation data:', conversationError)
           }
@@ -827,6 +838,7 @@ export default function CampaignDetail() {
         analyticsData={analyticsData}
         onTabChange={handleTabChange}
         onToggleCampaignStatus={toggleCampaignStatus}
+        onUpdateConversationData={handleUpdateConversationData}
       />
       
       {/* Tabs Navigation - Commented out temporarily */}

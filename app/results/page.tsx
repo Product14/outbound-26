@@ -11,7 +11,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Search, Download, Phone, CheckCircle, Clock, AlertCircle, BarChart3, Plus, Loader2, X, Copy, Check, CalendarIcon, Settings } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Search, Download, Phone, CheckCircle, Clock, AlertCircle, BarChart3, Plus, Loader2, X, Copy, Check, CalendarIcon, Settings, Square, Pause, Play } from 'lucide-react'
 import Link from "next/link"
 import { fetchCampaignList, fetchCampaignTypes, type CampaignListItem, type CampaignTypesResponse } from '@/lib/campaign-api'
 import { fetchAgentList, type Agent } from '@/lib/agent-api'
@@ -124,6 +134,11 @@ export default function CampaignResults() {
   // Settings modal state
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
   const [selectedCampaignForSettings, setSelectedCampaignForSettings] = useState<CampaignListItem | null>(null)
+  
+  // Campaign status update state
+  const [updatingCampaignId, setUpdatingCampaignId] = useState<string | null>(null)
+  const [showStopConfirmation, setShowStopConfirmation] = useState(false)
+  const [campaignToStop, setCampaignToStop] = useState<CampaignListItem | null>(null)
         
   // Get URL parameters or use defaults for local testing
   const urlParams = extractUrlParams();
@@ -319,6 +334,93 @@ export default function CampaignResults() {
   const handleCloseSettings = () => {
     setSettingsModalOpen(false)
     setSelectedCampaignForSettings(null)
+  }
+
+  // Handle campaign status update
+  const updateCampaignStatus = async (campaign: CampaignListItem, newStatus: 'running' | 'paused' | 'stopped') => {
+    setUpdatingCampaignId(campaign.campaignId)
+    
+    try {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      }
+      
+      // Add Authorization header if authKey is available
+      if (urlParams.auth_key) {
+        headers['Authorization'] = urlParams.auth_key.startsWith('Bearer ') 
+          ? urlParams.auth_key 
+          : `Bearer ${urlParams.auth_key}`
+      }
+
+      const response = await fetch('/api/update-campaign-status', {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          campaignId: campaign.campaignId,
+          campaignStatus: newStatus
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update campaign status')
+      }
+
+      const data = await response.json()
+      
+      // Update the local campaigns state immediately
+      setCampaigns(prevCampaigns => 
+        prevCampaigns.map(c => 
+          c.campaignId === campaign.campaignId 
+            ? { ...c, status: newStatus }
+            : c
+        )
+      )
+      
+      const statusMessage = newStatus === 'stopped' 
+        ? 'Campaign has been stopped successfully'
+        : newStatus === 'paused' 
+        ? 'Campaign has been paused successfully'
+        : 'Campaign has been resumed successfully'
+      
+      toast.success(statusMessage)
+      
+    } catch (error) {
+      console.error('Error updating campaign status:', error)
+      toast.error('Failed to update campaign status. Please try again.')
+    } finally {
+      setUpdatingCampaignId(null)
+    }
+  }
+  
+  // Handle pause button click
+  const handlePauseCampaign = (campaign: CampaignListItem, event: React.MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    updateCampaignStatus(campaign, 'paused')
+  }
+  
+  // Handle stop button click - show confirmation
+  const handleStopCampaign = (campaign: CampaignListItem, event: React.MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setCampaignToStop(campaign)
+    setShowStopConfirmation(true)
+  }
+  
+  // Confirm stop action
+  const confirmStopCampaign = () => {
+    if (campaignToStop) {
+      updateCampaignStatus(campaignToStop, 'stopped')
+    }
+    setShowStopConfirmation(false)
+    setCampaignToStop(null)
+  }
+  
+  // Handle resume button click
+  const handleResumeCampaign = (campaign: CampaignListItem, event: React.MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    updateCampaignStatus(campaign, 'running')
   }
 
   const formatDate = (dateString: string) => {
@@ -595,17 +697,91 @@ export default function CampaignResults() {
               const StatusIcon = statusIcons[campaign.status] || CheckCircle
               const campaignType = mapCampaignType(campaign.campaignType)
               
+              const isRunning = campaign.status.toLowerCase() === 'running'
+              const isUpdating = updatingCampaignId === campaign.campaignId
+              
               return (
                 <Card key={campaign.campaignId} className="group hover:scale-105 transition-all duration-200 cursor-pointer overflow-hidden h-full border relative" style={{borderRadius: '16px'}}>
-                  {/* Settings Icon */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => handleOpenSettings(campaign, e)}
-                    className="absolute top-3 right-3 h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-gray-100 z-10"
-                  >
-                    <Settings className="h-4 w-4 text-gray-600" />
-                  </Button>
+                  {/* Action Buttons */}
+                  <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                    {/* Campaign Control Buttons */}
+                    {isRunning ? (
+                      <>
+                        {/* Pause Button */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={isUpdating}
+                          onClick={(e) => handlePauseCampaign(campaign, e)}
+                          className={`h-8 w-8 p-0 hover:bg-orange-50 ${isUpdating ? 'opacity-50' : ''}`}
+                          title="Pause Campaign"
+                        >
+                          {isUpdating ? (
+                            <Loader2 className="h-4 w-4 text-gray-600 animate-spin" />
+                          ) : (
+                            <Pause className="h-4 w-4 text-orange-600" />
+                          )}
+                        </Button>
+                        {/* Stop Button */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={isUpdating}
+                          onClick={(e) => handleStopCampaign(campaign, e)}
+                          className={`h-8 w-8 p-0 hover:bg-red-50 ${isUpdating ? 'opacity-50' : ''}`}
+                          title="Stop Campaign"
+                        >
+                          {isUpdating ? (
+                            <Loader2 className="h-4 w-4 text-gray-600 animate-spin" />
+                          ) : (
+                            <Square className="h-4 w-4 text-red-600" />
+                          )}
+                        </Button>
+                      </>
+                    ) : campaign.status.toLowerCase() === 'paused' ? (
+                      <>
+                        {/* Resume Button - only for paused campaigns */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={isUpdating}
+                          onClick={(e) => handleResumeCampaign(campaign, e)}
+                          className={`h-8 w-8 p-0 hover:bg-blue-50 ${isUpdating ? 'opacity-50' : ''}`}
+                          title="Resume Campaign"
+                        >
+                          {isUpdating ? (
+                            <Loader2 className="h-4 w-4 text-gray-600 animate-spin" />
+                          ) : (
+                            <Play className="h-4 w-4 text-blue-600" />
+                          )}
+                        </Button>
+                        {/* Stop Button */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={isUpdating}
+                          onClick={(e) => handleStopCampaign(campaign, e)}
+                          className={`h-8 w-8 p-0 hover:bg-red-50 ${isUpdating ? 'opacity-50' : ''}`}
+                          title="Stop Campaign"
+                        >
+                          {isUpdating ? (
+                            <Loader2 className="h-4 w-4 text-gray-600 animate-spin" />
+                          ) : (
+                            <Square className="h-4 w-4 text-red-600" />
+                          )}
+                        </Button>
+                      </>
+                    ) : null}
+                    {/* Settings Icon */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => handleOpenSettings(campaign, e)}
+                      className="h-8 w-8 p-0 hover:bg-gray-100"
+                    >
+                      <Settings className="h-4 w-4 text-gray-600" />
+                    </Button>
+                  </div>
                   
                   <Link href={buildUrlWithParams(`/results/${campaign.campaignId}`)}>
                     <CardContent className="p-4 sm:p-6 h-full flex flex-col">
@@ -791,6 +967,39 @@ export default function CampaignResults() {
           campaignUseCase={selectedCampaignForSettings.campaignUseCase}
         />
       )}
+      
+      {/* Stop Confirmation Dialog */}
+      <AlertDialog open={showStopConfirmation} onOpenChange={setShowStopConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-red-600" />
+              Stop Campaign?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base">
+              Are you sure you want to <span className="font-semibold text-red-600">stop</span> this campaign? 
+              <br />
+              <br />
+              <span className="text-gray-700">
+                <strong>{campaignToStop?.name}</strong>
+                <br />
+                <br />
+                Stopping the campaign will permanently end all ongoing calls and cannot be resumed. 
+                If you want to temporarily halt the campaign, consider using <span className="font-semibold">Pause</span> instead.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setCampaignToStop(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmStopCampaign}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Yes, Stop Campaign
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

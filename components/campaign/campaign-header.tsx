@@ -39,6 +39,7 @@ interface CampaignHeaderProps {
   onTabChange: (tab: string) => void
   onToggleCampaignStatus: () => void
   onUpdateConversationData?: (updatedData: any) => void // Callback to update conversation data in parent
+  onRefreshTableData?: () => void // Callback to refresh table data after status change
 }
 
 export function CampaignHeader({
@@ -56,7 +57,8 @@ export function CampaignHeader({
   analyticsData,
   onTabChange,
   onToggleCampaignStatus,
-  onUpdateConversationData
+  onUpdateConversationData,
+  onRefreshTableData
 }: CampaignHeaderProps) {
   const [isCompact, setIsCompact] = useState(false)
   const isCompactRef = useRef(false)
@@ -154,6 +156,12 @@ export function CampaignHeader({
         title: "Success",
         description: `Campaign ${newStatus === 'stopped' ? 'stopped' : newStatus === 'paused' ? 'paused' : 'resumed'} successfully`,
       })
+      
+      // Refresh the entire page after a short delay for all status changes
+      // This ensures all data is completely fresh and in sync
+      setTimeout(() => {
+        window.location.reload()
+      }, 500) // 0.5 second delay to show the success message
       
     } catch (error) {
       console.error('Error updating campaign status:', error)

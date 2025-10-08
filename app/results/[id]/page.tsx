@@ -109,6 +109,9 @@ export default function CampaignDetail() {
   const [analyticsData, setAnalyticsData] = useState<CampaignAnalyticsResponse | null>(null)
   const [completedCallsData, setCompletedCallsData] = useState<CampaignCompletedResponse | null>(null)
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false)
+  
+  // Refresh trigger for table data
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   // Campaign type detection
   const mappedCampaignType = campaignData?.campaign?.campaignType 
@@ -271,6 +274,63 @@ export default function CampaignDetail() {
   // Handler to update conversation data after status change
   const handleUpdateConversationData = (updatedData: any) => {
     setConversationData(updatedData)
+  }
+  
+  // Handler to refresh table data and conversation data after status change
+  const handleRefreshTableData = async () => {
+    // Increment refresh trigger to refresh table data
+    setRefreshTrigger(prev => prev + 1)
+    
+    // Also refetch conversation data to update header with latest status
+    if (campaignId) {
+      try {
+        // Refetch conversation data
+        const data = await fetchCampaignConversationData(campaignId, urlParams.auth_key || undefined)
+        setConversationData(data)
+        
+        // Update campaign running state based on the fetched status
+        if (data?.campaignStatus) {
+          const status = data.campaignStatus.toLowerCase()
+          setCampaignRunning(status === 'running')
+        }
+        
+        // Refetch analytics data to update metrics
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        }
+        
+        if (urlParams.auth_key) {
+          headers['Authorization'] = urlParams.auth_key.startsWith('Bearer ') 
+            ? urlParams.auth_key 
+            : `Bearer ${urlParams.auth_key}`
+        }
+        
+        // Fetch updated analytics
+        const analyticsUrl = `/api/fetch-campaign-analytics?campaignId=${campaignId}`
+        const analyticsResponse = await fetch(analyticsUrl, {
+          method: 'GET',
+          headers,
+        })
+        
+        if (analyticsResponse.ok) {
+          const analytics = await analyticsResponse.json()
+          setAnalyticsData(analytics)
+        }
+        
+        // Fetch updated campaign status for metrics
+        const campaignStatusResponse = await fetch(`/api/fetch-campaign-status?campaignId=${campaignId}`, {
+          method: 'GET',
+          headers,
+        })
+        
+        if (campaignStatusResponse.ok) {
+          const campaignStatus = await campaignStatusResponse.json()
+          setCompletedCallsData(campaignStatus)
+        }
+      } catch (error) {
+        console.warn('Failed to refetch data after status change:', error)
+      }
+    }
   }
 
   const handleCallSelect = (call: any) => {
@@ -839,6 +899,7 @@ export default function CampaignDetail() {
         onTabChange={handleTabChange}
         onToggleCampaignStatus={toggleCampaignStatus}
         onUpdateConversationData={handleUpdateConversationData}
+        onRefreshTableData={handleRefreshTableData}
       />
       
       {/* Tabs Navigation - Commented out temporarily */}
@@ -880,6 +941,7 @@ export default function CampaignDetail() {
               analyticsData={analyticsData}
               campaignMetrics={campaignMetrics}
               authKey={urlParams.auth_key || undefined}
+              refreshTrigger={refreshTrigger}
             />
           </TabsContent>
 

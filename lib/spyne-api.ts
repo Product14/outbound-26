@@ -420,7 +420,6 @@ function mapApiOutcomeToCallOutcome(apiOutcome: string, domain: 'sales' | 'servi
     'appointmentscheduled': 'Service Appointment Scheduled',
     'serviceappointmentbooked': 'Service Appointment Booked',
     'serviceappointmentrescheduled': 'Service Appointment Rescheduled',
-    'serviceappointmentfollowupneeded': 'Service Appointment Follow-up Needed',
     'serviceappointmentcancelled': 'Service Appointment Cancelled',
     'connectwithserviceteam': 'Connect with Service Team',
     'engagedneedsreconnect': 'Engaged – Needs Reconnect',

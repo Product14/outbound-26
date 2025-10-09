@@ -29,7 +29,6 @@ export type SalesCallOutcome =
 export type ServiceCallOutcome =
   | 'Service Appointment Scheduled'
   | 'Service Appointment Booked'
-  | 'Service Appointment Follow-up Needed'
   | 'Service Appointment Rescheduled'
   | 'Connect with Service Team'
   | 'Engaged – Needs Reconnect'
@@ -94,7 +93,6 @@ export const SERVICE_OUTCOMES: ServiceCallOutcome[] = [
   'Service Appointment Scheduled',
   'Service Appointment Booked',
   'Service Appointment Rescheduled',
-  'Service Appointment Follow-up Needed',
   'Connect with Service Team',
   'Engaged – Needs Reconnect',
   'Follow-Up Required',

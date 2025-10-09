@@ -46,7 +46,7 @@ interface CampaignTask {
   outcome?: string
 }
 
-interface CampaignStatusResponse {
+interface campaignStatsResponse {
   campaignId: string
   campaignName: string
   campaignType: string
@@ -294,7 +294,7 @@ export const LiveActivityTable = forwardRef<{
   }
 
   // Function to transform new API data to CallRecord format
-  const transformApiDataToCallRecords = (apiData: CampaignStatusResponse): CallRecord[] => {
+  const transformApiDataToCallRecords = (apiData: campaignStatsResponse): CallRecord[] => {
     return apiData.tasks.map((task) => {
       // Parse date and time from statusUpdatedAt
       const updatedDate = new Date(task.statusUpdatedAt)
@@ -360,7 +360,7 @@ export const LiveActivityTable = forwardRef<{
   }
 
   // Fetch campaign status data (includes all call types: live, queued, completed, failed)
-  const fetchCampaignStatus = useCallback(async (
+  const fetchcampaignStats = useCallback(async (
     showLoading = true, 
     currentStatusFilter = statusFilter, 
     page = currentPage, 
@@ -526,7 +526,7 @@ export const LiveActivityTable = forwardRef<{
         throw new Error(`Failed to fetch campaign status: ${response.status} - ${errorText}`)
       }
       
-      const apiData: CampaignStatusResponse = await response.json()
+      const apiData: campaignStatsResponse = await response.json()
       
       if (apiData.tasks && apiData.tasks.length > 0) {
         
@@ -612,8 +612,8 @@ export const LiveActivityTable = forwardRef<{
     // This ensures consistent filtering and pagination behavior
     setIsSearchMode(true)
     setCurrentPage(1) // Reset to first page for search
-    fetchCampaignStatus(true, statusFilter, 1, itemsPerPage, query.trim(), connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
-  }, [campaignId, fetchCampaignStatus, statusFilter, itemsPerPage, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection])
+    fetchcampaignStats(true, statusFilter, 1, itemsPerPage, query.trim(), connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
+  }, [campaignId, fetchcampaignStats, statusFilter, itemsPerPage, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection])
 
   // Function to export all data with current filters
   const exportAllData = useCallback(async () => {
@@ -653,9 +653,9 @@ export const LiveActivityTable = forwardRef<{
   useEffect(() => {
     if (refreshTrigger && refreshTrigger > 0 && campaignId) {
       // Use current state values at the time of refresh
-      fetchCampaignStatus(false, statusFilter, currentPage, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
+      fetchcampaignStats(false, statusFilter, currentPage, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
     }
-  }, [refreshTrigger, campaignId, fetchCampaignStatus]) // Include necessary deps but avoid filter loops
+  }, [refreshTrigger, campaignId, fetchcampaignStats]) // Include necessary deps but avoid filter loops
 
   // Initial load and filter changes - consolidated effect
   useEffect(() => {
@@ -675,8 +675,8 @@ export const LiveActivityTable = forwardRef<{
       return // Let the next effect handle the API call with page 1
     }
     
-    fetchCampaignStatus(true, statusFilter, pageToUse, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
-  }, [campaignId, searchTerm, outcomeFilter, connectionFilter, statusFilter, timePeriodFilter, currentPage, itemsPerPage, sortField, sortDirection]) // Remove fetchCampaignStatus from deps to avoid loops
+    fetchcampaignStats(true, statusFilter, pageToUse, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
+  }, [campaignId, searchTerm, outcomeFilter, connectionFilter, statusFilter, timePeriodFilter, currentPage, itemsPerPage, sortField, sortDirection]) // Remove fetchcampaignStats from deps to avoid loops
 
   // Component uses callRecords state populated from the new campaign status API
   // This includes all call types: live, queued, completed, failed calls with real-time updates
@@ -724,7 +724,7 @@ export const LiveActivityTable = forwardRef<{
     
     // Reset to first page and fetch with new sorting
     setCurrentPage(1)
-    fetchCampaignStatus(
+    fetchcampaignStats(
       true, 
       statusFilter, 
       1, 
@@ -1565,12 +1565,12 @@ export const LiveActivityTable = forwardRef<{
             itemsPerPage={itemsPerPage}
             onPageChange={(page) => {
               setCurrentPage(page)
-              fetchCampaignStatus(true, statusFilter, page, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
+              fetchcampaignStats(true, statusFilter, page, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
             }}
             onItemsPerPageChange={(newItemsPerPage) => {
               setItemsPerPage(newItemsPerPage)
               setCurrentPage(1)
-              fetchCampaignStatus(true, statusFilter, 1, newItemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
+              fetchcampaignStats(true, statusFilter, 1, newItemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
             }}
             showProgressIndicator={true}
             showGoToPage={true}

@@ -4,7 +4,7 @@ import { configs } from '@/configs'
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const { campaignId, campaignStatus } = body
+    const { campaignId, campaignStats } = body
     
     // Extract bearer token from Authorization header
     const authHeader = request.headers.get('Authorization');
@@ -17,7 +17,7 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    if (!campaignStatus) {
+    if (!campaignStats) {
       return NextResponse.json(
         { error: 'Campaign status is required' },
         { status: 400 }
@@ -26,7 +26,7 @@ export async function PUT(request: NextRequest) {
 
     // Validate campaign status
     const validStatuses = ['preparing', 'ready', 'running', 'completed', 'paused', 'stopped']
-    if (!validStatuses.includes(campaignStatus)) {
+    if (!validStatuses.includes(campaignStats)) {
       return NextResponse.json(
         { error: `Invalid campaign status. Must be one of: ${validStatuses.join(', ')}` },
         { status: 400 }
@@ -58,7 +58,7 @@ export async function PUT(request: NextRequest) {
       headers,
       body: JSON.stringify({
         campaignId,
-        campaignStatus
+        campaignStats
       })
     })
 

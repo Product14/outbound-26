@@ -140,6 +140,7 @@ export interface CampaignListItem {
   createdAt?: string;
   completedAt?: string;
   status: string;
+  campaignStats?: string;
   totalCallPlaced: number;
   answerRate: number;
   appointmentScheduled: number;
@@ -806,7 +807,7 @@ export interface CampaignConversationData {
     maxConcurrentCalls: number;
   };
   campaignCustomerCreationStatus: string;
-  campaignStatus: string;
+  campaignStats: string;
   campaignType: string;
   campaignUseCase: string;
   communicationChannel: string;

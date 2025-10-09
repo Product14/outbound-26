@@ -155,13 +155,13 @@ export default function CampaignDetail() {
         }
 
         // Fetch campaign status data for additional metrics
-        const campaignStatusResponse = await fetch(`/api/fetch-campaign-status?campaignId=${campaignId}`, {
+        const campaignStatsResponse = await fetch(`/api/fetch-campaign-status?campaignId=${campaignId}`, {
           method: 'GET',
           headers,
         })
-        if (campaignStatusResponse.ok) {
-          const campaignStatus = await campaignStatusResponse.json()
-          setCompletedCallsData(campaignStatus)
+        if (campaignStatsResponse.ok) {
+          const campaignStats = await campaignStatsResponse.json()
+          setCompletedCallsData(campaignStats)
         }
       } catch (error) {
         console.error('Error fetching analytics data:', error)
@@ -267,7 +267,7 @@ export default function CampaignDetail() {
     router.replace(newUrl, { scroll: false })
   }
 
-  const toggleCampaignStatus = () => {
+  const togglecampaignStats = () => {
     setCampaignRunning(!campaignRunning)
   }
   
@@ -289,8 +289,8 @@ export default function CampaignDetail() {
         setConversationData(data)
         
         // Update campaign running state based on the fetched status
-        if (data?.campaignStatus) {
-          const status = data.campaignStatus.toLowerCase()
+        if (data?.campaignStats) {
+          const status = data.campaignStats.toLowerCase()
           setCampaignRunning(status === 'running')
         }
         
@@ -318,14 +318,14 @@ export default function CampaignDetail() {
         }
         
         // Fetch updated campaign status for metrics
-        const campaignStatusResponse = await fetch(`/api/fetch-campaign-status?campaignId=${campaignId}`, {
+        const campaignStatsResponse = await fetch(`/api/fetch-campaign-status?campaignId=${campaignId}`, {
           method: 'GET',
           headers,
         })
         
-        if (campaignStatusResponse.ok) {
-          const campaignStatus = await campaignStatusResponse.json()
-          setCompletedCallsData(campaignStatus)
+        if (campaignStatsResponse.ok) {
+          const campaignStats = await campaignStatsResponse.json()
+          setCompletedCallsData(campaignStats)
         }
       } catch (error) {
         console.warn('Failed to refetch data after status change:', error)
@@ -741,8 +741,8 @@ export default function CampaignDetail() {
             setConversationData(conversationResponse)
             
             // Set campaign running state based on actual API status
-            if (conversationResponse?.campaignStatus) {
-              const status = conversationResponse.campaignStatus.toLowerCase()
+            if (conversationResponse?.campaignStats) {
+              const status = conversationResponse.campaignStats.toLowerCase()
               setCampaignRunning(status === 'running')
             }
           } catch (conversationError) {
@@ -897,7 +897,7 @@ export default function CampaignDetail() {
         deployedAgents={deployedAgents}
         analyticsData={analyticsData}
         onTabChange={handleTabChange}
-        onToggleCampaignStatus={toggleCampaignStatus}
+        onTogglecampaignStats={togglecampaignStats}
         onUpdateConversationData={handleUpdateConversationData}
         onRefreshTableData={handleRefreshTableData}
       />

@@ -33,6 +33,7 @@ interface LiveCallsTabProps {
   analyticsData?: any
   campaignMetrics?: any
   authKey?: string
+  refreshTrigger?: number
 }
 
 export function LiveCallsTab({
@@ -53,7 +54,8 @@ export function LiveCallsTab({
   isSalesCampaign,
   analyticsData,
   campaignMetrics,
-  authKey
+  authKey,
+  refreshTrigger
 }: LiveCallsTabProps) {
   // Local state for all filters
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm || '')
@@ -69,7 +71,6 @@ export function LiveCallsTab({
   // We'll get the total results from the LiveActivityTable
   const [totalResults, setTotalResults] = useState(0)
   const [isLoadingResults, setIsLoadingResults] = useState(false)
-  const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [isDownloadingCSV, setIsDownloadingCSV] = useState(false)
   
   // Ref to access LiveActivityTable's search function

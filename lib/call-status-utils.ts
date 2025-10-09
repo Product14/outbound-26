@@ -5,9 +5,9 @@
 export type CallStatus = 'Connected' | 'Voice Mail' | 'Failed';
 
 // Sales Call Outcomes
-export type SalesCallOutcome = 
+export type SalesCallOutcome =
   | 'Test Drive Scheduled'
-  | 'Test Drive Rescheduled' 
+  | 'Test Drive Rescheduled'
   | 'Test Drive Cancelled'
   | 'Appointment for Purchase Discussion Scheduled'
   | 'Purchase Confirmed'
@@ -26,9 +26,20 @@ export type SalesCallOutcome =
   | 'Customer Transferred to Salesperson/Manager';
 
 // Service Call Outcomes
-export type ServiceCallOutcome = 
+export type ServiceCallOutcome =
   | 'Service Appointment Scheduled'
+  | 'Service Appointment Booked'
+  | 'Service Appointment Follow-up Needed'
   | 'Service Appointment Rescheduled'
+  | 'Connect with Service Team'
+  | 'Engaged – Needs Reconnect'
+  | 'Follow-Up Required'
+  | 'Drop Off/Pickup Info Shared'
+  | 'Loaner Info Shared'
+  | 'General Information Shared'
+  | 'Transferred to Human'
+  | 'No Empty Slots'
+  | 'Call Disconnected'
   | 'Service Appointment Cancelled'
   | 'Recall Appointment Scheduled'
   | 'Maintenance Appointment Scheduled'
@@ -44,8 +55,7 @@ export type ServiceCallOutcome =
   | 'Service Discount Declined'
   | 'No Availability Found'
   | 'Call Aborted'
-  | 'Customer Declined Service'
-  | 'Follow-up Required';
+  | 'Customer Declined Service';
 
 // Combined call outcome type
 export type CallOutcome = SalesCallOutcome | ServiceCallOutcome | 'Success' | 'Callback Requested' | 'Not Interested' | 'Wrong Number' | 'No Answer' | 'Follow-up Requested';
@@ -61,7 +71,7 @@ export interface CallStatusResult {
 // Utility functions for call outcomes
 export const SALES_OUTCOMES: SalesCallOutcome[] = [
   'Test Drive Scheduled',
-  'Test Drive Rescheduled', 
+  'Test Drive Rescheduled',
   'Test Drive Cancelled',
   'Appointment for Purchase Discussion Scheduled',
   'Purchase Confirmed',
@@ -82,7 +92,18 @@ export const SALES_OUTCOMES: SalesCallOutcome[] = [
 
 export const SERVICE_OUTCOMES: ServiceCallOutcome[] = [
   'Service Appointment Scheduled',
+  'Service Appointment Booked',
   'Service Appointment Rescheduled',
+  'Service Appointment Follow-up Needed',
+  'Connect with Service Team',
+  'Engaged – Needs Reconnect',
+  'Follow-Up Required',
+  'Drop Off/Pickup Info Shared',
+  'Loaner Info Shared',
+  'General Information Shared',
+  'Transferred to Human', 
+  'No Empty Slots',
+  'Call Disconnected',
   'Service Appointment Cancelled',
   'Recall Appointment Scheduled',
   'Maintenance Appointment Scheduled',
@@ -99,7 +120,6 @@ export const SERVICE_OUTCOMES: ServiceCallOutcome[] = [
   'No Availability Found',
   'Call Aborted',
   'Customer Declined Service',
-  'Follow-up Required'
 ];
 
 /**
@@ -148,7 +168,7 @@ export function isPositiveOutcome(outcome: CallOutcome): boolean {
     'Service Discount Accepted',
     'Success'
   ];
-  
+
   return positiveOutcomes.includes(outcome);
 }
 
@@ -165,7 +185,7 @@ export function requiresFollowUp(outcome: CallOutcome): boolean {
     'Complaint Logged',
     'No Availability Found'
   ];
-  
+
   return followUpOutcomes.includes(outcome);
 }
 
@@ -193,11 +213,11 @@ export function generateCallStatus(callIndex: number, totalCalls: number, campai
   const connectedCount = Math.ceil(totalCalls * 0.6); // 60% Connected
   const voiceMailCount = Math.floor(totalCalls * 0.2); // 20% Voice Mail  
   const failedCount = totalCalls - connectedCount - voiceMailCount; // Remaining Failed
-  
+
   let status: CallStatus;
   let outcome: CallOutcome;
   let appointment: AppointmentStatus = 'No';
-  
+
   // Get appropriate outcomes based on campaign type
   const availableOutcomes = getOutcomesByType(campaignType);
   const positiveOutcomes = availableOutcomes.filter(isPositiveOutcome);
@@ -207,7 +227,7 @@ export function generateCallStatus(callIndex: number, totalCalls: number, campai
   // Distribute statuses based on actual call position
   if (callIndex < connectedCount) {
     status = 'Connected';
-    
+
     // For Connected calls, vary the outcomes based on campaign type
     const outcomeDistribution = callIndex % 10;
     if (outcomeDistribution < 4) {
@@ -239,7 +259,7 @@ export function generateCallStatus(callIndex: number, totalCalls: number, campai
     appointment = 'No';
   } else {
     status = 'Failed';
-    
+
     // For failed calls, vary the outcomes
     const failureType = callIndex % 4;
     switch (failureType) {
@@ -260,7 +280,7 @@ export function generateCallStatus(callIndex: number, totalCalls: number, campai
     }
     appointment = 'No';
   }
-  
+
   return { status, outcome, appointment };
 }
 
@@ -291,32 +311,32 @@ export function calculateCampaignStats(totalCalls: number, campaignType: 'sales'
   let noAnswerCalls = 0;
   let followUpRequested = 0;
   let followUpAppointments = 0;
-  
+
   for (let i = 0; i < totalCalls; i++) {
     const result = generateCallStatus(i, totalCalls, campaignType);
     const duration = generateCallDuration(i, result.status);
-    
+
     // Convert duration string (MM:SS) to seconds
     const [minutes, seconds] = duration.split(':').map(Number);
     totalDurationSeconds += (minutes * 60) + seconds;
-    
+
     if (result.status === 'Connected') {
       connectedCalls++;
     }
-    
+
     if (result.appointment === 'Yes') {
       appointmentCount++;
       successfulCalls++;
     }
-    
+
     if (result.status === 'Failed') {
       failedCalls++;
     }
-    
+
     if (result.outcome === 'No Answer') {
       noAnswerCalls++;
     }
-    
+
     if (requiresFollowUp(result.outcome)) {
       followUpRequested++;
       if (result.appointment === 'Yes') {
@@ -324,24 +344,24 @@ export function calculateCampaignStats(totalCalls: number, campaignType: 'sales'
       }
     }
   }
-  
+
   const answerRate = totalCalls > 0 ? Math.round((connectedCalls / totalCalls) * 100) : 0;
   const successRate = totalCalls > 0 ? Math.round((successfulCalls / totalCalls) * 100) : 0;
   const followUpSuccessRate = followUpRequested > 0 ? Math.round((followUpAppointments / followUpRequested) * 100) : 0;
   const salesConversionRate = totalCalls > 0 ? Math.round((appointmentCount / totalCalls) * 100) : 0;
-  
+
   // Calculate average duration
   const avgDurationSeconds = totalCalls > 0 ? Math.round(totalDurationSeconds / totalCalls) : 0;
   const avgMinutes = Math.floor(avgDurationSeconds / 60);
   const avgSeconds = avgDurationSeconds % 60;
   const avgCallDuration = `${avgMinutes}:${avgSeconds.toString().padStart(2, '0')}`;
-  
-  return { 
-    answerRate, 
-    appointmentCount, 
-    avgCallDuration, 
-    successRate, 
-    failedCalls, 
+
+  return {
+    answerRate,
+    appointmentCount,
+    avgCallDuration,
+    successRate,
+    failedCalls,
     noAnswerCalls,
     followUpRequested,
     followUpSuccessRate,
@@ -359,10 +379,10 @@ export function calculateCampaignStats(totalCalls: number, campaignType: 'sales'
  */
 export function generateCallTime(callIndex: number, campaignStartDate: string): string {
   const startDate = new Date(campaignStartDate);
-  
+
   // Spread calls over time (roughly 1 call every 10 seconds as per estimation)
   const callTimeOffset = callIndex * 60 * 1000; // 10 seconds in milliseconds
-  
+
   const callTime = new Date(startDate.getTime() + callTimeOffset);
   return callTime.toISOString();
 }
@@ -375,7 +395,7 @@ export function generateCallTime(callIndex: number, campaignStartDate: string): 
  */
 export function generateCallDuration(callIndex: number, status: CallStatus): string {
   let baseDurationSeconds: number;
-  
+
   switch (status) {
     case 'Connected':
       // Connected calls: 2-8 minutes (120-480 seconds)
@@ -392,10 +412,10 @@ export function generateCallDuration(callIndex: number, status: CallStatus): str
     default:
       baseDurationSeconds = 60;
   }
-  
+
   const minutes = Math.floor(baseDurationSeconds / 60);
   const seconds = baseDurationSeconds % 60;
-  
+
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
@@ -424,11 +444,11 @@ export function generateTopPerformingVehicles(totalAppointments: number): Array<
 
   // Distribute appointments among vehicles with realistic distribution
   const distribution = [0.22, 0.18, 0.15, 0.12, 0.10, 0.08, 0.06, 0.04, 0.03, 0.02];
-  
+
   return vehicles.slice(0, Math.min(6, vehicles.length)).map((vehicle, index) => {
     const appointments = Math.max(1, Math.round(totalAppointments * distribution[index]));
     const percentage = totalAppointments > 0 ? Math.round((appointments / totalAppointments) * 100) : 0;
-    
+
     return {
       vehicle,
       appointments,
@@ -448,14 +468,14 @@ export function generatePerformanceTimeData(): Array<{
   successRate: number;
 }> {
   const hours = ['9 AM', '10 AM', '11 AM', '12 PM', '1 PM', '2 PM', '3 PM', '4 PM', '5 PM'];
-  
+
   return hours.map((hour, index) => {
     // Peak performance around 10-11 AM and 2-3 PM
     const peakMultiplier = (index === 1 || index === 2 || index === 5 || index === 6) ? 1.5 : 1.0;
     const baseCalls = Math.round(27 * peakMultiplier); // Fixed base of 27 instead of random 20-35
     const appointments = Math.round(baseCalls * 0.2 * peakMultiplier); // Fixed 20% conversion rate
     const successRate = baseCalls > 0 ? Math.round((appointments / baseCalls) * 100) : 0;
-    
+
     return {
       hour,
       calls: baseCalls,
@@ -486,10 +506,10 @@ export function generateTopPerformingServices(totalAppointments: number): Array<
     // Generate decreasing percentages for top services (fixed values)
     const basePercentage = Math.max(5, 35 - (index * 4));
     const percentage = basePercentage; // Remove variance for consistency
-    
+
     const appointments = Math.round((totalAppointments * percentage) / 100);
     remainingAppointments -= appointments;
-    
+
     return {
       service,
       appointments,
@@ -499,6 +519,6 @@ export function generateTopPerformingServices(totalAppointments: number): Array<
 
   // Sort by appointments descending
   result.sort((a, b) => b.appointments - a.appointments);
-  
+
   return result.slice(0, 5);
 }

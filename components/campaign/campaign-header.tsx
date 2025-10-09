@@ -5,8 +5,18 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { ArrowLeft, Info, Square, Calendar, Play, Copy, Check } from 'lucide-react'
-import { buildUrlWithParams } from '@/lib/url-utils'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { ArrowLeft, Info, Square, Calendar, Play, Copy, Check, Loader2, Pause, AlertTriangle } from 'lucide-react'
+import { buildUrlWithParams, extractUrlParams } from '@/lib/url-utils'
 import { formatTimeRange } from '@/lib/time-utils'
 import { useToast } from '@/hooks/use-toast'
 import type { CampaignDetailResponse } from '@/lib/campaign-api'
@@ -28,6 +38,8 @@ interface CampaignHeaderProps {
   analyticsData?: any // Add analytics data for real API data
   onTabChange: (tab: string) => void
   onToggleCampaignStatus: () => void
+  onUpdateConversationData?: (updatedData: any) => void // Callback to update conversation data in parent
+  onRefreshTableData?: () => void // Callback to refresh table data after status change
 }
 
 export function CampaignHeader({
@@ -44,7 +56,9 @@ export function CampaignHeader({
   deployedAgents = [],
   analyticsData,
   onTabChange,
-  onToggleCampaignStatus
+  onToggleCampaignStatus,
+  onUpdateConversationData,
+  onRefreshTableData
 }: CampaignHeaderProps) {
   const [isCompact, setIsCompact] = useState(false)
   const isCompactRef = useRef(false)
@@ -52,7 +66,12 @@ export function CampaignHeader({
   const scrollDirection = useRef<'up' | 'down'>('down')
   const isTransitioning = useRef(false)
   const [copiedCampaignId, setCopiedCampaignId] = useState(false)
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+  const [showStopConfirmation, setShowStopConfirmation] = useState(false)
   const { toast } = useToast()
+  
+  // Get URL params for auth
+  const urlParams = extractUrlParams()
 
   // Copy campaign ID to clipboard
   const copyCampaignId = async () => {
@@ -79,6 +98,105 @@ export function CampaignHeader({
         variant: "destructive",
       })
     }
+  }
+
+  // Update campaign status via API
+  const updateCampaignStatus = async (newStatus: 'running' | 'stopped' | 'paused') => {
+    const id = campaignData?.campaign?.campaignId || campaignData?.campaign?._id || campaignId
+    if (!id) {
+      toast({
+        title: "Error",
+        description: "Campaign ID not found",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsUpdatingStatus(true)
+
+    try {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      }
+      
+      // Add Authorization header if authKey is available
+      if (urlParams.auth_key) {
+        headers['Authorization'] = urlParams.auth_key.startsWith('Bearer ') 
+          ? urlParams.auth_key 
+          : `Bearer ${urlParams.auth_key}`
+      }
+
+      const response = await fetch('/api/update-campaign-status', {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          campaignId: id,
+          campaignStatus: newStatus
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update campaign status')
+      }
+
+      const data = await response.json()
+      
+      // Update local state immediately to reflect the change in UI
+      onToggleCampaignStatus()
+      
+      // Update conversationData with the new status if callback is provided
+      if (onUpdateConversationData && conversationData) {
+        onUpdateConversationData({
+          ...conversationData,
+          campaignStatus: newStatus
+        })
+      }
+      
+      toast({
+        title: "Success",
+        description: `Campaign ${newStatus === 'stopped' ? 'stopped' : newStatus === 'paused' ? 'paused' : 'resumed'} successfully`,
+      })
+      
+      // Refresh the entire page after a short delay for all status changes
+      // This ensures all data is completely fresh and in sync
+      setTimeout(() => {
+        window.location.reload()
+      }, 500) // 0.5 second delay to show the success message
+      
+    } catch (error) {
+      console.error('Error updating campaign status:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update campaign status. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUpdatingStatus(false)
+    }
+  }
+
+  // Handle pause button click
+  const handlePauseCampaign = () => {
+    if (isUpdatingStatus) return
+    updateCampaignStatus('paused')
+  }
+  
+  // Handle stop button click - show confirmation dialog
+  const handleStopCampaign = () => {
+    if (isUpdatingStatus) return
+    setShowStopConfirmation(true)
+  }
+  
+  // Confirm stop action
+  const confirmStopCampaign = () => {
+    setShowStopConfirmation(false)
+    updateCampaignStatus('stopped')
+  }
+  
+  // Handle resume button click (only for paused campaigns)
+  const handleResumeCampaign = () => {
+    if (isUpdatingStatus) return
+    updateCampaignStatus('running')
   }
 
   // Keep ref in sync with state
@@ -186,8 +304,68 @@ export function CampaignHeader({
                        remainingHours === 1 ? `${remainingHours}hr remaining` :
                        remainingCalls > 0 ? `${Math.ceil(remainingCalls / (callsPerHour / 60))}min remaining` : 'Completed'
   
-  // Determine completed state from derived metrics
-  const isCompleted = completionPercentage >= 100 || remainingCalls <= 0
+  // Get actual campaign status from API response (prioritize conversationData over analyticsData)
+  const actualCampaignStatus = conversationData?.campaignStatus || 
+                               analyticsData?.campaignStatus || 
+                               (campaignRunning ? 'running' : 'paused')
+  
+  // Normalize status to lowercase for comparisons
+  const normalizedStatus = actualCampaignStatus.toLowerCase()
+  
+  // Determine completed state from actual API status
+  const isCompleted = normalizedStatus === 'completed'
+  
+  // Status display configuration based on actual API status
+  const getStatusConfig = (status: string) => {
+    const lowerStatus = status.toLowerCase()
+    
+    switch (lowerStatus) {
+      case 'running':
+        return {
+          label: 'Running',
+          dotColor: 'bg-blue-600',
+          bgColor: 'bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100 hover:border-blue-200'
+        }
+      case 'completed':
+        return {
+          label: 'Completed',
+          dotColor: 'bg-green-600',
+          bgColor: 'bg-green-50 text-green-700 border-green-100'
+        }
+      case 'paused':
+        return {
+          label: 'Paused',
+          dotColor: 'bg-orange-600',
+          bgColor: 'bg-orange-50 text-orange-600 border-orange-100 hover:bg-orange-100 hover:border-orange-200'
+        }
+      case 'stopped':
+        return {
+          label: 'Stopped',
+          dotColor: 'bg-red-600',
+          bgColor: 'bg-red-50 text-red-600 border-red-100'
+        }
+      case 'scheduled':
+        return {
+          label: 'Scheduled',
+          dotColor: 'bg-purple-600',
+          bgColor: 'bg-purple-50 text-purple-600 border-purple-100 hover:bg-purple-100 hover:border-purple-200'
+        }
+      case 'failed':
+        return {
+          label: 'Failed',
+          dotColor: 'bg-red-600',
+          bgColor: 'bg-red-50 text-red-600 border-red-100'
+        }
+      default:
+        return {
+          label: status.charAt(0).toUpperCase() + status.slice(1),
+          dotColor: 'bg-gray-600',
+          bgColor: 'bg-gray-50 text-gray-600 border-gray-100'
+        }
+    }
+  }
+  
+  const statusConfig = getStatusConfig(actualCampaignStatus)
 
   return (
     <div className={`
@@ -251,46 +429,118 @@ export function CampaignHeader({
                 </button>
               </div>
               <Badge className={`px-2 py-0.5 text-xs font-medium flex items-center gap-2 transition-all duration-200 ${
-                isCompleted
-                  ? "bg-green-50 text-green-700 border-green-100"
-                  : "cursor-pointer hover:scale-105 hover:shadow-sm " + (campaignRunning 
-                      ? "bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100 hover:border-blue-200" 
-                      : "bg-orange-50 text-orange-600 border-orange-100 hover:bg-orange-100 hover:border-orange-200")
-              }`}>
-                <div className={`w-2 h-2 rounded-full transition-all duration-200 ${
-                  isCompleted ? "bg-green-600" : (campaignRunning ? "bg-blue-600" : "bg-orange-600")
-                }`} />
-                {isCompleted ? "Completed" : (campaignRunning ? "Active" : "Paused")}
+                statusConfig.bgColor
+              } ${!isCompleted ? 'cursor-pointer hover:scale-105 hover:shadow-sm' : ''}`}>
+                <div className={`w-2 h-2 rounded-full transition-all duration-200 ${statusConfig.dotColor}`} />
+                {statusConfig.label}
               </Badge>
             </div>
           </div>
           
-          {/* Stop/Resume Campaign Button */}
+          {/* Campaign Control Buttons */}
           {!isCompleted && (
-            <div className="flex items-center gap-4">
-              <Button 
-                variant="outline"
-                className={`
-                  font-semibold flex items-center gap-2 transition-all duration-300 ease-out hover:scale-105 hover:shadow-sm
-                  ${isCompact ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'}
-                  ${campaignRunning 
-                    ? 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100 hover:border-red-200' 
-                    : 'bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100 hover:border-blue-200'
-                  }
-                `}
-                onClick={onToggleCampaignStatus}
-              >
-                <span className={`transition-all duration-300 ease-out ${isCompact ? 'max-w-12' : 'max-w-32'} overflow-hidden whitespace-nowrap`}>
-                  {campaignRunning 
-                    ? (isCompact ? 'Stop' : 'Stop Campaign')
-                    : (isCompact ? 'Resume' : 'Resume Campaign')
-                  }
-                </span>
-                {campaignRunning 
-                  ? <Square className="h-3 w-3 fill-current flex-shrink-0" />
-                  : <Play className="h-3 w-3 fill-current flex-shrink-0" />
-                }
-              </Button>
+            <div className="flex items-center gap-3">
+              {normalizedStatus === 'running' ? (
+                <>
+                  {/* Pause Button */}
+                  <Button 
+                    variant="outline"
+                    disabled={isUpdatingStatus}
+                    className={`
+                      font-semibold flex items-center gap-2 transition-all duration-300 ease-out hover:scale-105 hover:shadow-sm
+                      ${isCompact ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'}
+                      bg-orange-50 text-orange-600 border-orange-100 hover:bg-orange-100 hover:border-orange-200
+                      ${isUpdatingStatus ? 'opacity-50 cursor-not-allowed' : ''}
+                    `}
+                    onClick={handlePauseCampaign}
+                  >
+                    {isUpdatingStatus ? (
+                      <Loader2 className="h-3 w-3 animate-spin flex-shrink-0" />
+                    ) : (
+                      <>
+                        <span className={`transition-all duration-300 ease-out ${isCompact ? 'max-w-12' : 'max-w-32'} overflow-hidden whitespace-nowrap`}>
+                          {isCompact ? 'Pause' : 'Pause Campaign'}
+                        </span>
+                        <Pause className="h-3 w-3 flex-shrink-0" />
+                      </>
+                    )}
+                  </Button>
+                  
+                  {/* Stop Button */}
+                  <Button 
+                    variant="outline"
+                    disabled={isUpdatingStatus}
+                    className={`
+                      font-semibold flex items-center gap-2 transition-all duration-300 ease-out hover:scale-105 hover:shadow-sm
+                      ${isCompact ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'}
+                      bg-red-50 text-red-600 border-red-100 hover:bg-red-100 hover:border-red-200
+                      ${isUpdatingStatus ? 'opacity-50 cursor-not-allowed' : ''}
+                    `}
+                    onClick={handleStopCampaign}
+                  >
+                    {isUpdatingStatus ? (
+                      <Loader2 className="h-3 w-3 animate-spin flex-shrink-0" />
+                    ) : (
+                      <>
+                        <span className={`transition-all duration-300 ease-out ${isCompact ? 'max-w-12' : 'max-w-32'} overflow-hidden whitespace-nowrap`}>
+                          {isCompact ? 'Stop' : 'Stop Campaign'}
+                        </span>
+                        <Square className="h-3 w-3 fill-current flex-shrink-0" />
+                      </>
+                    )}
+                  </Button>
+                </>
+              ) : normalizedStatus === 'paused' ? (
+                <>
+                  {/* Resume Button - only for paused campaigns */}
+                  <Button 
+                    variant="outline"
+                    disabled={isUpdatingStatus}
+                    className={`
+                      font-semibold flex items-center gap-2 transition-all duration-300 ease-out hover:scale-105 hover:shadow-sm
+                      ${isCompact ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'}
+                      bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100 hover:border-blue-200
+                      ${isUpdatingStatus ? 'opacity-50 cursor-not-allowed' : ''}
+                    `}
+                    onClick={handleResumeCampaign}
+                  >
+                    {isUpdatingStatus ? (
+                      <Loader2 className="h-3 w-3 animate-spin flex-shrink-0" />
+                    ) : (
+                      <>
+                        <span className={`transition-all duration-300 ease-out ${isCompact ? 'max-w-12' : 'max-w-32'} overflow-hidden whitespace-nowrap`}>
+                          {isCompact ? 'Resume' : 'Resume Campaign'}
+                        </span>
+                        <Play className="h-3 w-3 fill-current flex-shrink-0" />
+                      </>
+                    )}
+                  </Button>
+                  
+                  {/* Stop Button - also available for paused campaigns */}
+                  <Button 
+                    variant="outline"
+                    disabled={isUpdatingStatus}
+                    className={`
+                      font-semibold flex items-center gap-2 transition-all duration-300 ease-out hover:scale-105 hover:shadow-sm
+                      ${isCompact ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'}
+                      bg-red-50 text-red-600 border-red-100 hover:bg-red-100 hover:border-red-200
+                      ${isUpdatingStatus ? 'opacity-50 cursor-not-allowed' : ''}
+                    `}
+                    onClick={handleStopCampaign}
+                  >
+                    {isUpdatingStatus ? (
+                      <Loader2 className="h-3 w-3 animate-spin flex-shrink-0" />
+                    ) : (
+                      <>
+                        <span className={`transition-all duration-300 ease-out ${isCompact ? 'max-w-12' : 'max-w-32'} overflow-hidden whitespace-nowrap`}>
+                          {isCompact ? 'Stop' : 'Stop Campaign'}
+                        </span>
+                        <Square className="h-3 w-3 fill-current flex-shrink-0" />
+                      </>
+                    )}
+                  </Button>
+                </>
+              ) : null}
             </div>
           )}
         </div>
@@ -377,36 +627,46 @@ export function CampaignHeader({
                 <div className="text-sm font-medium text-gray-600 mb-2">
                   Campaign Type
                 </div>
-                <Badge className="bg-green-50 text-green-600 border-green-100 px-2 py-1 text-xs font-semibold flex items-center gap-2 hover:bg-green-50 hover:text-green-600 hover:border-green-100 cursor-default">
-                  <Calendar className="h-4 w-4" />
-                  {(() => {
-                    // Prefer campaignUseCase coming from the Campaign Status API (conversationData)
-                    const useCaseFromStatus = conversationData?.campaignUseCase
-                    if (typeof useCaseFromStatus === 'string' && useCaseFromStatus.length > 0) {
-                      return useCaseFromStatus
-                        .replace(/([a-z])([A-Z])/g, '$1 $2')
-                        .replace(/^./, (str: string) => str.toUpperCase())
-                    }
-
+                {(() => {
+                  // Prefer campaignUseCase coming from the Campaign Status API (conversationData)
+                  let campaignUseCaseLabel = ''
+                  const useCaseFromStatus = conversationData?.campaignUseCase
+                  if (typeof useCaseFromStatus === 'string' && useCaseFromStatus.length > 0) {
+                    campaignUseCaseLabel = useCaseFromStatus
+                      .replace(/([a-z])([A-Z])/g, '$1 $2')
+                      .replace(/^./, (str: string) => str.toUpperCase())
+                  } else {
                     // Fallback to analytics or campaign detail data if available
                     const useCaseFromAnalytics = analyticsData?.campaignUseCase
                     if (typeof useCaseFromAnalytics === 'string' && useCaseFromAnalytics.length > 0) {
-                      return useCaseFromAnalytics
+                      campaignUseCaseLabel = useCaseFromAnalytics
                         .replace(/([a-z])([A-Z])/g, '$1 $2')
                         .replace(/^./, (str: string) => str.toUpperCase())
+                    } else {
+                      const useCaseFromCampaign = campaignData?.campaign?.campaignUseCase
+                      if (typeof useCaseFromCampaign === 'string' && useCaseFromCampaign.length > 0) {
+                        campaignUseCaseLabel = useCaseFromCampaign
+                          .replace(/([a-z])([A-Z])/g, '$1 $2')
+                          .replace(/^./, (str: string) => str.toUpperCase())
+                      } else {
+                        // Last resort: infer from boolean flags
+                        campaignUseCaseLabel = isSalesCampaign ? 'Sales Campaign' : 'Service Campaign'
+                      }
                     }
-
-                    const useCaseFromCampaign = campaignData?.campaign?.campaignUseCase
-                    if (typeof useCaseFromCampaign === 'string' && useCaseFromCampaign.length > 0) {
-                      return useCaseFromCampaign
-                        .replace(/([a-z])([A-Z])/g, '$1 $2')
-                        .replace(/^./, (str: string) => str.toUpperCase())
-                    }
-
-                    // Last resort: infer from boolean flags
-                    return isSalesCampaign ? 'Sales Campaign' : 'Service Campaign'
-                  })()}
-                </Badge>
+                  }
+                  
+                  // Determine badge color based on campaign type (Sales = green, Service = blue)
+                  const badgeColor = isSalesCampaign 
+                    ? 'bg-green-50 text-green-600 border-green-100' 
+                    : 'bg-blue-50 text-blue-600 border-blue-100'
+                  
+                  return (
+                    <Badge className={`${badgeColor} px-2 py-1 text-xs font-semibold flex items-center gap-2 hover:${badgeColor} cursor-default`}>
+                      <Calendar className="h-4 w-4" />
+                      {campaignUseCaseLabel}
+                    </Badge>
+                  )
+                })()}
               </div>
               
               {/* Created on column */}
@@ -524,6 +784,36 @@ export function CampaignHeader({
           </div>
         </div>
       </div>
+      
+      {/* Stop Confirmation Dialog */}
+      <AlertDialog open={showStopConfirmation} onOpenChange={setShowStopConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              Stop Campaign?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base">
+              Are you sure you want to <span className="font-semibold text-red-600">stop</span> this campaign? 
+              <br />
+              <br />
+              <span className="text-gray-700">
+                Stopping the campaign will permanently end all ongoing calls and cannot be resumed. 
+                If you want to temporarily halt the campaign, consider using <span className="font-semibold">Pause</span> instead.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmStopCampaign}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Yes, Stop Campaign
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

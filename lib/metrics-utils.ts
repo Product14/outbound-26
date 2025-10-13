@@ -5,6 +5,7 @@ export interface CampaignAnalyticsResponse {
   campaignId: string
   campaignType: string
   campaignName: string
+  campaignStatus: string // Campaign status from analytics API
   schedule: {
     startTime: string
     endTime: string

@@ -304,9 +304,9 @@ export function CampaignHeader({
                        remainingHours === 1 ? `${remainingHours}hr remaining` :
                        remainingCalls > 0 ? `${Math.ceil(remainingCalls / (callsPerHour / 60))}min remaining` : 'Completed'
   
-  // Get actual campaign status from API response (prioritize conversationData over analyticsData)
-  const actualcampaignStats = conversationData?.campaignStats || 
-                               analyticsData?.campaignStats || 
+  // Get actual campaign status from API response (prioritize analyticsData.campaignStatus)
+  const actualcampaignStats = analyticsData?.campaignStatus || 
+                               conversationData?.campaignStats || 
                                (campaignRunning ? 'running' : 'paused')
   
   // Normalize status to lowercase for comparisons

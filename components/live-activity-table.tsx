@@ -657,25 +657,51 @@ export const LiveActivityTable = forwardRef<{
     }
   }, [refreshTrigger, campaignId, fetchcampaignStats]) // Include necessary deps but avoid filter loops
 
+  // Track previous filter values to detect changes
+  const prevFiltersRef = useRef({
+    searchTerm: '',
+    outcomeFilter: 'all',
+    connectionFilter: ['all'],
+    statusFilter: ['all'],
+    timePeriodFilter: '30'
+  })
+
   // Initial load and filter changes - consolidated effect
   useEffect(() => {
     if (!campaignId) return
     
-   
+    // Check if any filter has actually changed
+    const hasFilterChanged = 
+      prevFiltersRef.current.searchTerm !== searchTerm ||
+      prevFiltersRef.current.outcomeFilter !== outcomeFilter ||
+      JSON.stringify(prevFiltersRef.current.connectionFilter) !== JSON.stringify(connectionFilter) ||
+      JSON.stringify(prevFiltersRef.current.statusFilter) !== JSON.stringify(statusFilter) ||
+      prevFiltersRef.current.timePeriodFilter !== timePeriodFilter
 
-    // Reset to first page when filters change (except for pagination changes)
-    const isFilterChange = !callRecords.length || // Initial load
-      searchTerm !== '' || outcomeFilter !== 'all' || 
-      connectionFilter.some(f => f !== 'all') || statusFilter.some(f => f !== 'all') ||
-      timePeriodFilter !== '30'
-    
-    const pageToUse = isFilterChange ? 1 : currentPage
-    if (isFilterChange && currentPage !== 1) {
+    // If filters changed and we're not on page 1, reset to page 1
+    if (hasFilterChanged && currentPage !== 1) {
       setCurrentPage(1)
+      // Update the ref to track current filter values
+      prevFiltersRef.current = {
+        searchTerm,
+        outcomeFilter,
+        connectionFilter,
+        statusFilter,
+        timePeriodFilter
+      }
       return // Let the next effect handle the API call with page 1
     }
     
-    fetchcampaignStats(true, statusFilter, pageToUse, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
+    // Update the ref to track current filter values
+    prevFiltersRef.current = {
+      searchTerm,
+      outcomeFilter,
+      connectionFilter,
+      statusFilter,
+      timePeriodFilter
+    }
+    
+    fetchcampaignStats(true, statusFilter, currentPage, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
   }, [campaignId, searchTerm, outcomeFilter, connectionFilter, statusFilter, timePeriodFilter, currentPage, itemsPerPage, sortField, sortDirection]) // Remove fetchcampaignStats from deps to avoid loops
 
   // Component uses callRecords state populated from the new campaign status API

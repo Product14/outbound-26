@@ -11,7 +11,7 @@ import Link from "next/link"
 import { fetchCampaignDetails, fetchCampaignTypes, fetchCampaignConversationData, type CampaignDetailResponse } from '@/lib/campaign-api'
 import { fetchAgentList, type Agent } from '@/lib/agent-api'
 import { calculateAndFormatEstimatedTime, getShortEstimatedTime } from '@/lib/time-utils'
-import { generateCallStatus, generateCallTime, generateCallDuration, calculateCampaignStats } from '@/lib/call-status-utils'
+import { generateCallStatus, generateCallTime, generateCallDuration, calculatecampaignStatus } from '@/lib/call-status-utils'
 import { buildUrlWithParams, extractUrlParams } from '@/lib/url-utils'
 
 // Import our new components
@@ -58,8 +58,8 @@ const mapCampaignType = (campaignType: string, campaignTypes?: any | null): stri
 }
 
 // Calculate service campaign specific statistics
-const calculateServiceCampaignStats = (totalCalls: number) => {
-  const stats = calculateCampaignStats(totalCalls)
+const calculateServicecampaignStatus = (totalCalls: number) => {
+  const stats = calculatecampaignStatus(totalCalls)
   
   return {
     serviceCallsMade: stats.callsMade,
@@ -155,13 +155,13 @@ export default function CampaignDetail() {
         }
 
         // Fetch campaign status data for additional metrics
-        const campaignStatsResponse = await fetch(`/api/fetch-campaign-status?campaignId=${campaignId}`, {
+        const campaignStatusResponse = await fetch(`/api/fetch-campaign-status?campaignId=${campaignId}`, {
           method: 'GET',
           headers,
         })
-        if (campaignStatsResponse.ok) {
-          const campaignStats = await campaignStatsResponse.json()
-          setCompletedCallsData(campaignStats)
+        if (campaignStatusResponse.ok) {
+          const campaignStatus = await campaignStatusResponse.json()
+          setCompletedCallsData(campaignStatus)
         }
       } catch (error) {
         console.error('Error fetching analytics data:', error)
@@ -216,9 +216,9 @@ export default function CampaignDetail() {
 
   // Calculate statistics
   const serviceStats = isServiceCampaign && campaignData?.campaign ? 
-    calculateServiceCampaignStats(campaignData.campaign.totalCallPlaced) : null
+    calculateServicecampaignStatus(campaignData.campaign.totalCallPlaced) : null
   const calculatedStats = isSalesCampaign && campaignData?.campaign ? 
-    calculateCampaignStats(campaignData.campaign.totalCallPlaced) : null
+    calculatecampaignStatus(campaignData.campaign.totalCallPlaced) : null
 
   // Calculate campaign metrics using real API data (memoized)
   const campaignMetrics = useMemo(() => {
@@ -267,7 +267,7 @@ export default function CampaignDetail() {
     router.replace(newUrl, { scroll: false })
   }
 
-  const togglecampaignStats = () => {
+  const togglecampaignStatus = () => {
     setCampaignRunning(!campaignRunning)
   }
   
@@ -289,8 +289,8 @@ export default function CampaignDetail() {
         setConversationData(data)
         
         // Update campaign running state based on the fetched status
-        if (data?.campaignStats) {
-          const status = data.campaignStats.toLowerCase()
+        if (data?.campaignStatus) {
+          const status = data.campaignStatus.toLowerCase()
           setCampaignRunning(status === 'running')
         }
         
@@ -318,14 +318,14 @@ export default function CampaignDetail() {
         }
         
         // Fetch updated campaign status for metrics
-        const campaignStatsResponse = await fetch(`/api/fetch-campaign-status?campaignId=${campaignId}`, {
+        const campaignStatusResponse = await fetch(`/api/fetch-campaign-status?campaignId=${campaignId}`, {
           method: 'GET',
           headers,
         })
         
-        if (campaignStatsResponse.ok) {
-          const campaignStats = await campaignStatsResponse.json()
-          setCompletedCallsData(campaignStats)
+        if (campaignStatusResponse.ok) {
+          const campaignStatus = await campaignStatusResponse.json()
+          setCompletedCallsData(campaignStatus)
         }
       } catch (error) {
         console.warn('Failed to refetch data after status change:', error)
@@ -741,8 +741,8 @@ export default function CampaignDetail() {
             setConversationData(conversationResponse)
             
             // Set campaign running state based on actual API status
-            if (conversationResponse?.campaignStats) {
-              const status = conversationResponse.campaignStats.toLowerCase()
+            if (conversationResponse?.campaignStatus) {
+              const status = conversationResponse.campaignStatus.toLowerCase()
               setCampaignRunning(status === 'running')
             }
           } catch (conversationError) {
@@ -897,7 +897,7 @@ export default function CampaignDetail() {
         deployedAgents={deployedAgents}
         analyticsData={analyticsData}
         onTabChange={handleTabChange}
-        onTogglecampaignStats={togglecampaignStats}
+        onTogglecampaignStatus={togglecampaignStatus}
         onUpdateConversationData={handleUpdateConversationData}
         onRefreshTableData={handleRefreshTableData}
       />

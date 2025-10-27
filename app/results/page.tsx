@@ -187,8 +187,8 @@ export default function CampaignResults() {
 
   const filteredCampaigns = campaigns.filter(campaign => {
     const matchesSearch = campaign.name.toLowerCase().includes(searchTerm.toLowerCase())
-    const campaignStatsValue = campaign.campaignStats || campaign.status || 'unknown'
-    const matchesStatus = activeStatusFilters.length === 0 || activeStatusFilters.includes(campaignStatsValue.toLowerCase())
+    const campaignStatusValue = campaign.campaignStatus || campaign.status || 'unknown'
+    const matchesStatus = activeStatusFilters.length === 0 || activeStatusFilters.includes(campaignStatusValue.toLowerCase())
     const campaignType = mapCampaignType(campaign.campaignType)
     const matchesCampaignType = activeCampaignTypeFilters.length === 0 || activeCampaignTypeFilters.includes(campaignType.toLowerCase())
     
@@ -573,7 +573,7 @@ export default function CampaignResults() {
         {!loading && !error && (
           <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-3 gap-4 sm:gap-6">
             {sortedCampaigns.map((campaign) => {
-              const campaignStatsValue = campaign.campaignStats || campaign.status || 'unknown'
+              const campaignStatusValue = campaign.campaignStatus || campaign.status || 'unknown'
               const campaignType = mapCampaignType(campaign.campaignType)
               
               return (
@@ -650,18 +650,18 @@ export default function CampaignResults() {
                           <span className="text-sm font-medium text-text-primary">{campaign.appointmentScheduled}</span>
                         </div>
                         <div className={`flex flex-col items-start p-3 rounded-lg min-w-0 ${
-                          campaignStatsValue === 'running' ? 'bg-blue-50' :
-                          campaignStatsValue === 'completed' ? 'bg-green-50' :
-                          campaignStatsValue === 'scheduled' ? 'bg-yellow-50' :
+                          campaignStatusValue === 'running' ? 'bg-blue-50' :
+                          campaignStatusValue === 'completed' ? 'bg-green-50' :
+                          campaignStatusValue === 'scheduled' ? 'bg-yellow-50' :
                           'bg-red-50'
                         }`}>
                           <span className="text-xs text-text-secondary">Status</span>
                           <span className={`text-sm font-medium capitalize ${
-                            campaignStatsValue === 'running' ? 'text-blue-700' :
-                            campaignStatsValue === 'completed' ? 'text-green-700' :
-                            campaignStatsValue === 'scheduled' ? 'text-yellow-700' :
+                            campaignStatusValue === 'running' ? 'text-blue-700' :
+                            campaignStatusValue === 'completed' ? 'text-green-700' :
+                            campaignStatusValue === 'scheduled' ? 'text-yellow-700' :
                             'text-red-700'
-                          }`}>{campaignStatsValue}</span>
+                          }`}>{campaignStatusValue}</span>
                         </div>
                       </div>
 

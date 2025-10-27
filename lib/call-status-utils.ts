@@ -288,7 +288,7 @@ export function generateCallStatus(callIndex: number, totalCalls: number, campai
  * @param campaignType - Type of campaign ('sales' or 'service')
  * @returns Object with answer rate and appointment count
  */
-export function calculateCampaignStats(totalCalls: number, campaignType: 'sales' | 'service' = 'sales'): {
+export function calculatecampaignStatus(totalCalls: number, campaignType: 'sales' | 'service' = 'sales'): {
   answerRate: number;
   appointmentCount: number;
   avgCallDuration: string;

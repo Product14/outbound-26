@@ -37,7 +37,7 @@ interface CampaignHeaderProps {
   deployedAgents?: DeployedAgent[]
   analyticsData?: any // Add analytics data for real API data
   onTabChange: (tab: string) => void
-  onTogglecampaignStats: () => void
+  onTogglecampaignStatus: () => void
   onUpdateConversationData?: (updatedData: any) => void // Callback to update conversation data in parent
   onRefreshTableData?: () => void // Callback to refresh table data after status change
 }
@@ -56,7 +56,7 @@ export function CampaignHeader({
   deployedAgents = [],
   analyticsData,
   onTabChange,
-  onTogglecampaignStats,
+  onTogglecampaignStatus,
   onUpdateConversationData,
   onRefreshTableData
 }: CampaignHeaderProps) {
@@ -101,7 +101,7 @@ export function CampaignHeader({
   }
 
   // Update campaign status via API
-  const updatecampaignStats = async (newStatus: 'running' | 'stopped' | 'paused') => {
+  const updatecampaignStatus = async (newStatus: 'running' | 'stopped' | 'paused') => {
     const id = campaignData?.campaign?.campaignId || campaignData?.campaign?._id || campaignId
     if (!id) {
       toast({
@@ -131,7 +131,7 @@ export function CampaignHeader({
         headers,
         body: JSON.stringify({
           campaignId: id,
-          campaignStats: newStatus
+          campaignStatus: newStatus
         })
       })
 
@@ -142,13 +142,13 @@ export function CampaignHeader({
       const data = await response.json()
       
       // Update local state immediately to reflect the change in UI
-      onTogglecampaignStats()
+      onTogglecampaignStatus()
       
       // Update conversationData with the new status if callback is provided
       if (onUpdateConversationData && conversationData) {
         onUpdateConversationData({
           ...conversationData,
-          campaignStats: newStatus
+          campaignStatus: newStatus
         })
       }
       
@@ -178,7 +178,7 @@ export function CampaignHeader({
   // Handle pause button click
   const handlePauseCampaign = () => {
     if (isUpdatingStatus) return
-    updatecampaignStats('paused')
+    updatecampaignStatus('paused')
   }
   
   // Handle stop button click - show confirmation dialog
@@ -190,13 +190,13 @@ export function CampaignHeader({
   // Confirm stop action
   const confirmStopCampaign = () => {
     setShowStopConfirmation(false)
-    updatecampaignStats('stopped')
+    updatecampaignStatus('stopped')
   }
   
   // Handle resume button click (only for paused campaigns)
   const handleResumeCampaign = () => {
     if (isUpdatingStatus) return
-    updatecampaignStats('running')
+    updatecampaignStatus('running')
   }
 
   // Keep ref in sync with state
@@ -305,12 +305,12 @@ export function CampaignHeader({
                        remainingCalls > 0 ? `${Math.ceil(remainingCalls / (callsPerHour / 60))}min remaining` : 'Completed'
   
   // Get actual campaign status from API response (prioritize analyticsData.campaignStatus)
-  const actualcampaignStats = analyticsData?.campaignStatus || 
-                               conversationData?.campaignStats || 
+  const actualcampaignStatus = analyticsData?.campaignStatus || 
+                               conversationData?.campaignStatus || 
                                (campaignRunning ? 'running' : 'paused')
   
   // Normalize status to lowercase for comparisons
-  const normalizedStatus = actualcampaignStats.toLowerCase()
+  const normalizedStatus = actualcampaignStatus.toLowerCase()
   
   // Determine completed state from actual API status
   const isCompleted = normalizedStatus === 'completed'
@@ -365,7 +365,7 @@ export function CampaignHeader({
     }
   }
   
-  const statusConfig = getStatusConfig(actualcampaignStats)
+  const statusConfig = getStatusConfig(actualcampaignStatus)
 
   return (
     <div className={`

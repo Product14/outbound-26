@@ -237,7 +237,7 @@ export function LiveCallsTab({
                         </button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Average duration of completed calls</p>
+                        <p>Average duration of connected calls</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>

@@ -1401,14 +1401,18 @@ export const LiveActivityTable = forwardRef<{
                     data-table-row
                   className={`hover:bg-gray-50 transition-colors ${
                     isTransitioning ? 'pointer-events-none' : 
-                    (call.callStatus === 'CALL_COMPLETED' || call.connectionStatus === 'connected') ? 'cursor-pointer' : 'cursor-default'
+                    (call.callStatus === 'CALL_COMPLETED' || call.callStatus === 'CALL_COMPLETED_VOICEMAIL' || 
+                     call.connectionStatus === 'connected' || call.connectionStatus === 'voicemail') ? 'cursor-pointer' : 'cursor-default'
                   }`}
                   onClick={(e) => {
                     e.preventDefault()
                     e.stopPropagation()
                     if (!isTransitioning) {
-                      // Only open call drawer for completed calls
-                      if (call.callStatus !== 'CALL_COMPLETED' && call.connectionStatus !== 'connected') {
+                      // Only open call drawer for completed calls and voicemail
+                      if (call.callStatus !== 'CALL_COMPLETED' && 
+                          call.callStatus !== 'CALL_COMPLETED_VOICEMAIL' &&
+                          call.connectionStatus !== 'connected' && 
+                          call.connectionStatus !== 'voicemail') {
                        
                         return
                       }

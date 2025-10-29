@@ -10,7 +10,6 @@ export interface UrlParams {
   status?: string | null;
   connection?: string | null;
   outcome?: string | null;
-  timePeriod?: string | null;
   page?: string | null;
   limit?: string | null;
 }
@@ -28,7 +27,6 @@ export function extractUrlParams(): UrlParams {
       status: null,
       connection: null,
       outcome: null,
-      timePeriod: null,
       page: null,
       limit: null,
     };
@@ -49,7 +47,6 @@ export function extractUrlParams(): UrlParams {
   const status = urlParams.get('status');
   const connection = urlParams.get('connection');
   const outcome = urlParams.get('outcome');
-  const timePeriod = urlParams.get('timePeriod');
   const page = urlParams.get('page');
   const limit = urlParams.get('limit');
   
@@ -64,7 +61,6 @@ export function extractUrlParams(): UrlParams {
     status: status,
     connection: connection,
     outcome: outcome,
-    timePeriod: timePeriod,
     page: page,
     limit: limit,
   };
@@ -144,7 +140,6 @@ export interface FilterState {
   status?: string[];
   connection?: string[];
   outcome?: string;
-  timePeriod?: string;
   page?: number;
   limit?: number;
 }
@@ -193,10 +188,6 @@ export function updateUrlWithFilters(basePath: string, filters: FilterState): vo
     searchParams.set('outcome', filters.outcome);
   }
   
-  if (filters.timePeriod && filters.timePeriod !== '30') {
-    searchParams.set('timePeriod', filters.timePeriod);
-  }
-  
   if (filters.page && filters.page > 1) {
     searchParams.set('page', filters.page.toString());
   }
@@ -221,7 +212,6 @@ export function restoreFiltersFromUrl(): FilterState {
     status: params.status ? params.status.split(',') : ['all'],
     connection: params.connection ? params.connection.split(',') : ['all'],
     outcome: params.outcome || 'all',
-    timePeriod: params.timePeriod || '30',
     page: params.page ? parseInt(params.page) : 1,
     limit: params.limit ? parseInt(params.limit) : 10,
   };

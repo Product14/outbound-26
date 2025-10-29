@@ -119,7 +119,6 @@ interface LiveActivityTableProps {
   campaignFilter?: string
   outcomeFilter?: string
   queryFilter?: string
-  timePeriodFilter?: string
   campaignId?: string
   onFilteredCountChange?: (count: number) => void
   onLoadingChange?: (isLoading: boolean) => void
@@ -140,7 +139,6 @@ export const LiveActivityTable = forwardRef<{
   campaignFilter = "all", 
   outcomeFilter = "all",
   queryFilter = "all",
-  timePeriodFilter = "30",
   campaignId,
   onFilteredCountChange,
   onLoadingChange,
@@ -368,7 +366,6 @@ export const LiveActivityTable = forwardRef<{
     currentSearchTerm = searchTerm,
     currentConnectionFilter = connectionFilter,
     currentOutcomeFilter = outcomeFilter,
-    currentTimePeriodFilter = timePeriodFilter,
     currentSortField = sortField,
     currentSortDirection = sortDirection
   ) => {
@@ -384,7 +381,6 @@ export const LiveActivityTable = forwardRef<{
       searchTerm: currentSearchTerm,
       outcomeFilter: currentOutcomeFilter,
       connectionFilter: currentConnectionFilter,
-      timePeriodFilter: currentTimePeriodFilter,
       sortField: currentSortField,
       sortDirection: currentSortDirection,
       showCallbacks: false
@@ -447,57 +443,6 @@ export const LiveActivityTable = forwardRef<{
         url += `&outcomes=${encodeURIComponent(currentOutcomeFilter)}`
        
       } else {
-      }
-
-      // Add time period filter (always apply date range for proper filtering)
-      if (currentTimePeriodFilter) {
-        // Convert time period to date range for API
-        const now = new Date()
-        let startDate: Date
-        
-        // Handle different time period options
-        switch (currentTimePeriodFilter) {
-          case '1':
-            // Today (from start of day to now)
-            startDate = new Date(now)
-            startDate.setHours(0, 0, 0, 0)
-            break
-          case '7':
-            // Last 7 days
-            startDate = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000))
-            break
-          case '30':
-            // Last 30 days (default)
-            startDate = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000))
-            break
-          case '90':
-            // Last 90 days
-            startDate = new Date(now.getTime() - (90 * 24 * 60 * 60 * 1000))
-            break
-          case 'yesterday':
-            // Yesterday only
-            const yesterday = new Date(now)
-            yesterday.setDate(yesterday.getDate() - 1)
-            startDate = new Date(yesterday)
-            startDate.setHours(0, 0, 0, 0)
-            // For yesterday, also set end date to end of yesterday
-            const endOfYesterday = new Date(yesterday)
-            endOfYesterday.setHours(23, 59, 59, 999)
-            url += `&startDate=${startDate.toISOString()}`
-            url += `&endDate=${endOfYesterday.toISOString()}`
-            break
-          default:
-            // Default to parsing as number of days
-            const days = parseInt(currentTimePeriodFilter) || 7
-            startDate = new Date(now.getTime() - (days * 24 * 60 * 60 * 1000))
-        }
-        
-        // Add date parameters (full ISO format with time) - skip for yesterday as it's handled above
-        if (currentTimePeriodFilter !== 'yesterday') {
-          url += `&startDate=${startDate.toISOString()}`
-          url += `&endDate=${now.toISOString()}`
-        }
-        
       }
       
       // Add sorting parameters
@@ -564,8 +509,7 @@ export const LiveActivityTable = forwardRef<{
         searchTerm?.trim() || 
         (outcomeFilter && outcomeFilter !== 'all') || 
         (connectionFilter && connectionFilter.length > 0 && connectionFilter.some(f => f !== 'all')) || 
-        (statusFilter && statusFilter.length > 0 && statusFilter.some(f => f !== 'all')) ||
-        (timePeriodFilter && timePeriodFilter !== '30')
+        (statusFilter && statusFilter.length > 0 && statusFilter.some(f => f !== 'all'))
       )
       
      
@@ -612,8 +556,8 @@ export const LiveActivityTable = forwardRef<{
     // This ensures consistent filtering and pagination behavior
     setIsSearchMode(true)
     setCurrentPage(1) // Reset to first page for search
-    fetchcampaignStatus(true, statusFilter, 1, itemsPerPage, query.trim(), connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
-  }, [campaignId, fetchcampaignStatus, statusFilter, itemsPerPage, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection])
+    fetchcampaignStatus(true, statusFilter, 1, itemsPerPage, query.trim(), connectionFilter, outcomeFilter, sortField, sortDirection)
+  }, [campaignId, fetchcampaignStatus, statusFilter, itemsPerPage, connectionFilter, outcomeFilter, sortField, sortDirection])
 
   // Function to export all data with current filters
   const exportAllData = useCallback(async () => {
@@ -653,7 +597,7 @@ export const LiveActivityTable = forwardRef<{
   useEffect(() => {
     if (refreshTrigger && refreshTrigger > 0 && campaignId) {
       // Use current state values at the time of refresh
-      fetchcampaignStatus(false, statusFilter, currentPage, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
+      fetchcampaignStatus(false, statusFilter, currentPage, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, sortField, sortDirection)
     }
   }, [refreshTrigger, campaignId, fetchcampaignStatus]) // Include necessary deps but avoid filter loops
 
@@ -666,8 +610,7 @@ export const LiveActivityTable = forwardRef<{
     // Reset to first page when filters change (except for pagination changes)
     const isFilterChange = !callRecords.length || // Initial load
       searchTerm !== '' || outcomeFilter !== 'all' || 
-      connectionFilter.some(f => f !== 'all') || statusFilter.some(f => f !== 'all') ||
-      timePeriodFilter !== '30'
+      connectionFilter.some(f => f !== 'all') || statusFilter.some(f => f !== 'all')
     
     const pageToUse = isFilterChange ? 1 : currentPage
     if (isFilterChange && currentPage !== 1) {
@@ -675,8 +618,8 @@ export const LiveActivityTable = forwardRef<{
       return // Let the next effect handle the API call with page 1
     }
     
-    fetchcampaignStatus(true, statusFilter, pageToUse, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
-  }, [campaignId, searchTerm, outcomeFilter, connectionFilter, statusFilter, timePeriodFilter, currentPage, itemsPerPage, sortField, sortDirection]) // Remove fetchcampaignStatus from deps to avoid loops
+    fetchcampaignStatus(true, statusFilter, pageToUse, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, sortField, sortDirection)
+  }, [campaignId, searchTerm, outcomeFilter, connectionFilter, statusFilter, currentPage, itemsPerPage, sortField, sortDirection]) // Remove fetchcampaignStatus from deps to avoid loops
 
   // Component uses callRecords state populated from the new campaign status API
   // This includes all call types: live, queued, completed, failed calls with real-time updates
@@ -731,8 +674,7 @@ export const LiveActivityTable = forwardRef<{
       itemsPerPage, 
       searchTerm, 
       connectionFilter, 
-      outcomeFilter, 
-      timePeriodFilter,
+      outcomeFilter,
       field,
       newSortDirection
     )
@@ -1565,12 +1507,12 @@ export const LiveActivityTable = forwardRef<{
             itemsPerPage={itemsPerPage}
             onPageChange={(page) => {
               setCurrentPage(page)
-              fetchcampaignStatus(true, statusFilter, page, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
+              fetchcampaignStatus(true, statusFilter, page, itemsPerPage, searchTerm, connectionFilter, outcomeFilter, sortField, sortDirection)
             }}
             onItemsPerPageChange={(newItemsPerPage) => {
               setItemsPerPage(newItemsPerPage)
               setCurrentPage(1)
-              fetchcampaignStatus(true, statusFilter, 1, newItemsPerPage, searchTerm, connectionFilter, outcomeFilter, timePeriodFilter, sortField, sortDirection)
+              fetchcampaignStatus(true, statusFilter, 1, newItemsPerPage, searchTerm, connectionFilter, outcomeFilter, sortField, sortDirection)
             }}
             showProgressIndicator={true}
             showGoToPage={true}

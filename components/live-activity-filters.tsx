@@ -40,8 +40,6 @@ interface LiveActivityFiltersProps {
   setOutcomeFilter?: (value: string) => void
   queryFilter?: string
   setQueryFilter?: (value: string) => void
-  timePeriodFilter?: string
-  setTimePeriodFilter?: (value: string) => void
   onPauseCampaign?: () => void
   campaignRunning?: boolean
   totalResults?: number
@@ -75,8 +73,6 @@ export function LiveActivityFilters({
   setOutcomeFilter,
   queryFilter = "all",
   setQueryFilter,
-  timePeriodFilter = "30",
-  setTimePeriodFilter,
   onPauseCampaign,
   campaignRunning = true,
   totalResults = 0,
@@ -179,8 +175,7 @@ export function LiveActivityFilters({
     callTypeFilter !== "all",
     campaignFilter !== "all", 
     outcomeFilter !== "all",
-    queryFilter !== "all",
-    timePeriodFilter !== "30"
+    queryFilter !== "all"
   ].filter(Boolean).length
 
   // Helper function to format status display names
@@ -248,7 +243,6 @@ export function LiveActivityFilters({
     setCampaignFilter?.("all")
     setOutcomeFilter?.("all")
     setQueryFilter?.("all")
-    setTimePeriodFilter?.("30")
     
     // Clear any pending debounce timeout
     if (debounceTimeoutRef.current) {
@@ -376,22 +370,6 @@ export function LiveActivityFilters({
             <SelectItem value="customer-busy">Customer Busy</SelectItem>
           </SelectContent>
         </Select>
-
-        {/* Time Period Filter */}
-        <Select value={timePeriodFilter} onValueChange={setTimePeriodFilter}>
-          <SelectTrigger className="flex w-auto min-w-[170px] items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm transition-all duration-150 ease-out hover:bg-gray-50 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none h-10">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-gray-500" />
-              <SelectValue placeholder="Last 30 Days" />
-            </div>
-          </SelectTrigger>
-          <SelectContent className="bg-white border border-gray-200 rounded-lg shadow-lg">
-            <SelectItem value="1">Today</SelectItem>
-            <SelectItem value="7">Last 7 Days</SelectItem>
-            <SelectItem value="30">Last 30 Days</SelectItem>
-            <SelectItem value="90">Last 90 Days</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
 
@@ -496,18 +474,6 @@ export function LiveActivityFilters({
               <button
                 onClick={() => setConnectionFilter(["all"])}
                 className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-purple-100 transition-colors text-purple-600"
-              >
-                ×
-              </button>
-            </div>
-          )}
-
-          {timePeriodFilter !== "30" && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium border-blue-600 text-blue-600 bg-blue-50">
-              <span>Period: {timePeriodFilter === "1" ? "Today" : timePeriodFilter === "7" ? "Last 7 Days" : timePeriodFilter === "90" ? "Last 90 Days" : `${timePeriodFilter} Days`}</span>
-              <button
-                onClick={() => setTimePeriodFilter?.("30")}
-                className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-blue-100 transition-colors text-blue-600"
               >
                 ×
               </button>

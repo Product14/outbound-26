@@ -93,7 +93,6 @@ export default function CampaignResults() {
   const [searchTerm, setSearchTerm] = useState('')
   const [activeStatusFilters, setActiveStatusFilters] = useState<string[]>([])
   const [activeCampaignTypeFilters, setActiveCampaignTypeFilters] = useState<string[]>([])
-  const [dateFilter, setDateFilter] = useState<string>('')
   const [sortBy, setSortBy] = useState<{ field: string; order: 'asc' | 'desc' }>({ field: 'createdAt', order: 'desc' })
   const [agents, setAgents] = useState<Agent[]>([])
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -195,26 +194,7 @@ export default function CampaignResults() {
     // Tab filter - filter campaigns based on active tab
     const matchesTab = activeTab === 'sales' ? campaignType.toLowerCase() === 'sales' : campaignType.toLowerCase() === 'service'
     
-    // Date filter - check if any date field matches the selected date
-    let matchesDate = true
-    if (dateFilter) {
-      // Parse the date filter in local timezone
-      const selectedDate = new Date(dateFilter + 'T00:00:00')
-      const campaignCreatedDate = new Date(campaign.createdAt || campaign.startDate || '')
-      const campaignCompletedDate = new Date(campaign.completedAt || '')
-      
-      // Check if any date field matches the selected date (within the same day in local timezone)
-      const isSameDay = (date1: Date, date2: Date) => {
-        return date1.getFullYear() === date2.getFullYear() &&
-               date1.getMonth() === date2.getMonth() &&
-               date1.getDate() === date2.getDate()
-      }
-      
-      matchesDate = isSameDay(campaignCreatedDate, selectedDate) || 
-                   isSameDay(campaignCompletedDate, selectedDate)
-    }
-    
-    return matchesSearch && matchesStatus && matchesCampaignType && matchesDate && matchesTab
+    return matchesSearch && matchesStatus && matchesCampaignType && matchesTab
   })
 
   // Sort the filtered campaigns
@@ -256,12 +236,7 @@ export default function CampaignResults() {
   const clearAllFilters = () => {
     setActiveStatusFilters([])
     setActiveCampaignTypeFilters([])
-    setDateFilter('')
     setSearchTerm('')
-  }
-
-  const clearDateFilter = () => {
-    setDateFilter('')
   }
 
   const handleSortChange = (field: string, order: 'asc' | 'desc') => {
@@ -444,47 +419,13 @@ export default function CampaignResults() {
                     <SelectItem value="createdAt-asc">Oldest First</SelectItem>
                   </SelectContent>
                 </Select>
-
-                {/* Date Filter - DatePicker component */}
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-36 h-10 text-[#666666] font-semibold border-border bg-surface justify-start text-left font-normal",
-                        !dateFilter && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateFilter ? new Date(dateFilter + 'T00:00:00').toLocaleDateString() : <span>Date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 z-50" align="start" side="bottom" sideOffset={4}>
-                    <Calendar
-                      mode="single"
-                      selected={dateFilter ? new Date(dateFilter + 'T00:00:00') : undefined}
-                      onSelect={(date) => {
-                        if (date) {
-                          // Format date in local timezone to avoid timezone shift
-                          const year = date.getFullYear()
-                          const month = String(date.getMonth() + 1).padStart(2, '0')
-                          const day = String(date.getDate()).padStart(2, '0')
-                          setDateFilter(`${year}-${month}-${day}`)
-                        } else {
-                          setDateFilter('')
-                        }
-                      }}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Active Filters Chips */}
-        {(activeStatusFilters.length > 0 || activeCampaignTypeFilters.length > 0 || dateFilter || searchTerm) && (
+        {(activeStatusFilters.length > 0 || activeCampaignTypeFilters.length > 0 || searchTerm) && (
           <div className="mb-3 mt-3">
             <div className="flex flex-wrap gap-2 items-center">
               {searchTerm && (
@@ -522,21 +463,8 @@ export default function CampaignResults() {
                   </button>
                 </div>
               ))}
-
-              {/* Date Filter Chip */}
-              {dateFilter && (
-                <div className="flex items-center gap-1 px-3 py-1 rounded-full border border-[#4600F2] text-[#4600F2] text-sm">
-                  <span>Date: {new Date(dateFilter + 'T00:00:00').toLocaleDateString()}</span>
-                  <button
-                    onClick={clearDateFilter}
-                    className="ml-1 hover:bg-[#4600F2]/10 rounded-full p-0.5"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              )}
               
-              {(activeStatusFilters.length > 0 || activeCampaignTypeFilters.length > 0 || dateFilter || searchTerm) && (
+              {(activeStatusFilters.length > 0 || activeCampaignTypeFilters.length > 0 || searchTerm) && (
                 <button
                   onClick={clearAllFilters}
                   className="px-3 py-1 text-sm text-gray-500 hover:text-gray-700 underline ml-2"
@@ -738,11 +666,11 @@ export default function CampaignResults() {
               </div>
               <h3 className="text-page-heading text-text-primary mb-3">No campaigns found</h3>
               <p className="text-body text-text-secondary mb-8 max-w-md mx-auto">
-                {searchTerm || activeStatusFilters.length > 0 || activeCampaignTypeFilters.length > 0 || dateFilter
+                {searchTerm || activeStatusFilters.length > 0 || activeCampaignTypeFilters.length > 0
                   ? 'No campaigns match your current filters. Try adjusting your search criteria or removing some filters to find the campaigns you&apos;re looking for.'
                   : "You haven't created any campaigns yet. Ready to start your first AI-powered outbound campaign?"}
               </p>
-              {searchTerm || activeStatusFilters.length > 0 || activeCampaignTypeFilters.length > 0 || dateFilter ? (
+              {searchTerm || activeStatusFilters.length > 0 || activeCampaignTypeFilters.length > 0 ? (
                 <Button 
                   onClick={clearAllFilters}
                   size="lg"

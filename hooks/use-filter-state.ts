@@ -16,7 +16,6 @@ interface UseFilterStateReturn {
   statusFilter: string[]
   connectionFilter: string[]
   outcomeFilter: string
-  timePeriodFilter: string
   currentPage: number
   itemsPerPage: number
 
@@ -25,7 +24,6 @@ interface UseFilterStateReturn {
   setStatusFilter: (status: string[]) => void
   setConnectionFilter: (connection: string[]) => void
   setOutcomeFilter: (outcome: string) => void
-  setTimePeriodFilter: (timePeriod: string) => void
   setCurrentPage: (page: number) => void
   setItemsPerPage: (limit: number) => void
 
@@ -50,7 +48,6 @@ export function useFilterState(options: UseFilterStateOptions = {}): UseFilterSt
   const [statusFilter, setStatusFilterState] = useState<string[]>(['all'])
   const [connectionFilter, setConnectionFilterState] = useState<string[]>(['all'])
   const [outcomeFilter, setOutcomeFilterState] = useState('all')
-  const [timePeriodFilter, setTimePeriodFilterState] = useState('30')
   const [currentPage, setCurrentPageState] = useState(1)
   const [itemsPerPage, setItemsPerPageState] = useState(10)
   const [isInitialized, setIsInitialized] = useState(false)
@@ -63,7 +60,6 @@ export function useFilterState(options: UseFilterStateOptions = {}): UseFilterSt
       setStatusFilterState(restored.status || ['all'])
       setConnectionFilterState(restored.connection || ['all'])
       setOutcomeFilterState(restored.outcome || 'all')
-      setTimePeriodFilterState(restored.timePeriod || '30')
       setCurrentPageState(restored.page || 1)
       setItemsPerPageState(Math.min(restored.limit || 10, 50))
       setIsInitialized(true)
@@ -78,10 +74,9 @@ export function useFilterState(options: UseFilterStateOptions = {}): UseFilterSt
     status: statusFilter,
     connection: connectionFilter,
     outcome: outcomeFilter,
-    timePeriod: timePeriodFilter,
     page: currentPage,
     limit: itemsPerPage,
-  }), [searchTerm, statusFilter, connectionFilter, outcomeFilter, timePeriodFilter, currentPage, itemsPerPage])
+  }), [searchTerm, statusFilter, connectionFilter, outcomeFilter, currentPage, itemsPerPage])
 
   // Check if there are active filters
   const hasActiveFilters = useMemo(() => {
@@ -90,10 +85,9 @@ export function useFilterState(options: UseFilterStateOptions = {}): UseFilterSt
       (statusFilter.length > 1 || (statusFilter.length === 1 && statusFilter[0] !== 'all')) ||
       (connectionFilter.length > 1 || (connectionFilter.length === 1 && connectionFilter[0] !== 'all')) ||
       outcomeFilter !== 'all' ||
-      timePeriodFilter !== '30' ||
       currentPage > 1
     )
-  }, [searchTerm, statusFilter, connectionFilter, outcomeFilter, timePeriodFilter, currentPage])
+  }, [searchTerm, statusFilter, connectionFilter, outcomeFilter, currentPage])
 
   // Debounced URL update
   useEffect(() => {
@@ -112,7 +106,7 @@ export function useFilterState(options: UseFilterStateOptions = {}): UseFilterSt
     return () => clearTimeout(timeoutId)
   }, [
     searchTerm, statusFilter, connectionFilter, outcomeFilter, 
-    timePeriodFilter, currentPage, itemsPerPage, 
+    currentPage, itemsPerPage, 
     enableUrlSync, pathname, debounceMs, onFiltersChange, 
     getFilterState, isInitialized
   ])
@@ -146,13 +140,6 @@ export function useFilterState(options: UseFilterStateOptions = {}): UseFilterSt
     }
   }, [currentPage])
 
-  const setTimePeriodFilter = useCallback((timePeriod: string) => {
-    setTimePeriodFilterState(timePeriod)
-    if (currentPage > 1) {
-      setCurrentPageState(1)
-    }
-  }, [currentPage])
-
   const setCurrentPage = useCallback((page: number) => {
     setCurrentPageState(page)
   }, [])
@@ -177,7 +164,6 @@ export function useFilterState(options: UseFilterStateOptions = {}): UseFilterSt
     setStatusFilterState(['all'])
     setConnectionFilterState(['all'])
     setOutcomeFilterState('all')
-    setTimePeriodFilterState('30')
     setCurrentPageState(1)
     setItemsPerPageState(10)
   }, [])
@@ -188,7 +174,6 @@ export function useFilterState(options: UseFilterStateOptions = {}): UseFilterSt
     statusFilter,
     connectionFilter,
     outcomeFilter,
-    timePeriodFilter,
     currentPage,
     itemsPerPage,
 
@@ -197,7 +182,6 @@ export function useFilterState(options: UseFilterStateOptions = {}): UseFilterSt
     setStatusFilter,
     setConnectionFilter,
     setOutcomeFilter,
-    setTimePeriodFilter,
     setCurrentPage,
     setItemsPerPage,
 

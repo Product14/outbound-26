@@ -24,8 +24,6 @@ interface FilterControlsProps {
   setOutcomeFilter: (value: string) => void
   sentimentFilter: string
   setSentimentFilter: (value: string) => void
-  timeFilter: string
-  setTimeFilter: (value: string) => void
   intentFilter: string
   setIntentFilter: (value: string) => void
   viewMode: 'cards' | 'table'
@@ -42,8 +40,6 @@ export const FilterControls = React.memo(function FilterControls({
   setOutcomeFilter,
   sentimentFilter,
   setSentimentFilter,
-  timeFilter,
-  setTimeFilter,
   intentFilter,
   setIntentFilter,
   viewMode,
@@ -115,24 +111,7 @@ export const FilterControls = React.memo(function FilterControls({
 
           {/* Sentiment filter removed per requirements */}
 
-          <Select value={timeFilter} onValueChange={setTimeFilter}>
-            <SelectTrigger className={`${compactFilters ? "w-10 h-10 px-0 justify-center" : "w-auto min-w-[170px] justify-between px-3 h-10"} flex items-center gap-2 rounded-xl border border-gray-200 bg-white text-sm transition-all duration-150 ease-out hover:bg-gray-50 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none`}>
-              {compactFilters ? (
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <SelectValue placeholder="Period" />
-                </div>
-              )}
-            </SelectTrigger>
-            <SelectContent className="bg-white border border-gray-200 rounded-lg shadow-lg">
-              <SelectItem value="1">Today</SelectItem>
-              <SelectItem value="7">Last 7 Days</SelectItem>
-              <SelectItem value="30">Last 30 Days</SelectItem>
-              <SelectItem value="90">Last 90 Days</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* Time filter removed per requirements */}
 
           {/* Recent/Sort filter removed per requirements */}
 
@@ -196,10 +175,9 @@ export const FilterControls = React.memo(function FilterControls({
 
       {/* Applied Filters (Dismissible Chips) */}
       {((searchTerm && searchTerm.trim() !== "") || 
-        outcomeFilter !== "all" || 
+        outcomeFilter !== "all" 
         /* sentimentFilter !== "all" || */
-        /* intentFilter !== "all" || */ 
-        timeFilter !== "30") && (
+        /* intentFilter !== "all" */) && (
         <div className="flex flex-wrap items-center gap-2 mt-2 mb-2">
           {searchTerm && searchTerm.trim() !== "" && (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-[color,box-shadow] outline-none" style={{ borderColor: '#4600F2', color: '#4600F2' }}>
@@ -235,21 +213,7 @@ export const FilterControls = React.memo(function FilterControls({
           
           {/* Sort chip removed */}
           
-          {timeFilter !== "30" && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-[color,box-shadow] outline-none" style={{ borderColor: '#4600F2', color: '#4600F2' }}>
-              <span>Period: {timeFilter === "1" ? "Today" : 
-                    timeFilter === "7" ? "Last 7 Days" :
-                    timeFilter === "30" ? "Last 30 Days" :
-                    timeFilter === "90" ? "Last 90 Days" : `${timeFilter} Days`}</span>
-              <button
-                onClick={() => setTimeFilter("30")}
-                className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-gray-100 transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-                style={{ color: '#4600F2' }}
-              >
-                ×
-              </button>
-            </div>
-          )}
+          {/* Time period chip removed */}
         </div>
       )}
     </div>

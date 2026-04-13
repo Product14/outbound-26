@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { BarChart3, Plus, Zap } from 'lucide-react'
 import Link from "next/link"
+import { useRouter } from 'next/navigation'
 import { buildUrlWithParams } from '@/lib/url-utils'
 import { calculateAndFormatTimeRange, calculateEndDate, formatTimeRange } from '@/lib/time-utils'
 import { CampaignData } from '@/types/campaign-setup'
@@ -21,6 +22,16 @@ export default function Step5CampaignSuccess({
   createdCampaignId,
   startFreshCampaign
 }: Step5CampaignSuccessProps) {
+  const router = useRouter()
+
+  const handleSetupAnother = () => {
+    // Reset setup state so a future visit to the wizard starts clean,
+    // then navigate back to the home dashboard where the just-launched
+    // campaign is now visible (persisted via saveUserCampaign on launch).
+    startFreshCampaign()
+    router.push(buildUrlWithParams('/results'))
+  }
+
   const getCampaignDateRange = () => {
     // For "now" campaigns, just show the start date without time
     if (campaignData.schedule === 'now') {
@@ -95,9 +106,9 @@ export default function Step5CampaignSuccess({
               View Campaign Analytics
             </Button>
           </Link>
-          <Button 
-            size="lg" 
-            onClick={startFreshCampaign}
+          <Button
+            size="lg"
+            onClick={handleSetupAnother}
             className="w-full h-11 px-4 text-[14px] bg-white hover:bg-gray-50 text-[#1A1A1A] border border-[#E5E7EB] rounded-lg font-medium"
             >
               <Plus className="h-4 w-4 mr-2" />

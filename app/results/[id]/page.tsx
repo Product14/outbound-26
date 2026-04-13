@@ -8,8 +8,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { AlertCircle, CheckCircle, Download, ArrowLeft } from 'lucide-react'
 import Link from "next/link"
-import { fetchCampaignDetails, fetchCampaignTypes, fetchCampaignConversationData, type CampaignDetailResponse } from '@/lib/campaign-api'
-import { fetchAgentList, type Agent } from '@/lib/agent-api'
+import type { CampaignDetailResponse } from '@/lib/campaign-api'
+import type { Agent } from '@/lib/agent-api'
 import { calculateAndFormatEstimatedTime, getShortEstimatedTime } from '@/lib/time-utils'
 import { generateCallStatus, generateCallTime, generateCallDuration, calculatecampaignStatus } from '@/lib/call-status-utils'
 import { buildUrlWithParams, extractUrlParams } from '@/lib/url-utils'
@@ -17,7 +17,9 @@ import { buildUrlWithParams, extractUrlParams } from '@/lib/url-utils'
 // Import our new components
 import { CampaignHeader } from '@/components/campaign/campaign-header'
 import { LiveCallsTab } from '@/components/campaign/live-calls-tab'
-// import { AnalyticsTab } from '@/components/campaign/analytics-tab'
+import { AnalyticsTab } from '@/components/campaign/analytics-tab'
+import { SmsOverviewTab } from '@/components/campaign/sms-overview-tab'
+import { LeadsTab } from '@/components/campaign/leads-tab'
 // import { TabsNavigation } from '@/components/ui/tabs-navigation'
 import { ApiCallDrawer } from '@/components/api-call-drawer'
 import { CampaignPageShimmer } from '@/components/ui/campaign-shimmer'
@@ -25,6 +27,17 @@ import { CampaignPageShimmer } from '@/components/ui/campaign-shimmer'
 // import AppointmentFunnel from '@/components/ui/appointment-funnel'
 import { getCampaignFunnelData, calculateFunnelMetrics, getAppointmentFunnelData } from '@/lib/funnel-utils'
 import { calculateCampaignMetricsFromAPI, type CampaignAnalyticsResponse, type CampaignCompletedResponse } from '@/lib/metrics-utils'
+import {
+  getMockAgents,
+  getMockCampaignAnalytics,
+  getMockCampaignCompleted,
+  getMockCampaignConversationData,
+  getMockCampaignDetails,
+  getMockSmsOverview,
+  getMockLeadsData,
+  getMockCampaignTypes,
+  getMockAnalyticsExtras,
+} from '@/lib/outbound-local-data'
 // import { MetricsGrid } from '@/components/ui/metrics-grid'
 import type { CallRecord } from '@/types/call-record'
 // import { PerformanceTimeChart } from '@/components/charts/PerformanceTimeChart'
@@ -51,6 +64,9 @@ const mapCampaignType = (campaignType: string, campaignTypes?: any | null): stri
   if (serviceKeywords.some(keyword => lowerCampaignType.includes(keyword))) {
     return 'Service'
   }
+
+  if (lowerCampaignType === 'sales') return 'Sales'
+  if (lowerCampaignType === 'service') return 'Service'
   
   // Default fallback - return the original campaign type if no mapping found
   // This allows for explicit checking in components
@@ -58,6 +74,8 @@ const mapCampaignType = (campaignType: string, campaignTypes?: any | null): stri
 }
 
 // Calculate service campaign specific statistics
+const allowedTabs = ['overview', 'leads', 'sms-overview', 'analytics'] as const
+
 const calculateServicecampaignStatus = (totalCalls: number) => {
   const stats = calculatecampaignStatus(totalCalls)
   
@@ -89,7 +107,7 @@ export default function CampaignDetail() {
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingAgent, setIsLoadingAgent] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState('live-calls')
+  const [activeTab, setActiveTab] = useState('overview')
   const [campaignRunning, setCampaignRunning] = useState(true)
   const [isCallDetailsOpen, setIsCallDetailsOpen] = useState(false)
   const [selectedCall, setSelectedCall] = useState<CallRecord | null>(null)
@@ -122,55 +140,12 @@ export default function CampaignDetail() {
   
   
 
-  // Fetch analytics and completed calls data
   useEffect(() => {
-    const fetchAnalyticsData = async () => {
-      if (!campaignId) return
-
-      setIsLoadingAnalytics(true)
-      
-      try {
-        // Prepare headers for authenticated requests
-        const headers: HeadersInit = {
-          'Content-Type': 'application/json',
-        }
-        
-        // Add Authorization header if authKey is available
-        if (urlParams.auth_key) {
-          headers['Authorization'] = urlParams.auth_key.startsWith('Bearer ') ? urlParams.auth_key : `Bearer ${urlParams.auth_key}`
-        }
-        
-        // Fetch analytics data
-        const analyticsUrl = `/api/fetch-campaign-analytics?campaignId=${campaignId}`
-        const analyticsResponse = await fetch(analyticsUrl, {
-          method: 'GET',
-          headers,
-        })
-        if (analyticsResponse.ok) {
-          const analytics = await analyticsResponse.json()
-         
-          setAnalyticsData(analytics)
-        } else {
-          console.error('Analytics API Error:', analyticsResponse.status, analyticsResponse.statusText)
-        }
-
-        // Fetch campaign status data for additional metrics
-        const campaignStatusResponse = await fetch(`/api/fetch-campaign-status?campaignId=${campaignId}`, {
-          method: 'GET',
-          headers,
-        })
-        if (campaignStatusResponse.ok) {
-          const campaignStatus = await campaignStatusResponse.json()
-          setCompletedCallsData(campaignStatus)
-        }
-      } catch (error) {
-        console.error('Error fetching analytics data:', error)
-      } finally {
-        setIsLoadingAnalytics(false)
-      }
-    }
-
-    fetchAnalyticsData()
+    if (!campaignId) return
+    setIsLoadingAnalytics(true)
+    setAnalyticsData(getMockCampaignAnalytics(campaignId))
+    setCompletedCallsData(getMockCampaignCompleted(campaignId))
+    setIsLoadingAnalytics(false)
   }, [campaignId])
 
 
@@ -238,6 +213,10 @@ export default function CampaignDetail() {
     }
   }, [analyticsData, completedCallsData])
 
+  const smsOverviewData = useMemo(() => getMockSmsOverview(campaignId), [campaignId])
+  const leadsData = useMemo(() => getMockLeadsData(campaignId), [campaignId])
+  const analyticsExtrasData = useMemo(() => getMockAnalyticsExtras(campaignId), [campaignId])
+
   // Utility functions
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -280,56 +259,13 @@ export default function CampaignDetail() {
   const handleRefreshTableData = async () => {
     // Increment refresh trigger to refresh table data
     setRefreshTrigger(prev => prev + 1)
-    
-    // Also refetch conversation data to update header with latest status
+
     if (campaignId) {
-      try {
-        // Refetch conversation data
-        const data = await fetchCampaignConversationData(campaignId, urlParams.auth_key || undefined)
-        setConversationData(data)
-        
-        // Update campaign running state based on the fetched status
-        if (data?.campaignStatus) {
-          const status = data.campaignStatus.toLowerCase()
-          setCampaignRunning(status === 'running')
-        }
-        
-        // Refetch analytics data to update metrics
-        const headers: HeadersInit = {
-          'Content-Type': 'application/json',
-        }
-        
-        if (urlParams.auth_key) {
-          headers['Authorization'] = urlParams.auth_key.startsWith('Bearer ') 
-            ? urlParams.auth_key 
-            : `Bearer ${urlParams.auth_key}`
-        }
-        
-        // Fetch updated analytics
-        const analyticsUrl = `/api/fetch-campaign-analytics?campaignId=${campaignId}`
-        const analyticsResponse = await fetch(analyticsUrl, {
-          method: 'GET',
-          headers,
-        })
-        
-        if (analyticsResponse.ok) {
-          const analytics = await analyticsResponse.json()
-          setAnalyticsData(analytics)
-        }
-        
-        // Fetch updated campaign status for metrics
-        const campaignStatusResponse = await fetch(`/api/fetch-campaign-status?campaignId=${campaignId}`, {
-          method: 'GET',
-          headers,
-        })
-        
-        if (campaignStatusResponse.ok) {
-          const campaignStatus = await campaignStatusResponse.json()
-          setCompletedCallsData(campaignStatus)
-        }
-      } catch (error) {
-        console.warn('Failed to refetch data after status change:', error)
-      }
+      const data = getMockCampaignConversationData(campaignId)
+      setConversationData(data)
+      setCampaignRunning(data.campaignStatus.toLowerCase() === 'running')
+      setAnalyticsData(getMockCampaignAnalytics(campaignId))
+      setCompletedCallsData(getMockCampaignCompleted(campaignId))
     }
   }
 
@@ -613,11 +549,13 @@ export default function CampaignDetail() {
 
   // Effects
   useEffect(() => {
-    // Restore tab from URL parameters if present, otherwise default to live-calls
-    if (urlParams.tab && ['live-calls'].includes(urlParams.tab)) {
+    // Restore tab from URL parameters if present, otherwise default to overview.
+    if (urlParams.tab === 'live-calls') {
+      setActiveTab('overview')
+    } else if (urlParams.tab && allowedTabs.includes(urlParams.tab as (typeof allowedTabs)[number])) {
       setActiveTab(urlParams.tab)
     } else {
-      setActiveTab('live-calls')
+      setActiveTab('overview')
     }
   }, [urlParams.tab])
 
@@ -645,131 +583,18 @@ export default function CampaignDetail() {
     const fetchData = async () => {
       try {
         setIsLoading(true)
-        setError(null) // Clear any previous errors
-        
-        
-        try {
-          // Fetch campaign details with fallback
-          let campaignResponse
-          try {
-            campaignResponse = await fetchCampaignDetails(campaignId, urlParams.auth_key || undefined)
-          } catch (campaignError) {
-            console.warn('Failed to fetch campaign details, using mock data:', campaignError)
-            // Provide fallback campaign data with proper dates
-            const campaignStartDate = new Date('2023-10-03T11:18:00')
-            const campaignEndDate = new Date('2023-10-03T14:18:00')
-            const campaignCreatedDate = new Date('2024-07-12T12:00:00')
-            
-            // Determine if this should be a service campaign based on URL params or campaign ID
-            const urlParams = new URLSearchParams(window.location.search)
-            const isServiceContext = urlParams.get('tab') === 'service' || 
-                                   campaignId.includes('recall') || 
-                                   campaignId.includes('service')
-            
-            campaignResponse = {
-              success: true,
-              campaign: {
-                _id: campaignId,
-                campaignId: campaignId,
-                name: isServiceContext ? "Q4 Service Reminder Campaign" : "Q4 Vehicle Sales Campaign",
-                campaignType: isServiceContext ? "recall" : "sales",
-                campaignUseCase: isServiceContext ? "service" : "sales",
-                teamAgentMappingId: "fallback-agent",
-                enterpriseId: "fallback-enterprise",
-                teamId: "fallback-team", 
-                status: "active",
-                startDate: campaignStartDate.toISOString(),
-                completedDate: campaignEndDate.toISOString(),
-                createdAt: campaignCreatedDate.toISOString(),
-                campaignCustomerCreationStatus: "completed",
-                totalCustomers: 1000,
-                totalCustomersLeadCreated: 1000,
-                totalCustomersLeadFailed: 0,
-                totalCallPlaced: 750,
-                appointmentScheduled: 85,
-                answerRate: 65,
-                __v: 0
-              },
-              callDetails: []
-            }
-          }
-          
-          // Fetch campaign types separately with fallback
-          let typesResponse = null
-          try {
-            typesResponse = await fetchCampaignTypes(urlParams.auth_key || undefined)
-          } catch (typesError) {
-            console.warn('Failed to fetch campaign types, using fallback data:', typesError)
-            // Provide fallback campaign types data
-            typesResponse = {
-              success: true,
-              data: [
-                {
-                  _id: "sales_fallback",
-                  campaignFor: "Sales", 
-                  campaignTypes: [
-                    { name: "sales", description: "Sales Campaign", isActive: true, requiredKeys: [] }
-                  ],
-                  isActive: true,
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                  __v: 0
-                },
-                {
-                  _id: "service_fallback",
-                  campaignFor: "Service",
-                  campaignTypes: [
-                    { name: "service", description: "Service Campaign", isActive: true, requiredKeys: [] },
-                    { name: "recall", description: "Recall Campaign", isActive: true, requiredKeys: [] }
-                  ],
-                  isActive: true,
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                  __v: 0
-                }
-              ]
-            }
-          }
-          
-         
-          setCampaignData(campaignResponse)
-          setCampaignTypes(typesResponse)
+        setError(null)
+        const campaignResponse = getMockCampaignDetails(campaignId)
+        const typesResponse = getMockCampaignTypes()
+        const conversationResponse = getMockCampaignConversationData(campaignId)
 
-          // Fetch conversation data for real campaign name
-          try {
-            const conversationResponse = await fetchCampaignConversationData(campaignId, urlParams.auth_key || undefined)
-            setConversationData(conversationResponse)
-            
-            // Set campaign running state based on actual API status
-            if (conversationResponse?.campaignStatus) {
-              const status = conversationResponse.campaignStatus.toLowerCase()
-              setCampaignRunning(status === 'running')
-            }
-          } catch (conversationError) {
-            console.warn('Failed to fetch conversation data:', conversationError)
-          }
-        } catch (apiError) {
-          console.error('Failed to fetch campaign details:', apiError)
-          setError('Failed to load campaign details. Please check your connection and try again.')
-        }
+        setCampaignData(campaignResponse)
+        setCampaignTypes(typesResponse)
+        setConversationData(conversationResponse)
+        setCampaignRunning(conversationResponse.campaignStatus.toLowerCase() === 'running')
       } catch (error) {
         console.error('Error in fetchData:', error)
-        
-        // Provide more specific error messages
-        let errorMessage = 'Failed to load campaign details. Please try again.'
-        if (error instanceof Error) {
-          if (error.message.includes('404')) {
-            errorMessage = 'Campaign not found. Please check the campaign ID and try again.'
-          } else if (error.message.includes('401') || error.message.includes('403')) {
-            errorMessage = 'Authentication failed. Please check your permissions.'
-          } else if (error.message.includes('500')) {
-            errorMessage = 'Server error. Please try again later.'
-          } else if (error.message.includes('Failed to fetch')) {
-            errorMessage = 'Network error. Please check your connection and try again.'
-          }
-        }
-        
-        setError(errorMessage)
+        setError('Failed to load campaign details. Please try again.')
       } finally {
         setIsLoading(false)
       }
@@ -787,24 +612,12 @@ export default function CampaignDetail() {
       if (campaignData?.campaign) {
         try {
           setIsLoadingAgent(true)
-          // Get URL parameters for authentication
-          const urlParams = extractUrlParams()
-          
-          
-          // Ensure auth_key is properly decoded
-          const authKey = urlParams.auth_key ? decodeURIComponent(urlParams.auth_key) : null
-         
-          
-          const agentResponse = await fetchAgentList(
-            urlParams.enterprise_id || "1", 
-            urlParams.team_id || "10",
-            undefined, // agentUseCase
-            undefined, // agentType  
-            undefined, // agentCallType
-            authKey || undefined
-          )
-          // For demo purposes, use the first available agent
-          const agent = agentResponse.length > 0 ? agentResponse[0] : null
+          const agentResponse = getMockAgents()
+          const targetAgentId = campaignData.campaign.teamAgentMappingId
+          const agent =
+            agentResponse.find(
+              (item) => item.id === targetAgentId || item.agentId === targetAgentId,
+            ) || agentResponse[0] || null
           setCampaignAgent(agent)
         } catch (error) {
           console.warn('Failed to fetch agent details, using fallback:', error)
@@ -901,27 +714,58 @@ export default function CampaignDetail() {
         onUpdateConversationData={handleUpdateConversationData}
         onRefreshTableData={handleRefreshTableData}
       />
-      
-      {/* Tabs Navigation - Commented out temporarily */}
-      {/**
-      <TabsNavigation
-        defaultActiveTab={activeTab}
-        onTabChange={handleTabChange}
-        showSearch={true}
-        showFilters={true}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        statusFilter={statusFilter}
-        setStatusFilter={setStatusFilter}
-        onToggleFilters={() => setShowFilters(!showFilters)}
-      />
-      **/}
+
+      {(isSalesCampaign || isServiceCampaign) ? (
+        <div className="px-12 pt-4">
+          <div className="flex items-center border-b border-gray-200">
+            <button
+              onClick={() => handleTabChange('overview')}
+              className={`px-4 py-3 text-base border-b-2 transition-all duration-200 ${
+                activeTab === 'overview'
+                  ? 'text-black font-semibold border-[#4600F2] bg-transparent'
+                  : 'text-gray-500 font-normal border-transparent hover:text-gray-700'
+              }`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => handleTabChange('leads')}
+              className={`px-4 py-3 text-base border-b-2 transition-all duration-200 ${
+                activeTab === 'leads'
+                  ? 'text-black font-semibold border-[#4600F2] bg-transparent'
+                  : 'text-gray-500 font-normal border-transparent hover:text-gray-700'
+              }`}
+            >
+              Leads
+            </button>
+            <button
+              onClick={() => handleTabChange('sms-overview')}
+              className={`px-4 py-3 text-base border-b-2 transition-all duration-200 ${
+                activeTab === 'sms-overview'
+                  ? 'text-black font-semibold border-[#4600F2] bg-transparent'
+                  : 'text-gray-500 font-normal border-transparent hover:text-gray-700'
+              }`}
+            >
+              SMS Overview
+            </button>
+            <button
+              onClick={() => handleTabChange('analytics')}
+              className={`px-4 py-3 text-base border-b-2 transition-all duration-200 ${
+                activeTab === 'analytics'
+                  ? 'text-black font-semibold border-[#4600F2] bg-transparent'
+                  : 'text-gray-500 font-normal border-transparent hover:text-gray-700'
+              }`}
+            >
+              Analytics
+            </button>
+          </div>
+        </div>
+      ) : null}
       
       {/* Content Area with Tabs for Sales and Service Campaigns */}
       {(isSalesCampaign || isServiceCampaign) ? (
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          {/* Live Calls Tab */}
-          <TabsContent value="live-calls" className="mt-0">
+          <TabsContent value="overview" className="mt-0">
             <LiveCallsTab
               isCallDetailsOpen={isCallDetailsOpen}
               onCallSelect={handleCallSelect}
@@ -945,12 +789,33 @@ export default function CampaignDetail() {
             />
           </TabsContent>
 
-          {/* Analytics Tab - Commented out temporarily */}
-          {/**
           <TabsContent value="analytics" className="mt-0">
-            ...
+            <div className="px-12 py-6">
+              <AnalyticsTab
+                isServiceCampaign={isServiceCampaign}
+                campaignData={campaignData}
+                serviceStats={serviceStats}
+                calculatedStats={calculatedStats}
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
+                analyticsData={analyticsData}
+                extrasData={analyticsExtrasData}
+                mode="analytics"
+              />
+            </div>
           </TabsContent>
-          **/}
+
+          <TabsContent value="sms-overview" className="mt-0">
+            <div className="px-12 py-6">
+              <SmsOverviewTab data={smsOverviewData} />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="leads" className="mt-0">
+            <div className="px-12 py-6">
+              <LeadsTab data={leadsData} />
+            </div>
+          </TabsContent>
         </Tabs>
       ) : (
         // Non-Sales/Service campaigns - show simple completion message

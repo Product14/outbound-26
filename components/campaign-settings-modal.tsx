@@ -5,10 +5,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Calendar, Clock, Phone, MessageSquare, Settings2, FileText, Zap, Users } from 'lucide-react'
-import { fetchCampaignDetails, type CampaignDetailResponse, fetchCampaignConversationData, type CampaignConversationData } from '@/lib/campaign-api'
-import { fetchAgentList, type Agent } from '@/lib/agent-api'
-import { extractUrlParams } from '@/lib/url-utils'
+import type { Agent } from '@/lib/agent-api'
 import { formatUseCaseLabel } from '@/utils/campaign-setup-utils'
+import {
+  getMockAgents,
+  getMockCampaignConversationData,
+} from '@/lib/outbound-local-data'
 
 interface CampaignSettingsModalProps {
   isOpen: boolean
@@ -65,9 +67,6 @@ export function CampaignSettingsModal({
   const [error, setError] = useState<string | null>(null)
   const [settings, setSettings] = useState<CampaignSettings | null>(null)
   const [agent, setAgent] = useState<Agent | null>(null)
-
-  const urlParams = extractUrlParams()
-
   useEffect(() => {
     if (isOpen && campaignId) {
       loadCampaignSettings()
@@ -79,28 +78,11 @@ export function CampaignSettingsModal({
       setLoading(true)
       setError(null)
 
-      // Fetch campaign conversation data (the new API with all the details)
-      const conversationData = await fetchCampaignConversationData(campaignId, urlParams.auth_key || undefined)
-
-      // Fetch agents to get agent details
-      let agentData = null
-      if (urlParams.enterprise_id && urlParams.team_id) {
-        try {
-          const agents = await fetchAgentList(
-            urlParams.enterprise_id,
-            urlParams.team_id,
-            undefined,
-            undefined,
-            undefined,
-            urlParams.auth_key || undefined
-          )
-          // Find the agent for this campaign using teamAgentMappingId
-          agentData = agents.find(agent => agent.id === conversationData.teamAgentMappingId) || agents[0] || null
-          setAgent(agentData)
-        } catch (agentError) {
-          console.warn('Could not fetch agent details:', agentError)
-        }
-      }
+      const conversationData = getMockCampaignConversationData(campaignId)
+      const agents = getMockAgents()
+      const agentData =
+        agents.find((item) => item.id === conversationData.teamAgentMappingId) || agents[0] || null
+      setAgent(agentData)
 
         // Map campaign conversation data to our settings structure
         const mappedSettings: CampaignSettings = {

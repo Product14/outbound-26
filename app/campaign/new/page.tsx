@@ -15,6 +15,7 @@ import { storeCampaignData, updateKeyMapping, updateUploadedData } from '@/lib/s
 import { getEstimatedTimeInMinutes, calculateEndDate, calculateAndFormatTimeRange } from '@/lib/time-utils'
 import { getRequiredKeysForUseCase, getDisplayColumns } from '@/utils/campaign-setup-utils'
 import { buildUrlWithParams } from '@/lib/url-utils'
+import { saveUserCampaign } from '@/lib/outbound-local-data'
 
 // Import step components
 import Step1CampaignDetails from '@/components/campaign-setup/Step1CampaignDetails'
@@ -25,7 +26,7 @@ import Step5CampaignSuccess from '@/components/campaign-setup/Step5CampaignSucce
 import StepperSidebar from '@/components/campaign-setup/StepperSidebar'
 import StepNavigation from '@/components/campaign-setup/StepNavigation'
 
-export default function CampaignSetupRefactored() {
+export default function NewCampaignPage() {
   // Use the custom hook for state management
   const setupState = useCampaignSetup()
   const {
@@ -419,6 +420,30 @@ export default function CampaignSetupRefactored() {
       // Mock mode: skip API, advance directly to Step 4 success screen
       const mockCampaignId = `mock-camp-${Date.now()}`
       setCreatedCampaignId(mockCampaignId)
+
+      // Persist the newly-created campaign so it appears on the /results home screen
+      const isScheduled = campaignData.schedule === 'scheduled'
+      const status = isScheduled ? 'scheduled' : 'running'
+      const campaignTypeLabel =
+        selectedCategory === 'service' ? 'Service' :
+        selectedCategory === 'sales' ? 'Sales' :
+        (selectedCategory || 'Sales')
+      saveUserCampaign({
+        campaignId: mockCampaignId,
+        name: campaignData.campaignName || 'Untitled Campaign',
+        campaignType: campaignTypeLabel,
+        campaignUseCase: campaignData.subUseCase,
+        status,
+        campaignStatus: status,
+        totalCallPlaced: 0,
+        answerRate: 0,
+        appointmentScheduled: 0,
+        createdAt: new Date().toISOString(),
+        startDate: isScheduled && campaignData.scheduledDate
+          ? new Date(`${campaignData.scheduledDate}T${campaignData.scheduledTime || '09:00'}`).toISOString()
+          : new Date().toISOString(),
+      })
+
       confetti({
         particleCount: 150,
         spread: 180,

@@ -1,11 +1,11 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Phone, Calendar, TrendingUp, RefreshCw, CheckCircle, Timer, Target } from 'lucide-react'
+import { Phone, Calendar, TrendingUp, RefreshCw, CheckCircle, Timer, Target, MessageSquare, PhoneCall } from 'lucide-react'
 import { PerformanceTimeChart } from '@/components/charts/PerformanceTimeChart'
 import type { CampaignDetailResponse } from '@/lib/campaign-api'
 import type { CampaignAnalyticsResponse } from '@/lib/metrics-utils'
+import type { AnalyticsExtrasData } from '@/lib/outbound-local-data'
 
 interface AnalyticsTabProps {
   isServiceCampaign: boolean
@@ -15,6 +15,8 @@ interface AnalyticsTabProps {
   activeTab: string
   onTabChange: (tab: string) => void
   analyticsData?: CampaignAnalyticsResponse | null
+  extrasData?: AnalyticsExtrasData | null
+  mode?: 'overview' | 'analytics'
 }
 
 export function AnalyticsTab({
@@ -24,7 +26,9 @@ export function AnalyticsTab({
   calculatedStats,
   activeTab,
   onTabChange,
-  analyticsData
+  analyticsData,
+  extrasData,
+  mode = 'overview',
 }: AnalyticsTabProps) {
   if (!campaignData) return null
 
@@ -42,30 +46,208 @@ export function AnalyticsTab({
     return []
   }
 
+  // ── Analytics Extras helpers ─────────────────────────────────────────────
+  const getHeatmapColor = (val: number, maxVal: number) => {
+    if (maxVal === 0) return 'rgba(34,197,94,0.05)'
+    const t = val / maxVal
+    return `rgba(34,197,94,${(t * 0.75 + 0.05).toFixed(2)})`
+  }
+
+  const heatmapMaxVal = extrasData
+    ? Math.max(...extrasData.heatmap.flat(), 1)
+    : 1
+
+  // Three extra sections (shared by both service + sales)
+  const ExtrasSection = extrasData ? (
+    <>
+      {/* Objection Breakdown + Heatmap */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* Objection Breakdown */}
+        <Card className="border-0 bg-white rounded-[16px]">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">
+              Objection Breakdown
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="space-y-3">
+              {extrasData.objections.map((obj) => (
+                <div key={obj.label} className="flex items-center gap-3">
+                  {/* Count badge */}
+                  <div
+                    className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: obj.color + '20' }}
+                  >
+                    <span className="text-sm font-bold" style={{ color: obj.color }}>
+                      {obj.count}
+                    </span>
+                  </div>
+                  {/* Label */}
+                  <span className="flex-1 text-sm text-[#1A1A1A]">{obj.label}</span>
+                  {/* Resolution bar */}
+                  <div className="flex items-center gap-2 w-36 flex-shrink-0">
+                    <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${obj.resolutionRate}%`, backgroundColor: obj.color }}
+                      />
+                    </div>
+                    <span className="text-xs text-[#6B7280] w-14 text-right">
+                      {obj.resolutionRate}% res.
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Reply Rate Heatmap */}
+        <Card className="border-0 bg-white rounded-[16px]">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">
+              Reply Rate Heatmap
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="overflow-x-auto">
+              <table className="w-full border-separate border-spacing-[2px]">
+                <thead>
+                  <tr>
+                    <th className="w-6" />
+                    {extrasData.heatmapHours.map((h) => (
+                      <th
+                        key={h}
+                        className="text-[10px] font-medium text-[#9CA3AF] text-center pb-1"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {extrasData.heatmap.map((row, di) => (
+                    <tr key={di}>
+                      <td className="text-[10px] font-semibold text-[#6B7280] pr-1 text-right">
+                        {extrasData.heatmapDays[di]}
+                      </td>
+                      {row.map((val, hi) => (
+                        <td key={hi} className="p-0">
+                          <div
+                            className="rounded-[3px] flex items-center justify-center"
+                            style={{
+                              backgroundColor: getHeatmapColor(val, heatmapMaxVal),
+                              width: '100%',
+                              height: 22,
+                            }}
+                          >
+                            {val >= 28 && (
+                              <span className="text-[9px] font-semibold text-[#14532D]">
+                                {val}%
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {/* Legend */}
+              <div className="flex items-center gap-2 mt-3">
+                <span className="text-[10px] text-[#9CA3AF]">Low</span>
+                <div className="flex gap-0.5">
+                  {[0.08, 0.2, 0.35, 0.5, 0.65, 0.8].map((t, i) => (
+                    <div
+                      key={i}
+                      className="w-5 h-2.5 rounded-[2px]"
+                      style={{ backgroundColor: `rgba(34,197,94,${t})` }}
+                    />
+                  ))}
+                </div>
+                <span className="text-[10px] text-[#9CA3AF]">High</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Channel Comparison */}
+      <Card className="border-0 bg-white rounded-[16px]">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">
+            Channel Comparison
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left py-2 pr-4 text-xs font-semibold text-[#6B7280] uppercase tracking-wide w-1/3">
+                    Metric
+                  </th>
+                  <th className="text-center py-2 px-4 text-xs font-semibold text-[#6B7280] uppercase tracking-wide w-1/3">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <MessageSquare className="h-3.5 w-3.5 text-[#10B981]" />
+                      SMS
+                    </div>
+                  </th>
+                  <th className="text-center py-2 px-4 text-xs font-semibold text-[#6B7280] uppercase tracking-wide w-1/3">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <PhoneCall className="h-3.5 w-3.5 text-[#3B82F6]" />
+                      Call
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {extrasData.channelComparison.map((row, i) => (
+                  <tr
+                    key={row.metric}
+                    className={`border-b border-gray-50 ${i % 2 === 0 ? '' : 'bg-[#FAFAFA]'}`}
+                  >
+                    <td className="py-3 pr-4 text-sm font-medium text-[#1A1A1A]">
+                      {row.metric}
+                    </td>
+                    <td
+                      className={`py-3 px-4 text-center text-sm font-semibold rounded-l ${
+                        row.smsHighlight
+                          ? 'text-[#065F46] bg-[#D1FAE5]'
+                          : 'text-[#1A1A1A]'
+                      }`}
+                    >
+                      {row.sms}
+                    </td>
+                    <td
+                      className={`py-3 px-4 text-center text-sm font-semibold rounded-r ${
+                        row.callHighlight
+                          ? 'text-[#1E40AF] bg-[#DBEAFE]'
+                          : 'text-[#1A1A1A]'
+                      }`}
+                    >
+                      {row.call}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {extrasData.channelFootnote && (
+              <p className="mt-3 text-xs text-[#9CA3AF]">{extrasData.channelFootnote}</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  ) : null
+
+  if (mode === 'analytics') {
+    return <div className="space-y-6">{ExtrasSection}</div>
+  }
+
   if (isServiceCampaign) {
     return (
       <div className="space-y-6">
-        {/* Tab Switcher */}
-        <div className="flex items-center">
-          <Tabs value={activeTab} onValueChange={onTabChange} className="flex-1">
-            <TabsList className="h-auto p-0 bg-transparent border-0 rounded-none justify-start">
-              {/* Analytics Tab - Commented out for now */}
-              {/* <TabsTrigger 
-                value="analytics" 
-                className="flex items-center gap-2 py-3 text-base font-medium bg-transparent border-0 rounded-none data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-[#4600F2] data-[state=active]:border-b-2 data-[state=active]:border-[#4600F2] data-[state=active]:font-semibold text-gray-500 hover:text-gray-700 transition-colors mr-10"
-              >
-                Analytics
-              </TabsTrigger> */}
-              <TabsTrigger 
-                value="live-calls" 
-                className="flex items-center gap-2 py-3 text-base font-medium bg-transparent border-0 rounded-none data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-[#4600F2] data-[state=active]:border-b-2 data-[state=active]:border-[#4600F2] data-[state=active]:font-semibold text-gray-500 hover:text-gray-700 transition-colors mr-10"
-              >
-                Live Calls & Queue
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-        
         {/* 1. Service Campaign Overview and Service Funnel - Horizontal Layout */}
         <div className="grid grid-cols-2 gap-6">
           {/* Campaign Overview - 2x2 Grid */}
@@ -272,33 +454,14 @@ export function AnalyticsTab({
           </Card>
         </div>
 
+        {ExtrasSection}
+
       </div>
     )
   } else {
     // Sales Campaign Analytics
     return (
       <div className="space-y-6">
-        {/* Tab Switcher */}
-        <div className="flex items-center">
-          <Tabs value={activeTab} onValueChange={onTabChange} className="flex-1">
-            <TabsList className="h-auto p-0 bg-transparent border-0 rounded-none justify-start">
-              {/* Analytics Tab - Commented out for now */}
-              {/* <TabsTrigger 
-                value="analytics" 
-                className="flex items-center gap-2 py-3 text-base font-medium bg-transparent border-0 rounded-none data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-[#4600F2] data-[state=active]:border-b-2 data-[state=active]:border-[#4600F2] data-[state=active]:font-semibold text-gray-500 hover:text-gray-700 transition-colors mr-10"
-              >
-                Analytics
-              </TabsTrigger> */}
-              <TabsTrigger 
-                value="live-calls" 
-                className="flex items-center gap-2 py-3 text-base font-medium bg-transparent border-0 rounded-none data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-[#4600F2] data-[state=active]:border-b-2 data-[state=active]:border-[#4600F2] data-[state=active]:font-semibold text-gray-500 hover:text-gray-700 transition-colors mr-10"
-              >
-                Live Calls & Queue
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-        
         {/* 1. Sales Campaign Overview and Sales Funnel - Horizontal Layout */}
         <div className="grid grid-cols-2 gap-6">
           {/* Campaign Overview - 2x2 Grid */}
@@ -492,6 +655,8 @@ export function AnalyticsTab({
             </CardContent>
           </Card>
         </div>
+
+        {ExtrasSection}
       </div>
     )
   }

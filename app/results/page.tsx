@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Toaster } from "@/components/ui/toaster"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -11,8 +12,8 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Search, AlertCircle, Plus, X, Copy, Check, CalendarIcon, Settings } from 'lucide-react'
 import Link from "next/link"
-import { fetchCampaignList, fetchCampaignTypes, type CampaignListItem, type CampaignTypesResponse } from '@/lib/campaign-api'
-import { fetchAgentList, type Agent } from '@/lib/agent-api'
+import type { CampaignListItem, CampaignTypesResponse } from '@/lib/campaign-api'
+import type { Agent } from '@/lib/agent-api'
 import { extractUrlParams, buildUrlWithParams } from '@/lib/url-utils'
 import { toast } from 'sonner'
 import { getShortEstimatedTime } from '@/lib/time-utils'
@@ -20,6 +21,11 @@ import { formatUseCaseLabel } from '@/utils/campaign-setup-utils'
 import { CampaignListShimmer } from "@/components/ui/campaign-shimmer"
 import { CampaignSettingsModal } from "@/components/campaign-settings-modal"
 import { cn } from '@/lib/utils'
+import {
+  getMockAgents,
+  getMockCampaignList,
+  getMockCampaignTypes,
+} from '@/lib/outbound-local-data'
 
 // Map API campaign type to display format
 const mapCampaignType = (campaignType: string): string => {
@@ -87,6 +93,7 @@ const getCampaignUseCaseDisplay = (
 }
 
 export default function CampaignResults() {
+  const router = useRouter()
   const [campaigns, setCampaigns] = useState<CampaignListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -123,54 +130,12 @@ export default function CampaignResults() {
 
   // Load campaigns from API on component mount
   useEffect(() => {
-    const loadCampaigns = async () => {
-      if (!enterpriseId || !teamId) return;
-      try {
-        setLoading(true)
-        setError(null)
-        
-        const response = await fetchCampaignList(enterpriseId || '', teamId || '', urlParams.auth_key || undefined)
-        
-        if (response.success) {
-          setCampaigns(response.campaigns)
-        } else {
-          throw new Error('Failed to fetch campaigns')
-        }
-      } catch (error) {
-        console.error('Error loading campaigns:', error)
-        setError(error instanceof Error ? error.message : 'Failed to load campaigns')
-        setCampaigns([])
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    const loadAgents = async () => {
-      if (!enterpriseId || !teamId) return;
-      try {
-        const agentList = await fetchAgentList(enterpriseId, teamId, undefined, undefined, undefined, urlParams.auth_key || undefined)
-        setAgents(agentList)
-      } catch (error) {
-        console.error('Error loading agents:', error)
-        // Don't fail the whole page if agent fetch fails
-        setAgents([])
-      }
-    }
-
-    const loadCampaignTypes = async () => {
-      try {
-        const campaignTypesResponse = await fetchCampaignTypes(urlParams.auth_key || undefined)
-        setCampaignTypesData(campaignTypesResponse)
-      } catch (error) {
-        console.error('Error loading campaign types:', error)
-        // Don't fail the whole page if campaign types fetch fails
-        setCampaignTypesData(null)
-      }
-    }
-
-    loadCampaigns()
-    loadAgents()
-    loadCampaignTypes()
+    setLoading(true)
+    setError(null)
+    setCampaigns(getMockCampaignList())
+    setAgents(getMockAgents())
+    setCampaignTypesData(getMockCampaignTypes())
+    setLoading(false)
   }, [enterpriseId, teamId])
 
   // Calculate campaign counts for tabs
@@ -310,12 +275,14 @@ export default function CampaignResults() {
                 Monitor performance metrics and analyze the success of your AI-powered outbound campaigns
               </p>
             </div>
-            <Link href={buildUrlWithParams('/setup')}>
-              <Button className="btn-primary">
-                <Plus className="icon-medium mr-2" />
-                New Campaign
-              </Button>
-            </Link>
+            <button
+              type="button"
+              onClick={() => router.push(buildUrlWithParams('/campaign/new'))}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#4600F2] hover:bg-[#3700C2] active:bg-[#2E00A0] text-white text-sm font-semibold rounded-[10px] transition-colors cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              New Campaign
+            </button>
           </div>
         </div>
 
@@ -679,12 +646,12 @@ export default function CampaignResults() {
                   Clear All Filters
                 </Button>
               ) : (
-                <Link href={buildUrlWithParams('/setup')}>
-                  <Button size="lg" className="btn-primary">
+                <Button asChild size="lg" className="btn-primary">
+                  <Link href={buildUrlWithParams('/setup')}>
                     <Plus className="icon-medium mr-2" />
                     Launch Campaign Builder
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               )}
             </CardContent>
           </Card>

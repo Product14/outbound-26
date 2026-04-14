@@ -34,8 +34,8 @@ export const getSteps = (useCase: string): SetupStep[] => {
   return [
     { id: 1, name: 'Channel & Details', number: '01' },
     { id: 2, name: 'Lead Source',       number: '02' },
-    { id: 3, name: 'Message Schedule',  number: '03' },
-    { id: 4, name: 'Call Rules',        number: '04' },
+    { id: 3, name: 'Workflow',           number: '03' },
+    { id: 4, name: 'Schedule',           number: '04' },
     { id: 5, name: 'Preview & Launch',  number: '05' },
     { id: 6, name: 'Campaign Started',  number: '06' }
   ]

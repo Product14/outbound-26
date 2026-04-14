@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
-import { Plus, Trash2, AlertCircle, Clock } from 'lucide-react'
+import { Plus, Trash2, AlertCircle, Clock, MessageSquare, PhoneCall, Zap } from 'lucide-react'
 import type { CampaignData } from '@/types/campaign-setup'
 
 interface StepMessageScheduleProps {
@@ -84,46 +84,87 @@ export default function StepMessageSchedule({
     })
   }
 
-  if (!smsEnabled) {
-    return (
-      <div className="max-w-3xl">
-        <h2 className="text-[24px] font-bold text-[#1A1A1A] mb-2">Message Schedule</h2>
-        <p className="text-[14px] text-[#6B7280] leading-[1.5] mb-6">
-          You selected <strong>Call Only</strong> for this campaign. SMS message schedule is not needed — you can skip to the next step.
-        </p>
-        <div className="rounded-[12px] border border-[#E5E7EB] bg-[#F9FAFB] p-6 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-[#6B7280] flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-[#374151] leading-relaxed">
-            Call-only campaigns do not send scheduled text messages. To add SMS day-by-day messaging, go back to Step 1 and pick <strong>SMS</strong> or <strong>SMS + Call</strong>.
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // Channel chip helper
+  const channelChip = (
+    <div className="flex items-center gap-2">
+      {channelMode === 'sms' && (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#D1FAE5] text-[#065F46]">
+          <MessageSquare className="h-3 w-3" /> SMS
+        </span>
+      )}
+      {channelMode === 'call' && (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#DBEAFE] text-[#1D4ED8]">
+          <PhoneCall className="h-3 w-3" /> Call
+        </span>
+      )}
+      {channelMode === 'both' && (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#EDE9FE] text-[#6D28D9]">
+          <Zap className="h-3 w-3" /> SMS + Call
+        </span>
+      )}
+    </div>
+  )
+
+  /* No early return — full UI always renders so channel chips remain clickable */
 
   return (
     <div className="max-w-3xl">
-      <h2 className="text-[24px] font-bold text-[#1A1A1A] mb-2">Message Schedule</h2>
+      <div className="flex items-center gap-3 mb-2">
+        <h2 className="text-[24px] font-bold text-[#1A1A1A]">Workflow</h2>
+        {channelChip}
+      </div>
       <p className="text-[14px] text-[#6B7280] leading-[1.5] mb-6">
         Configure what Vini sends on Day&nbsp;1, Day&nbsp;2, … up to 7 days. Each day&apos;s message only sends if the lead hasn&apos;t replied yet. When they reply, the AI agent takes over the conversation automatically.
       </p>
 
-      {/* Variable toolbar */}
-      <div className="mb-4 flex flex-wrap gap-2">
-        <span className="text-xs text-[#6B7280] mr-1 self-center">Insert:</span>
-        {VARIABLES.map((v) => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => insertVariable(v)}
-            disabled={focusedIdx === null}
-            className="text-xs font-mono px-2 py-1 rounded-md bg-[#F3F4F6] text-[#374151] hover:bg-[#E5E7EB] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            {v}
-          </button>
-        ))}
+      {/* Template + channel chips — clickable to switch channel */}
+      <div className="mb-4 flex items-center gap-2">
+        <span className="text-xs font-semibold text-[#6B7280] mr-1">Template</span>
+        <button
+          type="button"
+          onClick={() => setCampaignData((prev) => ({ ...prev, channelMode: 'sms' }))}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+            channelMode === 'sms'
+              ? 'bg-[#D1FAE5] text-[#065F46] ring-2 ring-[#065F46]/40 shadow-sm'
+              : 'bg-white text-[#9CA3AF] border border-[#E5E7EB] hover:bg-[#D1FAE5]/60 hover:text-[#065F46]'
+          }`}
+        >
+          <MessageSquare className="h-3.5 w-3.5" /> SMS
+        </button>
+        <button
+          type="button"
+          onClick={() => setCampaignData((prev) => ({ ...prev, channelMode: 'call' }))}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+            channelMode === 'call'
+              ? 'bg-[#DBEAFE] text-[#1D4ED8] ring-2 ring-[#1D4ED8]/40 shadow-sm'
+              : 'bg-white text-[#9CA3AF] border border-[#E5E7EB] hover:bg-[#DBEAFE]/60 hover:text-[#1D4ED8]'
+          }`}
+        >
+          <PhoneCall className="h-3.5 w-3.5" /> Call
+        </button>
+        <button
+          type="button"
+          onClick={() => setCampaignData((prev) => ({ ...prev, channelMode: 'both' }))}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+            channelMode === 'both'
+              ? 'bg-[#EDE9FE] text-[#6D28D9] ring-2 ring-[#6D28D9]/40 shadow-sm'
+              : 'bg-white text-[#9CA3AF] border border-[#E5E7EB] hover:bg-[#EDE9FE]/60 hover:text-[#6D28D9]'
+          }`}
+        >
+          <Zap className="h-3.5 w-3.5" /> SMS + Call
+        </button>
       </div>
 
+      {!smsEnabled && (
+        <div className="rounded-[12px] border border-[#E5E7EB] bg-[#F9FAFB] p-5 mb-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-[#6B7280] flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-[#374151] leading-relaxed">
+            <strong>Call Only</strong> is selected. SMS day-by-day messaging is disabled. Switch to <strong>SMS</strong> or <strong>SMS + Call</strong> above to configure messages.
+          </div>
+        </div>
+      )}
+
+      {smsEnabled && (<>
       <div className="space-y-4">
         {schedule.map((msg, idx) => (
           <div
@@ -201,6 +242,7 @@ export default function StepMessageSchedule({
           <strong>Compliance:</strong> Day 1 message must identify the dealership and include the &ldquo;Reply STOP to opt out&rdquo; footer — Vini will auto-append if missing.
         </p>
       </div>
+      </>)}
     </div>
   )
 }

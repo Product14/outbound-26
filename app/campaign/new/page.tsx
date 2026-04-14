@@ -128,7 +128,7 @@ export default function NewCampaignPage() {
   } = setupState
 
   // Use validation hook
-  const { validateCurrentStep, isContinueDisabled } = useCampaignValidation({
+  const { validateCurrentStep, isContinueDisabled, getMissingFields } = useCampaignValidation({
     campaignData,
     selectedCategory,
     selectedAgent,
@@ -728,16 +728,30 @@ export default function NewCampaignPage() {
         )
 
       case 3:
-        // NEW: Message Schedule editor (multi-day SMS bodies)
+        // Message Sequence = SMS editor + all call rules (schedule, retry, voicemail, pacing)
         return (
-          <StepMessageSchedule
-            campaignData={campaignData}
-            setCampaignData={setCampaignData}
-          />
+          <>
+            <StepMessageSchedule
+              campaignData={campaignData}
+              setCampaignData={setCampaignData}
+            />
+            <div className="mt-8">
+              <Step3CallSettings
+                campaignData={campaignData}
+                setCampaignData={setCampaignData}
+                selectedCategory={selectedCategory}
+                selectedAgent={selectedAgent}
+                errors={errors}
+                setErrors={setErrors}
+                campaignTypes={campaignTypes}
+                mode="rules-only"
+              />
+            </div>
+          </>
         )
 
       case 4:
-        // Call Rules (existing call settings)
+        // Schedule only (Start Now / Later + time slots)
         return (
           <Step3CallSettings
             campaignData={campaignData}
@@ -747,11 +761,12 @@ export default function NewCampaignPage() {
             errors={errors}
             setErrors={setErrors}
             campaignTypes={campaignTypes}
+            mode="schedule-only"
           />
         )
 
       case 5:
-        // NEW: Preview & Launch — summary + test SMS
+        // Preview & Launch
         return <StepPreviewLaunch campaignData={campaignData} />
 
       case 6:
@@ -812,6 +827,7 @@ export default function NewCampaignPage() {
           isLaunching={isLaunching}
           selectedCategory={selectedCategory}
           isContinueDisabled={isContinueDisabledCheck}
+          getMissingFields={() => getMissingFields(currentStep)}
           onPrevStep={handlePrevStep}
           onNextStep={handleNextStep}
           onCancel={handleCancel}

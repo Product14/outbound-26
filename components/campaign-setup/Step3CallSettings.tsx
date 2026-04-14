@@ -29,6 +29,8 @@ interface Step3CallSettingsProps {
   errors: ValidationErrors
   setErrors: (updater: (prev: ValidationErrors) => ValidationErrors) => void
   campaignTypes?: CampaignTypesResponse | null
+  /** 'summary-only' renders Campaign Summary card; 'rules-only' renders Schedule + Retry + Voicemail + Pacing; 'all' renders everything (default) */
+  mode?: 'summary-only' | 'rules-only' | 'schedule-only' | 'all'
 }
 
 export default function Step3CallSettings({
@@ -38,7 +40,8 @@ export default function Step3CallSettings({
   selectedAgent,
   errors,
   setErrors,
-  campaignTypes
+  campaignTypes,
+  mode = 'all',
 }: Step3CallSettingsProps) {
   const scheduleRef = useRef<HTMLDivElement | null>(null)
   const { toast } = useToast()
@@ -76,18 +79,21 @@ export default function Step3CallSettings({
     <TooltipProvider>
       <div className="max-w-3xl">
         <div className="space-y-6">
-          <div className="bg-transparent border-0 p-0">
-            <div className="mb-4">
-              <h1 className="text-[24px] font-bold text-[#1A1A1A] leading-[1.4]">
-                Call Settings
-              </h1>
-              <p className="text-[14px] text-[#6B7280] mt-2 leading-[1.5]">
-                Configure call pacing, retry logic, and voicemail handling for your campaign
-              </p>
+          {mode === 'schedule-only' && (
+            <div className="bg-transparent border-0 p-0">
+              <div className="mb-4">
+                <h1 className="text-[24px] font-bold text-[#1A1A1A] leading-[1.4]">
+                  Schedule
+                </h1>
+                <p className="text-[14px] text-[#6B7280] mt-2 leading-[1.5]">
+                  Set when to launch your campaign
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
-        {/* Campaign Summary */}
+        {/* Campaign Summary — only in summary-only / all mode */}
+        {(mode === 'all' || mode === 'summary-only') && (
         <div className={`bg-white border rounded-lg transition-colors ${
           errors.campaignSummary ? 'border-red-500' : 'border-[#E5E7EB]'
         }`}>
@@ -133,8 +139,11 @@ export default function Step3CallSettings({
             </div>
           </div>
         </div>
+        )}
 
-        {/* Schedule Options */}
+        {(mode === 'all' || mode === 'schedule-only') && (
+        <>
+        {/* Schedule Options — lives in the Schedule tab */}
         <div ref={scheduleRef} className={`bg-white border rounded-lg transition-colors ${
           errors.scheduledDate || errors.scheduledEndDate || errors.dailyStartTime || errors.dailyEndTime ? 'border-red-500' : 'border-[#E5E7EB]'
         }`}>
@@ -174,8 +183,8 @@ export default function Step3CallSettings({
                   </Label>
                 </div>
 
-                {/* Time Slots for Start Now - Nested inside */}
-                {campaignData.schedule === 'now' && (
+                {/* Time Slots hidden for Start Now — campaign starts immediately */}
+                {false && (
                   <div className="border-t border-[#E5E7EB] bg-[#F9FAFB] p-6">
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
@@ -357,33 +366,11 @@ export default function Step3CallSettings({
                           </p>
                         )}
                       </div>
-                      <div>
-                        <Label htmlFor="endDate" className={`text-[14px] font-medium mb-2 block ${
-                          errors.scheduledEndDate ? 'text-red-600' : 'text-[#1A1A1A]/60'
-                        }`}>
-                          End Date {errors.scheduledEndDate && <span className="text-red-500">*</span>}
-                        </Label>
-                        <DatePicker
-                          value={campaignData.scheduledEndDate}
-                          onChange={(value) => {
-                            setCampaignData(prev => ({ ...prev, scheduledEndDate: value }))
-                            if (errors.scheduledEndDate && value) {
-                              setErrors(prev => ({ ...prev, scheduledEndDate: false }))
-                            }
-                          }}
-                          placeholder="Select end date"
-                          minDate={campaignData.scheduledDate || new Date().toISOString().split('T')[0]}
-                        />
-                        {errors.scheduledEndDate && (
-                          <p className="text-[12px] text-red-600 flex items-center mt-1">
-                            <AlertCircle className="h-3 w-3 mr-1" />
-                            End date is required
-                          </p>
-                        )}
-                      </div>
+                      {/* End Date — hidden */}
                     </div>
                     
-                    <div>
+                    {/* Daily Time Slots — removed from Schedule Settings */}
+                    <div style={{ display: 'none' }}>
                       <div className="flex items-center justify-between mb-4">
                         <div>
                           <h5 className="text-[14px] font-medium text-[#1A1A1A]">Daily Time Slots</h5>
@@ -400,7 +387,7 @@ export default function Step3CallSettings({
                           Add Slot
                         </Button>
                       </div>
-                      
+
                       {/* Time Slots List */}
                       <div className="space-y-3">
                         {campaignData.dailyTimeSlots.map((slot, index) => (
@@ -500,9 +487,210 @@ export default function Step3CallSettings({
             )}
           </div>
         </div>
+        </>
+        )}
 
-        {/* Call Rules & Behavior */}
-        <div className="bg-white border border-[#E5E7EB] rounded-lg">
+        {/* Voicemail Strategy + Quiet Hours + Recurring — in schedule-only mode */}
+        {(mode === 'all' || mode === 'schedule-only') && (<>
+        <div className={`bg-white border rounded-lg p-6 transition-colors ${
+          errors.voicemailStrategy ? 'border-red-500' : 'border-[#E5E7EB]'
+        }`}>
+          <div className="space-y-6">
+            <div>
+              <h3 className={`text-[16px] font-bold ${
+                errors.voicemailStrategy ? 'text-red-600' : 'text-[#1A1A1A]'
+              }`}>
+                Voicemail Strategy <span className="text-red-500">*</span>
+              </h3>
+              <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Configure how your AI agent handles voicemail scenarios</p>
+              {errors.voicemailStrategy && (
+                <p className="text-[12px] text-red-600 flex items-center mt-2">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  Please select a voicemail strategy
+                </p>
+              )}
+            </div>
+            <div className="space-y-4">
+              <div>
+                <Label className="text-[14px] font-medium text-[#1A1A1A] mb-3 block">
+                  Voicemail Handling Method
+                </Label>
+                <Select
+                  value={campaignData.voicemailStrategy || 'leave_message'}
+                  onValueChange={(value) => setCampaignData(prev => ({ ...prev, voicemailStrategy: value }))}
+                >
+                  <SelectTrigger className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="leave_message">Leave voicemail message</SelectItem>
+                    <SelectItem value="hang_up">Hang up</SelectItem>
+                    <SelectItem value="voicemail_plus_sms">Voicemail + SMS</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {(campaignData.voicemailStrategy === 'leave_message' || campaignData.voicemailStrategy === 'voicemail_plus_sms') && (
+                <div>
+                  <Label className="text-[14px] font-medium text-[#1A1A1A] mb-2 block">
+                    Voicemail Message
+                  </Label>
+                  <Textarea
+                    value={campaignData.voicemailMessage}
+                    onChange={(e) => setCampaignData(prev => ({ ...prev, voicemailMessage: e.target.value }))}
+                    placeholder="Enter your voicemail message..."
+                    className="min-h-[120px] text-[14px] border-[#E5E7EB] focus:border-[#4600F2] focus:ring-2 focus:ring-[#4600F2]/20 transition-all duration-200 resize-none"
+                  />
+                  <p className="text-[13px] text-[#6B7280] mt-2">
+                    This message will be left when the AI agent reaches voicemail
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Quiet Hours — inside schedule-only guard */}
+        <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-[16px] font-bold text-[#1A1A1A]">
+                Quiet Hours
+              </h3>
+              <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">
+                No outbound SMS or calls will be sent outside of these hours (lead&apos;s local timezone, derived from zip code)
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-4 max-w-md">
+              <div>
+                <Label className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">
+                  No Contact Before
+                </Label>
+                <TimePicker
+                  value={campaignData.smsQuietStart || '09:00'}
+                  onChange={(value) => setCampaignData(prev => ({ ...prev, smsQuietStart: value }))}
+                  placeholder="9:00 AM"
+                  className="h-10 text-[14px]"
+                />
+              </div>
+              <div>
+                <Label className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">
+                  No Contact After
+                </Label>
+                <TimePicker
+                  value={campaignData.smsQuietEnd || '21:00'}
+                  onChange={(value) => setCampaignData(prev => ({ ...prev, smsQuietEnd: value }))}
+                  placeholder="9:00 PM"
+                  className="h-10 text-[14px]"
+                />
+              </div>
+            </div>
+            <div className="rounded-[8px] bg-[#FFFBEB] border border-[#FDE68A] px-4 py-3 flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-[#92400E] flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-[#92400E] leading-relaxed">
+                Quiet hours are enforced per-lead based on their zip code timezone. Customer-initiated replies are always processed regardless of quiet hours.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Recurring Settings */}
+        <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-[16px] font-bold text-[#1A1A1A]">
+                Recurring
+              </h3>
+              <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">
+                Automatically re-run this campaign on a recurring schedule to continuously reach new or aged leads
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between p-4 border border-[#E5E7EB] rounded-lg">
+              <div>
+                <Label className="text-[14px] font-medium text-[#1A1A1A]">Enable recurring campaign</Label>
+                <p className="text-[13px] text-[#6B7280] mt-0.5">
+                  Automatically re-enroll new leads from CRM on a regular cadence
+                </p>
+              </div>
+              <Checkbox
+                id="enableRecurring"
+                checked={campaignData.vinSolutionsSettings?.enableRecurringLeads ?? false}
+                onCheckedChange={(checked) =>
+                  setCampaignData(prev => ({
+                    ...prev,
+                    vinSolutionsSettings: {
+                      ...prev.vinSolutionsSettings!,
+                      enableRecurringLeads: checked === true,
+                    },
+                  }))
+                }
+                className="border-2 border-[#E5E7EB] data-[state=checked]:bg-[#4600F2] data-[state=checked]:border-[#4600F2]"
+              />
+            </div>
+
+            {campaignData.vinSolutionsSettings?.enableRecurringLeads && (
+              <div className="space-y-4 p-4 border border-[#E5E7EB] rounded-lg bg-[#F9FAFB]">
+                <div>
+                  <Label className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">
+                    Frequency
+                  </Label>
+                  <Select
+                    value={(campaignData as any).recurringFrequency || 'weekly'}
+                    onValueChange={(value) => setCampaignData(prev => ({ ...prev, recurringFrequency: value } as any))}
+                  >
+                    <SelectTrigger className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2] max-w-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="biweekly">Every 2 weeks</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">
+                    Lead Age Filter (days)
+                  </Label>
+                  <p className="text-[13px] text-[#6B7280] mb-2">
+                    Only enroll leads that haven&apos;t been contacted in this many days
+                  </p>
+                  <Select
+                    value={(campaignData.vinSolutionsSettings?.leadAgeDays ?? 10).toString()}
+                    onValueChange={(value) =>
+                      setCampaignData(prev => ({
+                        ...prev,
+                        vinSolutionsSettings: {
+                          ...prev.vinSolutionsSettings!,
+                          leadAgeDays: parseInt(value),
+                        },
+                      }))
+                    }
+                  >
+                    <SelectTrigger className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2] max-w-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="7">7 days</SelectItem>
+                      <SelectItem value="10">10 days</SelectItem>
+                      <SelectItem value="14">14 days</SelectItem>
+                      <SelectItem value="30">30 days</SelectItem>
+                      <SelectItem value="60">60 days</SelectItem>
+                      <SelectItem value="90">90 days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        </>)}
+
+        {(mode === 'all' || mode === 'rules-only') && (<>
+        {/* Call Rules & Behavior — hidden, kept for backward compat */}
+        <div className="bg-white border border-[#E5E7EB] rounded-lg" style={{ display: 'none' }}>
           <div className="bg-[#F4F5F8] border-b border-[#E5E7EB] px-6 py-4">
             <h3 className="text-[16px] font-semibold text-[#1A1A1A]">Call Rules & Behavior</h3>
             <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Configure how your AI agent handles different call scenarios and retry logic</p>
@@ -606,68 +794,8 @@ export default function Step3CallSettings({
           </div>
         </div>
 
-        {/* Voicemail Strategy */}
-        <div className={`bg-white border rounded-lg p-6 transition-colors ${
-          errors.voicemailStrategy ? 'border-red-500' : 'border-[#E5E7EB]'
-        }`}>
-          <div className="space-y-6">
-            <div>
-              <h3 className={`text-[16px] font-bold ${
-                errors.voicemailStrategy ? 'text-red-600' : 'text-[#1A1A1A]'
-              }`}>
-                Voicemail Strategy <span className="text-red-500">*</span>
-              </h3>
-              <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">Configure how your AI agent handles voicemail scenarios</p>
-              {errors.voicemailStrategy && (
-                <p className="text-[12px] text-red-600 flex items-center mt-2">
-                  <AlertCircle className="h-3 w-3 mr-1" />
-                  Please select a voicemail strategy
-                </p>
-              )}
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <Label className="text-[14px] font-medium text-[#1A1A1A] mb-3 block">
-                  Voicemail Handling Method
-                </Label>
-                <Select
-                  value={campaignData.voicemailStrategy || 'leave_message'}
-                  onValueChange={(value) => setCampaignData(prev => ({ ...prev, voicemailStrategy: value }))}
-                >
-                  <SelectTrigger className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="leave_message">Leave voicemail message</SelectItem>
-                    <SelectItem value="hang_up">Hang up</SelectItem>
-                    {/* <SelectItem value="transfer">Transfer to human</SelectItem>
-                    <SelectItem value="sms_fallback">Send SMS fallback instead</SelectItem> */}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {campaignData.voicemailStrategy === 'leave_message' && (
-                <div>
-                  <Label className="text-[14px] font-medium text-[#1A1A1A] mb-2 block">
-                    Voicemail Message
-                  </Label>
-                  <Textarea
-                    value={campaignData.voicemailMessage}
-                    onChange={(e) => setCampaignData(prev => ({ ...prev, voicemailMessage: e.target.value }))}
-                    placeholder="Enter your voicemail message..."
-                    className="min-h-[120px] text-[14px] border-[#E5E7EB] focus:border-[#4600F2] focus:ring-2 focus:ring-[#4600F2]/20 transition-all duration-200 resize-none"
-                  />
-                  <p className="text-[13px] text-[#6B7280] mt-2">
-                    This message will be left when the AI agent reaches voicemail
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Pacing & Limits */}
+        {/* Pacing & Limits — hidden along with Call Rules */}
+        <div style={{ display: 'none' }}>
         <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
           <div className="space-y-6">
             <div>
@@ -775,6 +903,8 @@ export default function Step3CallSettings({
             </div>
           </div>
         </div>
+        </div>
+        </>)}
       </div>
       </div>
     </TooltipProvider>

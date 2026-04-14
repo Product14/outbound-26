@@ -125,8 +125,37 @@ export function useCampaignValidation({
     errors
   ])
 
+  /** Returns an array of human-readable field names that are blocking Continue */
+  const getMissingFields = useCallback((currentStep: number): string[] => {
+    const result = validateStep(
+      currentStep,
+      campaignData,
+      selectedCategory,
+      selectedAgent,
+      selectedUploadOption,
+      crmSelection,
+      enableRecurringLeads,
+      leadAgeDays,
+      vinSolutionsStartDate,
+      vinSolutionsEndDate,
+      vinSolutionsStartTime,
+      vinSolutionsEndTime,
+      uploadComplete,
+      csvMappingComplete,
+      missingColumns,
+      errors
+    )
+    return result.missingFields
+  }, [
+    campaignData, selectedCategory, selectedAgent, selectedUploadOption,
+    crmSelection, enableRecurringLeads, leadAgeDays, vinSolutionsStartDate,
+    vinSolutionsEndDate, vinSolutionsStartTime, vinSolutionsEndTime,
+    uploadComplete, csvMappingComplete, missingColumns, errors
+  ])
+
   return {
     validateCurrentStep,
-    isContinueDisabled
+    isContinueDisabled,
+    getMissingFields,
   }
 }

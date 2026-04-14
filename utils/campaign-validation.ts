@@ -199,213 +199,55 @@ export const validateStep = (
       }
     }
   } else if (step === 3) {
-    if (selectedCategory === 'sales') {
-      // For sales campaigns, dates are only required if scheduled (not for "Start Now")
-      if (campaignData.schedule === 'scheduled') {
-        if (!campaignData.scheduledDate) {
-          newErrors.scheduledDate = true
-          missingFields.push('Start Date')
-          isValid = false
-        }
-        
-        if (!campaignData.scheduledEndDate) {
-          newErrors.scheduledEndDate = true
-          missingFields.push('End Date')
-          isValid = false
-        }
-        
-        // Validate daily time slots for scheduled sales campaigns
-        if (!campaignData.dailyTimeSlots || campaignData.dailyTimeSlots.length === 0) {
-          newErrors.dailyStartTime = true
-          missingFields.push('Daily Time Slots')
-          isValid = false
-        } else {
-          // Validate each time slot
-          let hasInvalidSlot = false
-          for (const slot of campaignData.dailyTimeSlots) {
-            if (!slot.startTime || !slot.endTime) {
-              newErrors.dailyStartTime = true
-              missingFields.push('All time slots must have start and end times')
-              isValid = false
-              hasInvalidSlot = true
-              break
-            }
-            
-            // Validate time relationship within each slot
-            const startTime = slot.startTime.split(':').map(Number)
-            const endTime = slot.endTime.split(':').map(Number)
-            const startMinutes = startTime[0] * 60 + startTime[1]
-            const endMinutes = endTime[0] * 60 + endTime[1]
-            
-            if (endMinutes <= startMinutes) {
-              newErrors.dailyEndTime = true
-              missingFields.push('End time must be after start time in all slots')
-              isValid = false
-              hasInvalidSlot = true
-              break
-            }
-          }
-          
-          // Check for overlapping time slots
-          if (!hasInvalidSlot && campaignData.dailyTimeSlots.length > 1) {
-            const sortedSlots = [...campaignData.dailyTimeSlots].sort((a, b) => {
-              const aStart = a.startTime.split(':').map(Number)
-              const bStart = b.startTime.split(':').map(Number)
-              return (aStart[0] * 60 + aStart[1]) - (bStart[0] * 60 + bStart[1])
-            })
-            
-            for (let i = 0; i < sortedSlots.length - 1; i++) {
-              const currentEnd = sortedSlots[i].endTime.split(':').map(Number)
-              const nextStart = sortedSlots[i + 1].startTime.split(':').map(Number)
-              const currentEndMinutes = currentEnd[0] * 60 + currentEnd[1]
-              const nextStartMinutes = nextStart[0] * 60 + nextStart[1]
-              
-              if (currentEndMinutes > nextStartMinutes) {
-                newErrors.dailyStartTime = true
-                missingFields.push('Time slots cannot overlap')
-                isValid = false
-                break
-              }
-            }
-          }
-        }
+    // Step 3 = Workflow — only validate message content when SMS is enabled
+    const channelMode = campaignData.channelMode || 'both'
+    const smsEnabled = channelMode !== 'call'
+
+    if (smsEnabled) {
+      const msgs = campaignData.messageSchedule || []
+      if (msgs.length === 0) {
+        missingFields.push('At least one day message is required for SMS campaigns')
+        isValid = false
+      } else if (!msgs[0]?.body?.trim()) {
+        missingFields.push('Day 1 message body cannot be empty')
+        isValid = false
       }
-      
-      // Validate date relationship if both dates are provided
+    }
+    // No schedule / voicemail / retry validation here — those are on step 4 now
+
+  } else if (step === 4) {
+    // Step 4 = Schedule — validate schedule, voicemail, quiet hours
+
+    // Schedule dates (only if "scheduled", not "now")
+    if (campaignData.schedule === 'scheduled') {
+      if (!campaignData.scheduledDate) {
+        newErrors.scheduledDate = true
+        missingFields.push('Start Date')
+        isValid = false
+      }
+      if (!campaignData.scheduledEndDate) {
+        newErrors.scheduledEndDate = true
+        missingFields.push('End Date')
+        isValid = false
+      }
+      // Validate date relationship
       if (campaignData.scheduledDate && campaignData.scheduledEndDate) {
         const startDate = new Date(campaignData.scheduledDate)
         const endDate = new Date(campaignData.scheduledEndDate)
-        
         if (endDate < startDate) {
           newErrors.scheduledEndDate = true
           missingFields.push('End date must be after start date')
           isValid = false
         }
       }
-      
-      // Validate that scheduled date/time is in the future
-      if (campaignData.scheduledDate) {
-        const scheduledDateTime = new Date(`${campaignData.scheduledDate}T${campaignData.scheduledTime || '09:00'}:00`)
-        const now = new Date()
-        
-        // Add 5 minute buffer to account for processing time
-        const minScheduledTime = new Date(now.getTime() + 5 * 60 * 1000)
-        
-        if (scheduledDateTime <= minScheduledTime) {
-          newErrors.scheduledDate = true
-          missingFields.push('Campaign must be scheduled for at least 5 minutes in the future')
-          isValid = false
-        }
-      }
-    } else {
-      // For service campaigns, similar validation but simplified
-      if (campaignData.schedule === 'scheduled') {
-        if (!campaignData.scheduledDate) {
-          newErrors.scheduledDate = true
-          missingFields.push('Scheduled Date')
-          isValid = false
-        }
+    }
 
-        // Validate daily time slots
-        if (!campaignData.dailyTimeSlots || campaignData.dailyTimeSlots.length === 0) {
-          newErrors.dailyStartTime = true
-          missingFields.push('Daily Time Slots')
-          isValid = false
-        }
-        
-        // Validate end date if provided
-        if (campaignData.scheduledEndDate) {
-          const startDate = new Date(campaignData.scheduledDate)
-          const endDate = new Date(campaignData.scheduledEndDate)
-          
-          if (endDate < startDate) {
-            newErrors.scheduledEndDate = true
-            missingFields.push('End date must be after start date')
-            isValid = false
-          }
-        }
-      }
-    }
-    
-    // Validate new required fields for Call Settings (step 3)
-    
-    // Communication Channels validation
-    if (!campaignData.channels.voiceAi && !campaignData.channels.email && !campaignData.channels.sms) {
-      newErrors.communicationChannels = true
-      missingFields.push('Communication Channels')
-      isValid = false
-    }
-    
-    // Campaign Summary validation (always required as it's just a display)
-    if (!campaignData.campaignName) {
-      newErrors.campaignSummary = true
-      missingFields.push('Campaign Summary')
-      isValid = false
-    }
-    
-    // Schedule Campaign validation (always required)
-    if (selectedCategory === 'sales' && campaignData.schedule === 'scheduled') {
-      if (!campaignData.scheduledDate || !campaignData.scheduledEndDate) {
-        newErrors.scheduleCampaign = true
-        missingFields.push('Schedule Campaign')
-        isValid = false
-      }
-    }
-    
-    // Voicemail Strategy validation
-    if (!campaignData.voicemailStrategy) {
+    // Voicemail Strategy
+    const channelMode4 = campaignData.channelMode || 'both'
+    if (channelMode4 !== 'sms' && !campaignData.voicemailStrategy) {
       newErrors.voicemailStrategy = true
       missingFields.push('Voicemail Strategy')
       isValid = false
-    }
-    
-    // Retry Settings validation
-    // If maxRetryAttempts or retryDelayMinutes are undefined/null, it's invalid
-    if (campaignData.maxRetryAttempts === undefined || campaignData.maxRetryAttempts === null || 
-        campaignData.retryDelayMinutes === undefined || campaignData.retryDelayMinutes === null) {
-      newErrors.retrySettings = true
-      missingFields.push('Retry Settings')
-      isValid = false
-    }
-    // If user selects retry attempts (1+), they MUST select a retry delay (not 0)
-    else if (campaignData.maxRetryAttempts > 0 && campaignData.retryDelayMinutes === 0) {
-      newErrors.retrySettings = true
-      missingFields.push('Retry Delay is required when retry attempts are selected')
-      isValid = false
-    }
-    
-    // Retry Scenarios validation
-    if (!campaignData.busySignalRetry && !campaignData.noAnswerRetry && !campaignData.busyCustomerRetry) {
-      newErrors.retryScenarios = true
-      missingFields.push('Retry Scenarios')
-      isValid = false
-    }
-    
-  } else if (step === 4) {
-    // Validate call window timing - required for all campaigns
-    if (!campaignData.callWindowStart) {
-      newErrors.callWindowStart = true
-      missingFields.push('Call Window Start Time')
-      isValid = false
-    }
-    if (!campaignData.callWindowEnd) {
-      newErrors.callWindowEnd = true
-      missingFields.push('Call Window End Time')
-      isValid = false
-    }
-    
-    // Validate call window times if both are provided
-    if (campaignData.callWindowStart && campaignData.callWindowEnd) {
-      const startTime = campaignData.callWindowStart.split(':').map(Number)
-      const endTime = campaignData.callWindowEnd.split(':').map(Number)
-      const startMinutes = startTime[0] * 60 + startTime[1]
-      const endMinutes = endTime[0] * 60 + endTime[1]
-      
-      if (endMinutes <= startMinutes) {
-        newErrors.callWindowEnd = true
-        missingFields.push('End time must be after start time')
-        isValid = false
-      }
     }
     
     // For sales campaigns, validate handoff business hours

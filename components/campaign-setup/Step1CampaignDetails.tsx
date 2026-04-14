@@ -266,61 +266,6 @@ export default function Step1CampaignDetails({
             </div>
           </div>
 
-          {/* Channel Selection — after Campaign Type */}
-          <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
-            <Label className="text-[16px] font-bold text-[#1A1A1A]">
-              Channel <span className="text-red-500">*</span>
-            </Label>
-            <p className="text-[13px] text-[#6B7280] mt-1 mb-4 leading-relaxed">
-              Choose how Vini reaches these leads. SMS + Call blends text-first outreach with intent-based escalation to a call.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {[
-                {
-                  id: 'sms' as const,
-                  title: 'SMS Only',
-                  desc: 'Text-based campaign. Low-friction re-engagement.',
-                  icon: <MessageSquare className="h-5 w-5" />,
-                  accent: 'text-[#10B981] bg-[#D1FAE5]',
-                },
-                {
-                  id: 'call' as const,
-                  title: 'Call Only',
-                  desc: 'Voice calls with voicemail strategy.',
-                  icon: <PhoneCall className="h-5 w-5" />,
-                  accent: 'text-[#1D4ED8] bg-[#DBEAFE]',
-                },
-                {
-                  id: 'both' as const,
-                  title: 'SMS + Call',
-                  desc: 'SMS first, escalate to call on intent.',
-                  icon: <Zap className="h-5 w-5" />,
-                  accent: 'text-[#6D28D9] bg-[#EDE9FE]',
-                },
-              ].map((opt) => {
-                const selected = (campaignData.channelMode || 'both') === opt.id
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setCampaignData((prev) => ({ ...prev, channelMode: opt.id }))}
-                    className={`text-left rounded-[12px] border-2 px-4 py-4 transition-all ${
-                      selected
-                        ? 'border-[#4600F2] bg-[#F5F3FF] shadow-sm'
-                        : 'border-[#E5E7EB] bg-white hover:border-[#CBD5E1]'
-                    }`}
-                  >
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-3 ${opt.accent}`}>
-                      {opt.icon}
-                    </div>
-                    <div className="text-sm font-semibold text-[#1A1A1A] mb-1">{opt.title}</div>
-                    <div className="text-xs text-[#6B7280] leading-relaxed">{opt.desc}</div>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
           {/* Agent Selection - Only show after campaign type is selected */}
           {selectedCategory && campaignData.subUseCase && (
             <div 
@@ -503,6 +448,7 @@ export default function Step1CampaignDetails({
               </div>
             </div>
           )}
+
         </div>
       </div>
     </div>

@@ -29,14 +29,15 @@ export const fallbackUseCases: UseCases = {
   }
 }
 
-// Dynamic steps based on use case
+// Dynamic steps based on use case — 5-step PRD wizard + success screen
 export const getSteps = (useCase: string): SetupStep[] => {
-  // Both sales and service now have the same 3 steps + launch
   return [
-    { id: 1, name: 'Campaign Details', number: '01' },
-    { id: 2, name: 'File Upload', number: '02' },
-    { id: 3, name: 'Call Settings', number: '03' },
-    { id: 4, name: 'Start Campaign', number: '04' }
+    { id: 1, name: 'Channel & Details', number: '01' },
+    { id: 2, name: 'Lead Source',       number: '02' },
+    { id: 3, name: 'Message Schedule',  number: '03' },
+    { id: 4, name: 'Call Rules',        number: '04' },
+    { id: 5, name: 'Preview & Launch',  number: '05' },
+    { id: 6, name: 'Campaign Started',  number: '06' }
   ]
 }
 

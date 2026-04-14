@@ -25,9 +25,9 @@ export default function StepNavigation({
   onCancel
 }: StepNavigationProps) {
   const getButtonText = () => {
-    if (isLaunching) return 'Starting...'
-    if (currentStep === 3) {
-      return 'Start Campaign'
+    if (isLaunching) return 'Launching...'
+    if (currentStep === 5) {
+      return 'Launch Campaign'
     }
     return 'Continue'
   }

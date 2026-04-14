@@ -89,11 +89,34 @@ export interface CampaignData {
     endTime: string;
   };
   uploadedData?: any[];
-  
+
   // CRM Import CSV data for download
   csvData?: {
     downloadUrl: string;
     fileName: string;
+  };
+
+  /** PRD §Campaign Creation — Channel selection (SMS/Call/Both) */
+  channelMode?: 'sms' | 'call' | 'both';
+  /** PRD §Message Schedule — per-day outbound SMS body + send time */
+  messageSchedule?: Array<{
+    day: number;
+    body: string;
+    sendTime: string; // "HH:MM"
+  }>;
+  /** PRD §Step 4 — SMS quiet hours (lead's local timezone) */
+  smsQuietStart?: string;
+  smsQuietEnd?: string;
+  /** PRD §Step 4 — Voicemail → SMS fallback */
+  voicemailFallbackSms?: string;
+  /** PRD §SMS-to-Call Escalation — intent signal toggles */
+  escalationRules?: {
+    customerRequestsCall: boolean;
+    appointmentReadiness: boolean;
+    priceNegotiation: boolean;
+    tradeInDiscussion: boolean;
+    financingQuestions: boolean;
+    urgency: boolean;
   };
 }
 

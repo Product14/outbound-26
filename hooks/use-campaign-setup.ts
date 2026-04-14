@@ -63,6 +63,35 @@ const initialCampaignData: CampaignData = {
     emailQuote: false,
     textFinanceLink: false,
   },
+  channelMode: 'both',
+  messageSchedule: [
+    {
+      day: 1,
+      body: 'Hi {first_name}, this is Vini from {dealership}. I noticed you were looking at the {vehicle} a while back — are you still in the market? Reply here and I can help! Reply STOP to opt out.',
+      sendTime: '10:00',
+    },
+    {
+      day: 2,
+      body: 'Hey {first_name}, just following up on the {vehicle}. We have some new offers this week that might interest you. Want to hear more?',
+      sendTime: '14:00',
+    },
+    {
+      day: 3,
+      body: '{first_name}, last check-in about the {vehicle}. If you\'d like to chat, just reply here or I can give you a quick call. No pressure either way!',
+      sendTime: '11:00',
+    },
+  ],
+  smsQuietStart: '09:00',
+  smsQuietEnd: '21:00',
+  voicemailFallbackSms: 'Hi {first_name}, this is Vini from {dealership}. I just tried calling about the {vehicle} — feel free to text me back here or let me know a good time to call!',
+  escalationRules: {
+    customerRequestsCall: true,
+    appointmentReadiness: true,
+    priceNegotiation: true,
+    tradeInDiscussion: true,
+    financingQuestions: true,
+    urgency: true,
+  },
   // handoffSettings: {
   //   target: 'round_robin',
   //   businessHoursStart: '09:00',

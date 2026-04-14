@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Search, AlertCircle, Plus, X, Copy, Check, CalendarIcon, Settings } from 'lucide-react'
+import { Search, AlertCircle, Plus, X, Copy, Check, CalendarIcon, Settings, Play, Pause, Square, PhoneCall, MessageSquare, Zap, BarChart3 } from 'lucide-react'
 import Link from "next/link"
 import type { CampaignListItem, CampaignTypesResponse } from '@/lib/campaign-api'
 import type { Agent } from '@/lib/agent-api'
@@ -25,12 +25,47 @@ import {
   getMockAgents,
   getMockCampaignList,
   getMockCampaignTypes,
+  getCampaignChannel,
+  getCampaignChannelStats,
+  type CampaignChannel,
 } from '@/lib/outbound-local-data'
 
 // Map API campaign type to display format
 const mapCampaignType = (campaignType: string): string => {
   if (campaignType === 'recall') return 'Service'
   return campaignType // 'Sales', 'Service', etc.
+}
+
+// Channel icon badge — SMS / Call / SMS+Call
+function ChannelBadge({ channel }: { channel: CampaignChannel }) {
+  if (channel === 'SMS+Call') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#EDE9FE] text-[#6D28D9]"
+        title="SMS + Call"
+      >
+        <Zap className="h-3 w-3" /> SMS + Call
+      </span>
+    )
+  }
+  if (channel === 'SMS') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#D1FAE5] text-[#065F46]"
+        title="SMS Only"
+      >
+        <MessageSquare className="h-3 w-3" /> SMS
+      </span>
+    )
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#DBEAFE] text-[#1D4ED8]"
+      title="Call Only"
+    >
+      <PhoneCall className="h-3 w-3" /> Call
+    </span>
+  )
 }
 
 // Dynamic display mapping will be populated from campaign types API
@@ -470,33 +505,89 @@ export default function CampaignResults() {
             {sortedCampaigns.map((campaign) => {
               const campaignStatusValue = campaign.campaignStatus || campaign.status || 'unknown'
               const campaignType = mapCampaignType(campaign.campaignType)
-              
+              const channel = getCampaignChannel(campaign.campaignId)
+              const channelStats = getCampaignChannelStats(campaign.campaignId)
+              const isRunning = campaignStatusValue.toLowerCase() === 'running'
+              const smsEnabled = channel !== 'Call'
+              const callEnabled = channel !== 'SMS'
+
               return (
                 <Card key={campaign.campaignId} className="group hover:scale-105 transition-all duration-200 cursor-pointer overflow-hidden h-full border relative" style={{borderRadius: '16px'}}>
                   {/* Action Buttons */}
-                  <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                  <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                    {isRunning ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          toast.success(`Paused "${campaign.name}"`)
+                        }}
+                        className="h-8 w-8 p-0 hover:bg-gray-100"
+                        title="Pause campaign"
+                      >
+                        <Pause className="h-4 w-4 text-gray-600" />
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          toast.success(`Started "${campaign.name}"`)
+                        }}
+                        className="h-8 w-8 p-0 hover:bg-gray-100"
+                        title="Start campaign"
+                      >
+                        <Play className="h-4 w-4 text-gray-600" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        toast.success(`Stopped "${campaign.name}"`)
+                      }}
+                      className="h-8 w-8 p-0 hover:bg-gray-100"
+                      title="Stop campaign"
+                    >
+                      <Square className="h-4 w-4 text-gray-600" />
+                    </Button>
                     {/* Settings Icon */}
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={(e) => handleOpenSettings(campaign, e)}
                       className="h-8 w-8 p-0 hover:bg-gray-100"
+                      title="Settings"
                     >
                       <Settings className="h-4 w-4 text-gray-600" />
                     </Button>
                   </div>
-                  
+
                   <Link href={buildUrlWithParams(`/results/${campaign.campaignId}`)}>
                     <CardContent className="p-4 sm:p-6 h-full flex flex-col">
                       <div className="flex flex-col sm:flex-row sm:items-start gap-3 mb-4">
-                        <div className="flex-1">
-                          <h3 className="text-base sm:text-lg font-semibold text-text-primary group-hover:text-primary transition-colors duration-200 line-clamp-2 mb-2">
-                            {campaign.name}
-                          </h3>
-                          <div className="flex gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            {isRunning && (
+                              <span className="relative flex h-2 w-2 flex-shrink-0" title="Live">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                              </span>
+                            )}
+                            <h3 className="text-base sm:text-lg font-semibold text-text-primary group-hover:text-primary transition-colors duration-200 line-clamp-2">
+                              {campaign.name}
+                            </h3>
+                          </div>
+                          <div className="flex gap-2 flex-wrap">
                             {(() => {
                               const useCaseDisplay = getCampaignUseCaseDisplay(
-                                campaign.campaignUseCase, 
+                                campaign.campaignUseCase,
                                 campaign.campaignType,
                                 campaignTypesData?.data
                               )
@@ -506,6 +597,7 @@ export default function CampaignResults() {
                                 </Badge>
                               )
                             })()}
+                            <ChannelBadge channel={channel} />
                           </div>
                         </div>
                         {/* <div className="flex items-center gap-2">
@@ -532,14 +624,29 @@ export default function CampaignResults() {
                       </div>
 
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                        <div className="flex flex-col items-start p-3 bg-gray-50 rounded-lg min-w-0">
-                          <span className="text-xs text-text-secondary">Calls</span>
-                          <span className="text-sm font-medium text-text-primary">{campaign.totalCallPlaced}</span>
-                        </div>
-                        <div className="flex flex-col items-start p-3 bg-gray-50 rounded-lg min-w-0">
-                          <span className="text-xs text-text-secondary">Answer Rate</span>
-                          <span className="text-sm font-medium text-text-primary">{(campaign.answerRate ?? 0).toFixed(2)}%</span>
-                        </div>
+                        {smsEnabled ? (
+                          <>
+                            <div className="flex flex-col items-start p-3 bg-gray-50 rounded-lg min-w-0">
+                              <span className="text-xs text-text-secondary">Messages Sent</span>
+                              <span className="text-sm font-medium text-text-primary">{channelStats.messagesSent.toLocaleString()}</span>
+                            </div>
+                            <div className="flex flex-col items-start p-3 bg-gray-50 rounded-lg min-w-0">
+                              <span className="text-xs text-text-secondary">Reply Rate</span>
+                              <span className="text-sm font-medium text-text-primary">{channelStats.replyRate}%</span>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex flex-col items-start p-3 bg-gray-50 rounded-lg min-w-0">
+                              <span className="text-xs text-text-secondary">Calls</span>
+                              <span className="text-sm font-medium text-text-primary">{campaign.totalCallPlaced}</span>
+                            </div>
+                            <div className="flex flex-col items-start p-3 bg-gray-50 rounded-lg min-w-0">
+                              <span className="text-xs text-text-secondary">Answer Rate</span>
+                              <span className="text-sm font-medium text-text-primary">{(campaign.answerRate ?? 0).toFixed(0)}%</span>
+                            </div>
+                          </>
+                        )}
                         <div className="flex flex-col items-start p-3 bg-gray-50 rounded-lg min-w-0">
                           <span className="text-xs text-text-secondary">Appointments</span>
                           <span className="text-sm font-medium text-text-primary">{campaign.appointmentScheduled}</span>

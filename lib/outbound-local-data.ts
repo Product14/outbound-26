@@ -185,6 +185,20 @@ export interface LeadSmsMessage {
     variant: 'eod' | 'escalation'
     text: string
   }
+  /** Optional inline call card rendered AFTER this message (escalated call event) */
+  postCall?: {
+    duration: string
+    outcome: string
+    startedAt: string
+  }
+}
+
+export interface LeadAppointment {
+  type: string
+  startsAt: string
+  status: 'Scheduled' | 'Confirmed' | 'Pending' | 'Canceled'
+  location?: string
+  advisor?: string
 }
 
 export interface LeadRow {
@@ -201,6 +215,49 @@ export interface LeadRow {
   intentLabel: string
   statusLine: string
   smsThread: LeadSmsMessage[]
+  /** Optional drawer fields — populated for demo leads to render the full layout */
+  phone?: string
+  email?: string
+  highlights?: string[]
+  appointment?: LeadAppointment
+  actionItems?: string[]
+  agentName?: string
+  agentInitials?: string
+  callDate?: string
+  /** Source system / origin */
+  leadSource?: string
+  /** Assigned salesperson */
+  salesperson?: string
+  /** Per-lead SMS metrics (PRD §Analytics Per-Lead Metrics) */
+  metrics?: LeadMetrics
+  /** Session breakdown within the lead's conversation */
+  sessions?: LeadSession[]
+}
+
+export interface LeadMetrics {
+  messagesSent: number
+  messagesReceived: number
+  firstReplyTime?: string
+  dayOfFirstReply?: number
+  conversationDuration?: string
+  sessionCount: number
+  qaScore?: number
+  escalated: boolean
+}
+
+export interface LeadSession {
+  id: string
+  sessionNumber: number
+  channel: 'SMS' | 'Call'
+  day: number
+  trigger: 'scheduled_message' | 'customer_reply' | 'voicemail_fallback' | 'escalation_call'
+  outcome: 'reply_received' | 'no_reply' | 'appointment_booked' | 'escalated' | 'opted_out' | 'inconclusive'
+  startedAt: string
+  endedAt?: string
+  duration?: string
+  messagesOut: number
+  messagesIn: number
+  qaScore?: number
 }
 
 export interface LeadsTabData {
@@ -216,7 +273,22 @@ export interface SmsOverviewData {
       value: number
       delta: string
     }
+    smsDelivered?: {
+      label: string
+      value: number
+      delta: string
+    }
+    deliveryRate?: {
+      label: string
+      value: string
+      delta: string
+    }
     replyRate: {
+      label: string
+      value: string
+      delta: string
+    }
+    avgFirstReplyTime?: {
       label: string
       value: string
       delta: string
@@ -226,9 +298,19 @@ export interface SmsOverviewData {
       value: number
       delta: string
     }
+    bookingRate?: {
+      label: string
+      value: string
+      delta: string
+    }
     escalatedToCall: {
       label: string
       value: number
+      delta: string
+    }
+    escalationRate?: {
+      label: string
+      value: string
       delta: string
     }
     optOutRate: {
@@ -952,9 +1034,14 @@ export function getMockSmsOverview(campaignId: string): SmsOverviewData {
     return {
       metrics: {
         smsSent: { label: 'SMS Sent (7D)', value: 1632, delta: '↑ 11% vs last week' },
+        smsDelivered: { label: 'SMS Delivered', value: 1586, delta: '97% delivered' },
+        deliveryRate: { label: 'Delivery Rate', value: '97%', delta: '↑ 1pt vs last week' },
         replyRate: { label: 'Reply Rate', value: '36%', delta: '↑ 4pts vs last week' },
+        avgFirstReplyTime: { label: 'Avg First Reply Time', value: '1h 14m', delta: '↓ 8 min vs last week' },
         appointmentsBooked: { label: 'Appts Booked', value: 24, delta: '↑ 9% vs last week' },
+        bookingRate: { label: 'Booking Rate', value: '32%', delta: 'of replied leads' },
         escalatedToCall: { label: 'Escalated to Call', value: 19, delta: '21% of replies' },
+        escalationRate: { label: 'Escalation Rate', value: '9%', delta: 'of conversations' },
         optOutRate: { label: 'Opt-Out Rate', value: '1%', count: 4, delta: '4 opted out' },
       },
       funnel: {
@@ -982,9 +1069,14 @@ export function getMockSmsOverview(campaignId: string): SmsOverviewData {
   return {
     metrics: {
       smsSent: { label: 'SMS Sent (7D)', value: 2847, delta: '↑ 18% vs last week' },
+      smsDelivered: { label: 'SMS Delivered', value: 2791, delta: '98% delivered' },
+      deliveryRate: { label: 'Delivery Rate', value: '98%', delta: '↑ 1pt vs last week' },
       replyRate: { label: 'Reply Rate', value: '42%', delta: '↑ 6pts vs last week' },
+      avgFirstReplyTime: { label: 'Avg First Reply Time', value: '47m', delta: '↓ 12 min vs last week' },
       appointmentsBooked: { label: 'Appts Booked', value: 61, delta: '↑ 12% vs last week' },
+      bookingRate: { label: 'Booking Rate', value: '42%', delta: 'of replied leads' },
       escalatedToCall: { label: 'Escalated to Call', value: 38, delta: '26% of replies' },
+      escalationRate: { label: 'Escalation Rate', value: '11%', delta: 'of conversations' },
       optOutRate: { label: 'Opt-Out Rate', value: '2%', count: 7, delta: '7 opted out' },
     },
     funnel: {
@@ -1060,6 +1152,70 @@ const salesLeads: LeadRow[] = [
     intentLevel: 'Medium',
     intentLabel: 'Medium-High — trade-in interest',
     statusLine: 'SMS · Day 2 · ↩ Replied',
+    phone: '+1 (305) 555-0174',
+    email: 'james@example.com',
+    highlights: [
+      'Discussed incentives',
+      'Trade-in mentioned',
+      'Appointment agreed',
+    ],
+    appointment: {
+      type: 'Test Drive — 2024 Equinox LT',
+      startsAt: 'Apr 15, 2026 at 3:00 PM',
+      status: 'Scheduled',
+      location: 'Tropical Chevrolet, Miami FL',
+      advisor: 'Avery Lane',
+    },
+    actionItems: [
+      'Send financing breakdown with 4.9% APR terms',
+      'Prepare trade-in quote for 2019 Honda Civic',
+      'Confirm appointment 1 hour prior',
+    ],
+    agentName: 'Avery Lane',
+    agentInitials: 'AV',
+    callDate: 'Apr 14, 2026, 5:43 AM',
+    leadSource: 'VinSolutions',
+    salesperson: 'Mike Reynolds',
+    metrics: {
+      messagesSent: 4,
+      messagesReceived: 2,
+      firstReplyTime: '5h 15m',
+      dayOfFirstReply: 2,
+      conversationDuration: '1d 5h',
+      sessionCount: 2,
+      qaScore: 87,
+      escalated: true,
+    },
+    sessions: [
+      {
+        id: 'sess-james-1',
+        sessionNumber: 1,
+        channel: 'SMS',
+        day: 1,
+        trigger: 'scheduled_message',
+        outcome: 'no_reply',
+        startedAt: 'Apr 2, 10:00 AM',
+        endedAt: 'Apr 2, 7:00 PM',
+        duration: '9h 0m',
+        messagesOut: 1,
+        messagesIn: 0,
+        qaScore: 82,
+      },
+      {
+        id: 'sess-james-2',
+        sessionNumber: 2,
+        channel: 'SMS',
+        day: 2,
+        trigger: 'scheduled_message',
+        outcome: 'escalated',
+        startedAt: 'Apr 3, 2:00 PM',
+        endedAt: 'Apr 3, 3:22 PM',
+        duration: '1h 22m',
+        messagesOut: 3,
+        messagesIn: 2,
+        qaScore: 92,
+      },
+    ],
     smsThread: [
       {
         sender: 'agent',
@@ -1100,6 +1256,11 @@ const salesLeads: LeadRow[] = [
         text: "A trade-in is a great way to lower the cost! To give you the best numbers, let me give you a quick call — mind if I ring you now?",
         timestamp: '3:22 PM',
         status: 'AI',
+        postCall: {
+          duration: '4m 12s',
+          outcome: 'Test drive booked for Apr 15, 3:00 PM',
+          startedAt: '3:24 PM',
+        },
       },
     ],
   },
@@ -1343,4 +1504,222 @@ const serviceLeads: LeadRow[] = [
 export function getMockLeadsData(campaignId: string): LeadsTabData {
   const mode = getCampaignMode(campaignId)
   return { leads: mode === 'service' ? serviceLeads : salesLeads }
+}
+
+// ── Campaign Channel ──────────────────────────────────────────────────────
+
+export type CampaignChannel = 'SMS' | 'Call' | 'SMS+Call'
+
+export interface CampaignChannelStats {
+  channel: CampaignChannel
+  messagesSent: number
+  replyRate: number // percentage
+}
+
+// Deterministic channel by campaignId — stable across renders
+export function getCampaignChannel(campaignId: string): CampaignChannel {
+  const hash = [...campaignId].reduce((h, ch) => h + ch.charCodeAt(0), 0)
+  const mod = hash % 3
+  if (mod === 0) return 'SMS+Call'
+  if (mod === 1) return 'SMS'
+  return 'Call'
+}
+
+export function getCampaignChannelStats(campaignId: string): CampaignChannelStats {
+  const channel = getCampaignChannel(campaignId)
+  const hash = [...campaignId].reduce((h, ch) => h + ch.charCodeAt(0), 0)
+  const messagesSent = channel === 'Call' ? 0 : 500 + (hash % 2400)
+  const replyRate = channel === 'Call' ? 0 : 28 + (hash % 20)
+  return { channel, messagesSent, replyRate }
+}
+
+// ── Errors Tab ────────────────────────────────────────────────────────────
+
+export interface SmsErrorRow {
+  id: string
+  leadName: string
+  phone: string
+  reason: 'Invalid Number' | 'Landline Detected' | 'Carrier Blocked' | 'Undelivered' | 'Spam Flagged'
+  attemptedAt: string
+  campaignDay: number
+}
+
+export interface OptOutRow {
+  id: string
+  leadName: string
+  phone: string
+  optedOutAt: string
+  day: number
+  message: string
+}
+
+export interface ErrorsData {
+  deliveryFailures: SmsErrorRow[]
+  optOuts: OptOutRow[]
+  spamFlagged: SmsErrorRow[]
+  summary: {
+    totalFailures: number
+    totalOptOuts: number
+    totalSpamFlagged: number
+  }
+}
+
+export function getMockErrorsData(campaignId: string): ErrorsData {
+  const mode = getCampaignMode(campaignId)
+  const deliveryFailures: SmsErrorRow[] = [
+    { id: 'e1', leadName: 'Howard Mills',   phone: '+1 (305) 555-0044', reason: 'Invalid Number',    attemptedAt: 'Apr 12, 10:02 AM', campaignDay: 1 },
+    { id: 'e2', leadName: 'Paula Rivera',   phone: '+1 (786) 555-0199', reason: 'Landline Detected', attemptedAt: 'Apr 12, 10:05 AM', campaignDay: 1 },
+    { id: 'e3', leadName: 'Gregg Stanton',  phone: '+1 (305) 555-0211', reason: 'Undelivered',       attemptedAt: 'Apr 13, 2:11 PM',  campaignDay: 2 },
+    { id: 'e4', leadName: 'Nina Walsh',     phone: '+1 (754) 555-0188', reason: 'Carrier Blocked',   attemptedAt: 'Apr 13, 2:14 PM',  campaignDay: 2 },
+  ]
+  const optOuts: OptOutRow[] = mode === 'service'
+    ? [
+        { id: 'o1', leadName: 'Keith Sato',   phone: '+1 (305) 555-0132', optedOutAt: 'Apr 13, 11:24 AM', day: 1, message: 'STOP' },
+        { id: 'o2', leadName: 'Ivy Chen',     phone: '+1 (786) 555-0166', optedOutAt: 'Apr 13, 4:01 PM',  day: 2, message: 'Unsubscribe me' },
+      ]
+    : [
+        { id: 'o1', leadName: 'Miles Patton',    phone: '+1 (305) 555-0119', optedOutAt: 'Apr 12, 6:18 PM', day: 1, message: 'STOP' },
+        { id: 'o2', leadName: 'Cara Yoshida',    phone: '+1 (786) 555-0140', optedOutAt: 'Apr 13, 9:02 AM', day: 1, message: 'Stop texting me' },
+        { id: 'o3', leadName: 'Daniel Brooks',   phone: '+1 (754) 555-0123', optedOutAt: 'Apr 13, 3:45 PM', day: 2, message: 'CANCEL' },
+      ]
+  const spamFlagged: SmsErrorRow[] = [
+    { id: 's1', leadName: 'Reggie Huang', phone: '+1 (305) 555-0077', reason: 'Spam Flagged', attemptedAt: 'Apr 13, 11:30 AM', campaignDay: 2 },
+  ]
+  return {
+    deliveryFailures,
+    optOuts,
+    spamFlagged,
+    summary: {
+      totalFailures: deliveryFailures.length,
+      totalOptOuts: optOuts.length,
+      totalSpamFlagged: spamFlagged.length,
+    },
+  }
+}
+
+// ── Conversations Page ────────────────────────────────────────────────────
+
+export interface ConversationListItem {
+  id: string
+  leadName: string
+  leadPhone: string
+  vehicle: string
+  campaignId: string
+  campaignName: string
+  status: 'active' | 'completed' | 'opted_out' | 'booked'
+  channel: CampaignChannel
+  lastMessagePreview: string
+  lastMessageAt: string
+  sessionCount: number
+  escalated: boolean
+}
+
+export function getMockConversationsList(): ConversationListItem[] {
+  return [
+    {
+      id: 'conv-1', leadName: 'James Carter', leadPhone: '+1 (305) 555-0174',
+      vehicle: '2024 Equinox LT', campaignId: 'demo-sales-001',
+      campaignName: 'Aged Lead Re-Activation', status: 'booked',
+      channel: 'SMS+Call',
+      lastMessagePreview: 'A trade-in is a great way to lower the cost! To give you the best numbers, let me give you a quick call...',
+      lastMessageAt: '2h ago', sessionCount: 2, escalated: true,
+    },
+    {
+      id: 'conv-2', leadName: 'Sarah Mitchell', leadPhone: '+1 (305) 555-0129',
+      vehicle: '2024 Silverado LT', campaignId: 'demo-sales-001',
+      campaignName: 'Aged Lead Re-Activation', status: 'active',
+      channel: 'SMS',
+      lastMessagePreview: "Great to hear! I'd love to get you a quote. Our sales team will call you shortly...",
+      lastMessageAt: '10m ago', sessionCount: 2, escalated: true,
+    },
+    {
+      id: 'conv-3', leadName: 'Darren Miles', leadPhone: '+1 (786) 555-0210',
+      vehicle: '2024 Tahoe RST', campaignId: 'demo-sales-003',
+      campaignName: 'Weekend Trade-In Push', status: 'completed',
+      channel: 'SMS+Call',
+      lastMessagePreview: 'Perfect, see you Saturday at 11!',
+      lastMessageAt: '3d ago', sessionCount: 3, escalated: true,
+    },
+    {
+      id: 'conv-4', leadName: 'Keith Sato', leadPhone: '+1 (305) 555-0132',
+      vehicle: '2020 Chevrolet Equinox', campaignId: 'demo-service-002',
+      campaignName: 'Oil Change Win-Back', status: 'opted_out',
+      channel: 'SMS',
+      lastMessagePreview: 'STOP',
+      lastMessageAt: '1d ago', sessionCount: 1, escalated: false,
+    },
+    {
+      id: 'conv-5', leadName: 'Olivia Martin', leadPhone: '+1 (754) 555-0150',
+      vehicle: '2023 Trailblazer', campaignId: 'demo-service-002',
+      campaignName: 'Oil Change Win-Back', status: 'active',
+      channel: 'SMS',
+      lastMessagePreview: 'Hi Olivia! There is an open safety recall on your 2023 Trailblazer...',
+      lastMessageAt: '5h ago', sessionCount: 1, escalated: false,
+    },
+    {
+      id: 'conv-6', leadName: 'Victor Lee', leadPhone: '+1 (754) 555-0181',
+      vehicle: '2020 Chevrolet Equinox', campaignId: 'demo-service-002',
+      campaignName: 'Oil Change Win-Back', status: 'active',
+      channel: 'SMS',
+      lastMessagePreview: 'Just a quick reminder, Victor – our free battery check offer ends Friday!',
+      lastMessageAt: '6h ago', sessionCount: 2, escalated: false,
+    },
+  ]
+}
+
+// ── Reports (aggregate cross-campaign) ────────────────────────────────────
+
+export interface ReportsKpi {
+  label: string
+  value: string | number
+  delta?: string
+}
+
+export interface ReportsData {
+  kpis: {
+    totalCampaigns: ReportsKpi
+    totalMessagesSent: ReportsKpi
+    overallReplyRate: ReportsKpi
+    overallBookingRate: ReportsKpi
+    topCampaign: ReportsKpi
+    avgDaysToReply: ReportsKpi
+    optOutTrend: ReportsKpi
+    costPerAppointment: ReportsKpi
+  }
+  campaignsBreakdown: Array<{
+    campaignId: string
+    name: string
+    channel: CampaignChannel
+    messagesSent: number
+    replyRate: number
+    bookingRate: number
+    appointments: number
+  }>
+  optOutTrend: Array<{ date: string; rate: number }>
+}
+
+export function getMockReportsData(): ReportsData {
+  return {
+    kpis: {
+      totalCampaigns:      { label: 'Total SMS Campaigns',  value: 14,        delta: 'last 30 days' },
+      totalMessagesSent:   { label: 'Total Messages Sent',  value: '12,483',  delta: '↑ 22% vs last period' },
+      overallReplyRate:    { label: 'Overall Reply Rate',   value: '39%',     delta: '↑ 5pts vs last period' },
+      overallBookingRate:  { label: 'Overall Booking Rate', value: '14%',     delta: '↑ 2pts vs last period' },
+      topCampaign:         { label: 'Top Campaign',         value: 'Aged Lead Re-Activation', delta: '48% reply rate' },
+      avgDaysToReply:      { label: 'Avg Days to Reply',    value: '1.6 days', delta: 'across all campaigns' },
+      optOutTrend:         { label: 'Opt-Out Trend (30D)',  value: '1.8%',    delta: '↓ 0.2pts rolling' },
+      costPerAppointment:  { label: 'Cost per Appointment', value: '$4.12',   delta: '↓ $0.28 vs last period' },
+    },
+    campaignsBreakdown: [
+      { campaignId: 'demo-sales-001',   name: 'Aged Lead Re-Activation', channel: 'SMS+Call', messagesSent: 2847, replyRate: 42, bookingRate: 17, appointments: 61 },
+      { campaignId: 'demo-service-002', name: 'Oil Change Win-Back',     channel: 'SMS',      messagesSent: 1632, replyRate: 36, bookingRate: 14, appointments: 24 },
+      { campaignId: 'demo-sales-003',   name: 'Weekend Trade-In Push',   channel: 'SMS+Call', messagesSent: 4128, replyRate: 47, bookingRate: 16, appointments: 66 },
+      { campaignId: 'demo-sales-004',   name: 'Service Loyalty Ping',    channel: 'SMS',      messagesSent:  915, replyRate: 33, bookingRate: 11, appointments: 11 },
+      { campaignId: 'demo-sales-005',   name: 'Spring Lease Renewal',    channel: 'SMS+Call', messagesSent: 2961, replyRate: 41, bookingRate: 13, appointments: 38 },
+    ],
+    optOutTrend: [
+      { date: 'Mar 16', rate: 2.1 }, { date: 'Mar 23', rate: 2.0 }, { date: 'Mar 30', rate: 1.9 },
+      { date: 'Apr 06', rate: 1.7 }, { date: 'Apr 13', rate: 1.8 },
+    ],
+  }
 }

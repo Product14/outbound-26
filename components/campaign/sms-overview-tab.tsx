@@ -6,9 +6,13 @@ import AppointmentFunnel from '@/components/ui/appointment-funnel'
 import {
   BarChart2,
   CalendarCheck,
+  CheckCircle2,
+  Clock,
   Info,
   MessageSquare,
   PhoneForwarded,
+  Send,
+  TrendingUp,
   UserMinus,
 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -77,7 +81,7 @@ export function SmsOverviewTab({ data }: SmsOverviewTabProps) {
       <TooltipProvider>
         <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
           <SmsMetricCard
-            icon={<MessageSquare className="h-4 w-4" />}
+            icon={<Send className="h-4 w-4" />}
             iconBg="bg-[#ECFDF5]"
             iconColor="text-[#10B981]"
             title={metrics.smsSent.label}
@@ -85,6 +89,28 @@ export function SmsOverviewTab({ data }: SmsOverviewTabProps) {
             helper={metrics.smsSent.delta}
             tooltip="Total SMS messages sent in the last 7 days"
           />
+          {metrics.smsDelivered && (
+            <SmsMetricCard
+              icon={<CheckCircle2 className="h-4 w-4" />}
+              iconBg="bg-[#D1FAE5]"
+              iconColor="text-[#059669]"
+              title={metrics.smsDelivered.label}
+              value={metrics.smsDelivered.value.toLocaleString()}
+              helper={metrics.smsDelivered.delta}
+              tooltip="Count of SMS messages confirmed delivered by the carrier"
+            />
+          )}
+          {metrics.deliveryRate && (
+            <SmsMetricCard
+              icon={<TrendingUp className="h-4 w-4" />}
+              iconBg="bg-[#D1FAE5]"
+              iconColor="text-[#059669]"
+              title={metrics.deliveryRate.label}
+              value={metrics.deliveryRate.value}
+              helper={metrics.deliveryRate.delta}
+              tooltip="Delivered / Sent — percentage of messages confirmed delivered"
+            />
+          )}
           <SmsMetricCard
             icon={<BarChart2 className="h-4 w-4" />}
             iconBg="bg-[#FEF9C3]"
@@ -92,8 +118,19 @@ export function SmsOverviewTab({ data }: SmsOverviewTabProps) {
             title={metrics.replyRate.label}
             value={metrics.replyRate.value}
             helper={metrics.replyRate.delta}
-            tooltip="Percentage of SMS messages that received a reply"
+            tooltip="Percentage of leads who replied at least once"
           />
+          {metrics.avgFirstReplyTime && (
+            <SmsMetricCard
+              icon={<Clock className="h-4 w-4" />}
+              iconBg="bg-[#FEF3C7]"
+              iconColor="text-[#D97706]"
+              title={metrics.avgFirstReplyTime.label}
+              value={metrics.avgFirstReplyTime.value}
+              helper={metrics.avgFirstReplyTime.delta}
+              tooltip="Mean time from first outbound message to first customer reply"
+            />
+          )}
           <SmsMetricCard
             icon={<CalendarCheck className="h-4 w-4" />}
             iconBg="bg-[#EDE9FE]"
@@ -103,6 +140,17 @@ export function SmsOverviewTab({ data }: SmsOverviewTabProps) {
             helper={metrics.appointmentsBooked.delta}
             tooltip="Total appointments booked through the SMS sequence"
           />
+          {metrics.bookingRate && (
+            <SmsMetricCard
+              icon={<TrendingUp className="h-4 w-4" />}
+              iconBg="bg-[#EDE9FE]"
+              iconColor="text-[#7C3AED]"
+              title={metrics.bookingRate.label}
+              value={metrics.bookingRate.value}
+              helper={metrics.bookingRate.delta}
+              tooltip="Appointments booked / Leads who replied"
+            />
+          )}
           <SmsMetricCard
             icon={<PhoneForwarded className="h-4 w-4" />}
             iconBg="bg-[#FEE2E2]"
@@ -112,6 +160,17 @@ export function SmsOverviewTab({ data }: SmsOverviewTabProps) {
             helper={metrics.escalatedToCall.delta}
             tooltip="Conversations escalated from SMS to a live call"
           />
+          {metrics.escalationRate && (
+            <SmsMetricCard
+              icon={<PhoneForwarded className="h-4 w-4" />}
+              iconBg="bg-[#FEE2E2]"
+              iconColor="text-[#EF4444]"
+              title={metrics.escalationRate.label}
+              value={metrics.escalationRate.value}
+              helper={metrics.escalationRate.delta}
+              tooltip="Escalated / Total conversations"
+            />
+          )}
           <SmsMetricCard
             icon={<UserMinus className="h-4 w-4" />}
             iconBg="bg-[#F3F4F6]"

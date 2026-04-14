@@ -20,6 +20,8 @@ import { LiveCallsTab } from '@/components/campaign/live-calls-tab'
 import { AnalyticsTab } from '@/components/campaign/analytics-tab'
 import { SmsOverviewTab } from '@/components/campaign/sms-overview-tab'
 import { LeadsTab } from '@/components/campaign/leads-tab'
+import { ErrorsTab } from '@/components/campaign/errors-tab'
+import { SettingsTab } from '@/components/campaign/settings-tab'
 // import { TabsNavigation } from '@/components/ui/tabs-navigation'
 import { ApiCallDrawer } from '@/components/api-call-drawer'
 import { CampaignPageShimmer } from '@/components/ui/campaign-shimmer'
@@ -37,6 +39,7 @@ import {
   getMockLeadsData,
   getMockCampaignTypes,
   getMockAnalyticsExtras,
+  getMockErrorsData,
 } from '@/lib/outbound-local-data'
 // import { MetricsGrid } from '@/components/ui/metrics-grid'
 import type { CallRecord } from '@/types/call-record'
@@ -74,7 +77,7 @@ const mapCampaignType = (campaignType: string, campaignTypes?: any | null): stri
 }
 
 // Calculate service campaign specific statistics
-const allowedTabs = ['overview', 'leads', 'sms-overview', 'analytics'] as const
+const allowedTabs = ['overview', 'analytics', 'sms-overview', 'leads', 'errors', 'settings'] as const
 
 const calculateServicecampaignStatus = (totalCalls: number) => {
   const stats = calculatecampaignStatus(totalCalls)
@@ -216,6 +219,7 @@ export default function CampaignDetail() {
   const smsOverviewData = useMemo(() => getMockSmsOverview(campaignId), [campaignId])
   const leadsData = useMemo(() => getMockLeadsData(campaignId), [campaignId])
   const analyticsExtrasData = useMemo(() => getMockAnalyticsExtras(campaignId), [campaignId])
+  const errorsData = useMemo(() => getMockErrorsData(campaignId), [campaignId])
 
   // Utility functions
   const formatDate = (dateString: string) => {
@@ -758,6 +762,26 @@ export default function CampaignDetail() {
             >
               Analytics
             </button>
+            <button
+              onClick={() => handleTabChange('errors')}
+              className={`px-4 py-3 text-base border-b-2 transition-all duration-200 ${
+                activeTab === 'errors'
+                  ? 'text-black font-semibold border-[#4600F2] bg-transparent'
+                  : 'text-gray-500 font-normal border-transparent hover:text-gray-700'
+              }`}
+            >
+              Errors
+            </button>
+            <button
+              onClick={() => handleTabChange('settings')}
+              className={`px-4 py-3 text-base border-b-2 transition-all duration-200 ${
+                activeTab === 'settings'
+                  ? 'text-black font-semibold border-[#4600F2] bg-transparent'
+                  : 'text-gray-500 font-normal border-transparent hover:text-gray-700'
+              }`}
+            >
+              Settings
+            </button>
           </div>
         </div>
       ) : null}
@@ -814,6 +838,21 @@ export default function CampaignDetail() {
           <TabsContent value="leads" className="mt-0">
             <div className="px-12 py-6">
               <LeadsTab data={leadsData} />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="errors" className="mt-0">
+            <div className="px-12 py-6">
+              <ErrorsTab data={errorsData} />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="settings" className="mt-0">
+            <div className="px-12 py-6">
+              <SettingsTab
+                campaignId={campaignId}
+                campaignName={campaignData?.campaign?.name || 'Campaign'}
+              />
             </div>
           </TabsContent>
         </Tabs>

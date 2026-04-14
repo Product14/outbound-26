@@ -21,6 +21,8 @@ import { saveUserCampaign } from '@/lib/outbound-local-data'
 import Step1CampaignDetails from '@/components/campaign-setup/Step1CampaignDetails'
 import Step2FileUpload from '@/components/campaign-setup/Step2FileUpload'
 import Step3CallSettings from '@/components/campaign-setup/Step3CallSettings'
+import StepMessageSchedule from '@/components/campaign-setup/StepMessageSchedule'
+import StepPreviewLaunch from '@/components/campaign-setup/StepPreviewLaunch'
 // import Step4HandoffSettings from '@/components/campaign-setup/Step4HandoffSettings'
 import Step5CampaignSuccess from '@/components/campaign-setup/Step5CampaignSuccess'
 import StepperSidebar from '@/components/campaign-setup/StepperSidebar'
@@ -588,17 +590,16 @@ export default function NewCampaignPage() {
 
   // Navigation handlers
   const handleNextStep = async () => {
-    const maxStep = 4 // Both sales and service now have 4 steps
-    
+    const maxStep = 6 // 5 wizard steps + success screen (step 6)
+
     if (currentStep < maxStep) {
       // Validate current step before proceeding
       if (!validateCurrentStep(currentStep)) {
         return // Stop if validation fails
       }
 
-      // Store initial campaign data after step 1 (Campaign Details) if agent is selected
+      // Store initial campaign data after step 1 if agent is selected
       if (currentStep === 1 && selectedAgent) {
-        // Store campaign data locally without API call
         storeCampaignData({
           campaignName: campaignData.campaignName,
           useCase: selectedCategory,
@@ -610,8 +611,8 @@ export default function NewCampaignPage() {
         })
       }
 
-      // If we're launching the campaign (moving from step 3 to 4), create and save the campaign
-      if (currentStep === 3) {
+      // Launch when leaving Preview & Launch (step 5) into the success screen (step 6)
+      if (currentStep === 5) {
         await handleLaunchCampaign()
       } else {
         setCurrentStep(currentStep + 1)
@@ -727,6 +728,16 @@ export default function NewCampaignPage() {
         )
 
       case 3:
+        // NEW: Message Schedule editor (multi-day SMS bodies)
+        return (
+          <StepMessageSchedule
+            campaignData={campaignData}
+            setCampaignData={setCampaignData}
+          />
+        )
+
+      case 4:
+        // Call Rules (existing call settings)
         return (
           <Step3CallSettings
             campaignData={campaignData}
@@ -739,8 +750,12 @@ export default function NewCampaignPage() {
           />
         )
 
-      case 4:
-        // Step 4 is now "Start Campaign" for both sales and service
+      case 5:
+        // NEW: Preview & Launch — summary + test SMS
+        return <StepPreviewLaunch campaignData={campaignData} />
+
+      case 6:
+        // Campaign Started (post-launch success)
         return (
           <Step5CampaignSuccess
             campaignData={campaignData}
@@ -793,7 +808,7 @@ export default function NewCampaignPage() {
         {/* Sticky Navigation - Outside main content for proper positioning */}
         <StepNavigation
           currentStep={currentStep}
-          maxStep={4}
+          maxStep={6}
           isLaunching={isLaunching}
           selectedCategory={selectedCategory}
           isContinueDisabled={isContinueDisabledCheck}

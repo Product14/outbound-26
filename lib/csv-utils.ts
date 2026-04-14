@@ -452,36 +452,31 @@ async function extractDataFromCurrentView(): Promise<CallRecord[]> {
       // Extract data from table cells with proper column mapping
       const cells = row.querySelectorAll('td, .cell, [data-cell]')
       
-      if (cells.length >= 7) { // We expect 7 columns: Customer, Status, Timestamp, Duration, Outcome, Agent, Quality
+      if (cells.length >= 6) { // We expect 6 columns: Customer, Status, Timestamp, Duration, Outcome, Quality
         // Column 0: Customer Details (name + phone)
         const customerCell = cells[0]
-        const customerName = customerCell.querySelector('.font-medium')?.textContent?.trim() || 
+        const customerName = customerCell.querySelector('.font-medium')?.textContent?.trim() ||
                            extractTextContent(customerCell).split('\n')[0]?.trim() || 'Unknown'
-        const customerPhone = customerCell.querySelector('.text-gray-500')?.textContent?.trim() || 
+        const customerPhone = customerCell.querySelector('.text-gray-500')?.textContent?.trim() ||
                             extractTextContent(customerCell).split('\n')[1]?.trim() || 'Unknown'
-        
+
         // Column 1: Status
         const status = extractTextContent(cells[1]) || 'Unknown'
-        
+
         // Column 2: Timestamp (date + time)
         const timestampCell = cells[2]
         const date = timestampCell.querySelector('.text-gray-900')?.textContent?.trim() || ''
         const time = timestampCell.querySelector('.text-gray-500')?.textContent?.trim() || ''
-        
+
         // Column 3: Duration
         const duration = extractTextContent(cells[3]) || '--'
-        
+
         // Column 4: Outcome (format to proper case)
         const rawOutcome = extractTextContent(cells[4]) || '--'
         const outcome = formatOutcomeText(rawOutcome)
-        
-        // Column 5: Agent (full name)
-        const agentCell = cells[5]
-        const agentName = agentCell.querySelector('span.text-gray-900')?.textContent?.trim() || 
-                        extractTextContent(agentCell) || 'Unknown'
-        
-        // Column 6: Quality Score
-        const qualityCell = cells[6]
+
+        // Column 5: Quality Score
+        const qualityCell = cells[5]
         const qualityText = qualityCell.textContent?.trim() || '0'
         const qualityScore = qualityText === '--' ? '--' : (parseFloat(qualityText) || 0)
         
@@ -498,9 +493,6 @@ async function extractDataFromCurrentView(): Promise<CallRecord[]> {
           callDate: date,
           callTime: time,
           timestamp: new Date().toISOString(),
-          agent: {
-            name: agentName
-          },
           qualityScore: qualityScore,
           retryCount: 0
         }
@@ -568,7 +560,6 @@ function convertToCSV(records: CallRecord[]): string {
     'Time',
     'Duration',
     'Outcome',
-    'Agent Name',
     'Quality Score'
   ]
 
@@ -582,7 +573,6 @@ function convertToCSV(records: CallRecord[]): string {
     record.callTime || (record.timestamp ? formatTimeForCSV(record.timestamp) : ''),
     record.duration || '',
     record.outcome || '',
-    record.agent?.name || '',
     record.qualityScore.toString()
   ])
 

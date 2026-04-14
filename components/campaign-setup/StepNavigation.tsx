@@ -11,6 +11,7 @@ interface StepNavigationProps {
   selectedCategory: string
   isContinueDisabled: () => boolean
   getMissingFields?: () => string[]
+  isRecurring?: boolean
   onPrevStep: () => void
   onNextStep: () => void
   onCancel: () => void
@@ -23,6 +24,7 @@ export default function StepNavigation({
   selectedCategory,
   isContinueDisabled,
   getMissingFields,
+  isRecurring,
   onPrevStep,
   onNextStep,
   onCancel
@@ -30,9 +32,9 @@ export default function StepNavigation({
   const [showGuide, setShowGuide] = useState(false)
 
   const getButtonText = () => {
-    if (isLaunching) return 'Launching...'
+    if (isLaunching) return isRecurring ? 'Activating...' : 'Launching...'
     if (currentStep === 5) {
-      return 'Launch Campaign'
+      return isRecurring ? 'Activate Recurring' : 'Launch Campaign'
     }
     return 'Continue'
   }

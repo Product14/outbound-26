@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { Play, Pause, Calendar, Car, User, Phone, Clock, ChevronDown, ChevronRight, Edit, X, Bot, AlertCircle, Wrench, Mail, FileText, Tag, MapPin, Loader2, Download, RotateCcw, ArrowDown } from "lucide-react"
+import { Play, Pause, Calendar, Car, User, Phone, PhoneCall, Clock, ChevronDown, ChevronRight, Edit, X, Bot, AlertCircle, Wrench, Mail, FileText, Tag, MapPin, Loader2, Download, RotateCcw, ArrowDown, MessageSquare, Zap } from "lucide-react"
 import AudioPlayer from "@/components/ui/audio-player"
 import { RightPanelShimmer } from "@/components/ui/right-panel-shimmer"
 import { useEndCallReport, type EndCallReportData } from "@/hooks/use-end-call-report"
@@ -21,9 +21,10 @@ interface ApiCallDrawerProps {
   autoStartPlayback?: boolean
   autoStartKey?: number
   onAutoStartComplete?: () => void
-  initialTab?: 'highlights' | 'customer' | 'summary' | 'appointment' | 'transcript'
+  initialTab?: 'highlights' | 'customer' | 'summary' | 'appointment' | 'sms' | 'transcript'
   autoScrollToSummary?: boolean
-  autoScrollTo?: 'highlights' | 'customer' | 'summary' | 'appointment' | 'transcript' | null
+  autoScrollTo?: 'highlights' | 'customer' | 'summary' | 'appointment' | 'sms' | 'transcript' | null
+  hideTranscript?: boolean
 }
 
 export function ApiCallDrawer({ 
@@ -38,9 +39,10 @@ export function ApiCallDrawer({
   onAutoStartComplete,
   initialTab = 'highlights',
   autoScrollToSummary = false,
-  autoScrollTo = null
+  autoScrollTo = null,
+  hideTranscript = false
 }: ApiCallDrawerProps) {
-  const [activeTab, setActiveTab] = useState<'highlights' | 'customer' | 'summary' | 'appointment' | 'transcript'>(initialTab)
+  const [activeTab, setActiveTab] = useState<'highlights' | 'customer' | 'summary' | 'appointment' | 'sms' | 'transcript'>(initialTab)
   const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0)
   const [actualAudioDuration, setActualAudioDuration] = useState(0)
   const transcriptAnchorRef = useRef<HTMLDivElement | null>(null)
@@ -96,6 +98,7 @@ export function ApiCallDrawer({
   const customerSectionRef = useRef<HTMLDivElement | null>(null)
   const summarySectionRef = useRef<HTMLDivElement | null>(null)
   const appointmentSectionRef = useRef<HTMLDivElement | null>(null)
+  const smsSectionRef = useRef<HTMLDivElement | null>(null)
   const transcriptSectionRef = useRef<HTMLDivElement | null>(null)
   
   // Ref for the audio player
@@ -109,7 +112,7 @@ export function ApiCallDrawer({
   }, [audioRef, drawerAudioPlayerRef.current])
   
   // Function to scroll to section and update active tab
-  const scrollToSection = (sectionRef: React.RefObject<HTMLDivElement | null>, tabName: 'highlights' | 'customer' | 'summary' | 'appointment' | 'transcript') => {
+  const scrollToSection = (sectionRef: React.RefObject<HTMLDivElement | null>, tabName: 'highlights' | 'customer' | 'summary' | 'appointment' | 'sms' | 'transcript') => {
     if (sectionRef.current && scrollContainerRef.current) {
       // Disable auto-scroll when user manually navigates to a section
       setAutoScrollDisabled(true)
@@ -526,6 +529,7 @@ export function ApiCallDrawer({
       { ref: customerSectionRef, tab: 'customer' as const },
       { ref: summarySectionRef, tab: 'summary' as const },
       { ref: appointmentSectionRef, tab: 'appointment' as const },
+      { ref: smsSectionRef, tab: 'sms' as const },
       { ref: transcriptSectionRef, tab: 'transcript' as const }
     ]
 
@@ -985,7 +989,7 @@ export function ApiCallDrawer({
   return (
     <div className="h-full w-full flex flex-col bg-white">
       {/* Content Area */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto bg-gray-50/50 overscroll-contain">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto bg-white overscroll-contain">
         {/* Sticky Header + Recording + Tabs */}
         <div className="sticky top-0 z-30 bg-white/95 backdrop-blur border-0">
           <div className="px-6 pt-2 pb-6">
@@ -1341,23 +1345,40 @@ export function ApiCallDrawer({
                 <div className="absolute -bottom-0.5 left-1/2 transform -translate-x-1/2 w-1 h-0.5 bg-[#4600f2] rounded-full" />
               )}
             </button>
-            <button
-              onClick={() => scrollToSection(transcriptSectionRef, 'transcript')}
-              disabled={normalizedTranscript.length === 0}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap relative ${
-                activeTab === 'transcript'
-                  ? 'border-[#4600f2] text-[#4600f2]'
-                  : normalizedTranscript.length === 0
-                  ? 'border-transparent text-gray-400 cursor-not-allowed'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50 active:bg-gray-100'
-              }`}
-              title={normalizedTranscript.length === 0 ? 'No transcript available' : 'View transcript'}
-            >
-              Transcript
-              {activeTab === 'transcript' && (
-                <div className="absolute -bottom-0.5 left-1/2 transform -translate-x-1/2 w-1 h-0.5 bg-[#4600f2] rounded-full" />
-              )}
-            </button>
+            {call?.smsThread && call.smsThread.length > 0 && (
+              <button
+                onClick={() => scrollToSection(smsSectionRef, 'sms')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap relative hover:bg-gray-50 active:bg-gray-100 ${
+                  activeTab === 'sms'
+                    ? 'border-[#4600f2] text-[#4600f2]'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Conversation
+                {activeTab === 'sms' && (
+                  <div className="absolute -bottom-0.5 left-1/2 transform -translate-x-1/2 w-1 h-0.5 bg-[#4600f2] rounded-full" />
+                )}
+              </button>
+            )}
+            {!hideTranscript && (
+              <button
+                onClick={() => scrollToSection(transcriptSectionRef, 'transcript')}
+                disabled={normalizedTranscript.length === 0}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap relative ${
+                  activeTab === 'transcript'
+                    ? 'border-[#4600f2] text-[#4600f2]'
+                    : normalizedTranscript.length === 0
+                    ? 'border-transparent text-gray-400 cursor-not-allowed'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50 active:bg-gray-100'
+                }`}
+                title={normalizedTranscript.length === 0 ? 'No transcript available' : 'View transcript'}
+              >
+                Transcript
+                {activeTab === 'transcript' && (
+                  <div className="absolute -bottom-0.5 left-1/2 transform -translate-x-1/2 w-1 h-0.5 bg-[#4600f2] rounded-full" />
+                )}
+              </button>
+            )}
           </nav>
         </div>
       </div>
@@ -1370,7 +1391,7 @@ export function ApiCallDrawer({
           {detailsLoading ? (
             <RightPanelShimmer />
           ) : (
-            <div className="space-y-8">
+            <div className="divide-y divide-gray-100 [&>*]:py-6 first:[&>*]:pt-0 last:[&>*]:pb-0">
               {/* Key Highlights */}
               <div ref={highlightsSectionRef} className="space-y-3">
                 <h3 className="text-sm font-medium text-gray-900 mb-4 flex items-center gap-2">
@@ -1566,31 +1587,121 @@ export function ApiCallDrawer({
                 </div>
               </div>
 
-              {/* Transcript Section */}
-              {normalizedTranscript.length > 0 ? (
+              {/* Conversation Section */}
+              {call?.smsThread && call.smsThread.length > 0 && (
+                <div ref={smsSectionRef} className="space-y-3">
+                  <h3 className="text-sm font-medium text-gray-900 mb-4 flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4 text-gray-700/30" />
+                    Conversation
+                  </h3>
+                  <div className="space-y-3">
+                    {call.smsThread.map((msg, i) => {
+                      const prev = i > 0 ? call.smsThread![i - 1] : undefined
+                      const showDay = msg.day !== undefined && msg.day !== prev?.day
+                      const isAgent = msg.sender === 'agent'
+                      return (
+                        <div key={i} className="space-y-3">
+                          {/* Day separator */}
+                          {showDay && (
+                            <div className="flex items-center justify-center py-2">
+                              <span className="text-[10px] font-semibold tracking-[0.14em] text-[#9CA3AF] uppercase">
+                                Day {msg.day}{msg.dateLabel ? ` · ${msg.dateLabel}` : ''}
+                              </span>
+                            </div>
+                          )}
+                          {/* Pre-banner: EOD or Escalation */}
+                          {msg.preBanner && msg.preBanner.variant === 'eod' && (
+                            <div className="flex items-center justify-center gap-2 px-3 py-2 rounded-[8px] bg-[#FEF3C7] border border-[#FDE68A]">
+                              <Pause className="h-3.5 w-3.5 text-[#92400E]" />
+                              <span className="text-xs font-mono font-semibold text-[#92400E]">{msg.preBanner.text}</span>
+                            </div>
+                          )}
+                          {msg.preBanner && msg.preBanner.variant === 'escalation' && (
+                            <div className="flex items-center justify-center gap-2 px-3 py-2 rounded-[8px] bg-[#F5F3FF] border border-[#DDD6FE]">
+                              <Zap className="h-3.5 w-3.5 text-[#7C3AED] fill-[#7C3AED]" />
+                              <span className="text-xs font-medium text-[#6D28D9]">{msg.preBanner.text}</span>
+                            </div>
+                          )}
+                          {/* Chat bubble */}
+                          <div className={`flex ${isAgent ? 'justify-end' : 'justify-start'}`}>
+                            <div className="max-w-[80%]">
+                              <div
+                                className={`rounded-[14px] px-3.5 py-2.5 ${
+                                  isAgent
+                                    ? 'bg-[#DCFCE7] text-[#14532D]'
+                                    : 'bg-[#F3F4F6] text-[#1A1A1A]'
+                                }`}
+                              >
+                                <p className="text-sm leading-relaxed">{msg.text}</p>
+                              </div>
+                              <div
+                                className={`mt-1 flex items-center gap-1.5 text-[10px] text-[#9CA3AF] ${
+                                  isAgent ? 'justify-end' : 'justify-start'
+                                }`}
+                              >
+                                <span>{msg.timestamp}</span>
+                                {msg.status && (
+                                  <>
+                                    <span className="text-[#D1D5DB]">·</span>
+                                    <span>{msg.status}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          {/* Post-call escalated call card */}
+                          {msg.postCall && (
+                            <div className="flex items-center justify-center">
+                              <div className="w-full rounded-[12px] border border-[#C7D2FE] bg-gradient-to-r from-[#EEF2FF] to-[#F5F3FF] px-4 py-3 flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-full bg-[#4600F2] flex items-center justify-center flex-shrink-0">
+                                  <PhoneCall className="h-4 w-4 text-white" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-xs font-semibold text-[#4338CA] uppercase tracking-wide">
+                                    Escalated Call
+                                  </div>
+                                  <div className="text-sm text-[#1A1A1A] mt-0.5 truncate">
+                                    {msg.postCall.outcome}
+                                  </div>
+                                  <div className="text-[11px] text-[#6366F1] mt-0.5">
+                                    {msg.postCall.startedAt} · {msg.postCall.duration}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Transcript Section — only when not hidden and data exists */}
+              {!hideTranscript && normalizedTranscript.length > 0 && (
                 <div ref={transcriptSectionRef} className="space-y-3">
                   <h3 className="text-sm font-medium text-gray-900 mb-4 flex items-center gap-2">
                     <FileText className="h-4 w-4 text-gray-700/30" />
                     Transcript
                     {detailsLoading && <Loader2 className="h-4 w-4 animate-spin text-gray-600 ml-2" />}
                   </h3>
-                  
+
                   {/* Transcript Cards */}
                   <div className="space-y-4">
                     {normalizedTranscript.map((entry, index) => {
-                      const isCurrentlyPlaying = isPlaying && 
-                        entry.timestamp && 
-                        currentPlaybackTime >= entry.timestamp && 
+                      const isCurrentlyPlaying = isPlaying &&
+                        entry.timestamp &&
+                        currentPlaybackTime >= entry.timestamp &&
                         (index === normalizedTranscript.length - 1 || !normalizedTranscript[index + 1]?.timestamp || currentPlaybackTime < (normalizedTranscript[index + 1]?.timestamp || 0))
-                      
+
                       return (
-                        <div 
-                          key={index} 
+                        <div
+                          key={index}
                           ref={isCurrentlyPlaying ? currentTranscriptEntryRef : null}
                           data-transcript-entry={index}
                           className={`border rounded-xl overflow-hidden transition-all duration-300 cursor-pointer hover:shadow-md focus:outline-none active:bg-gray-50 focus:bg-gray-50 ${
-                            isCurrentlyPlaying 
-                              ? 'shadow-md' 
+                            isCurrentlyPlaying
+                              ? 'shadow-md'
                               : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                           }`}
                           style={{
@@ -1599,26 +1710,21 @@ export function ApiCallDrawer({
                           }}
                           onClick={(e) => {
                             e.stopPropagation()
-                            
-                            // Only seek if we have a valid timestamp and audio player
+
                             if (entry.timestamp && drawerAudioPlayerRef.current) {
-                              // Seek to the timestamp of this transcript entry
                               if (drawerAudioPlayerRef.current.seek) {
                                 drawerAudioPlayerRef.current.seek(entry.timestamp)
                                 setCurrentPlaybackTime(entry.timestamp)
-                                
-                                // Auto-play the audio from this position
+
                                 setTimeout(() => {
                                   if (drawerAudioPlayerRef.current && drawerAudioPlayerRef.current.play) {
                                     try {
                                       drawerAudioPlayerRef.current.play()
-                                      // The AudioPlayer's onPlay callback will automatically sync with parent state
-                                      // No need to manually call onPlayCall since it would toggle the state
                                     } catch (error) {
                                       // Error starting audio playback
                                     }
                                   }
-                                }, 100) // Small delay to ensure seek completes first
+                                }, 100)
                               }
                             }
                           }}
@@ -1627,12 +1733,12 @@ export function ApiCallDrawer({
                           <div className="p-4">
                             <div className="flex gap-3">
                               <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-semibold ${
-                                isCurrentlyPlaying 
-                                  ? 'bg-[#4600f2] text-white' 
-                                  : (entry.speaker.toLowerCase().includes('agent') || entry.speaker.toLowerCase().includes('bot') || entry.speaker.toLowerCase().includes('assistant') 
+                                isCurrentlyPlaying
+                                  ? 'bg-[#4600f2] text-white'
+                                  : (entry.speaker.toLowerCase().includes('agent') || entry.speaker.toLowerCase().includes('bot') || entry.speaker.toLowerCase().includes('assistant')
                                       ? 'bg-purple-200 text-purple-700' : 'bg-green-200 text-green-700')
                               }`}>
-                                {entry.speaker.toLowerCase().includes('agent') || entry.speaker.toLowerCase().includes('bot') || entry.speaker.toLowerCase().includes('assistant') 
+                                {entry.speaker.toLowerCase().includes('agent') || entry.speaker.toLowerCase().includes('bot') || entry.speaker.toLowerCase().includes('assistant')
                                   ? (call.agentInfo?.agentName || call.agentConfig?.agentName || 'AG').slice(0, 2).toUpperCase()
                                   : getCustomerInitials(call)}
                               </div>
@@ -1658,25 +1764,22 @@ export function ApiCallDrawer({
                     })}
                   </div>
                 </div>
-              ) : (
-                <div ref={transcriptSectionRef} className="space-y-3">
-                  <h3 className="text-sm font-medium text-gray-900 mb-4 flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-gray-700/30" />
-                    Transcript
-                    {detailsLoading && <Loader2 className="h-4 w-4 animate-spin text-gray-600 ml-2" />}
-                  </h3>
-                  <div className="border border-gray-200 rounded-lg p-4 bg-white">
-                    <p className="text-sm text-gray-500">
-                      {detailsLoading ? 'Loading transcript...' : 'No transcript available for this call'}
-                    </p>
-                  </div>
-                </div>
               )}
+
             </div>
           )}
         </div>
       </div>
       </div>
+
+      {/* Sticky Footer — View Full Conversation */}
+      {call?.smsThread && call.smsThread.length > 0 && (
+        <div className="px-6 py-4 border-t border-gray-100 bg-white flex-shrink-0">
+          <Button variant="outline" className="w-full text-sm font-medium">
+            View Full Conversation <ChevronRight className="h-4 w-4 ml-1.5" />
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

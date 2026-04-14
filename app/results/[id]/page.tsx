@@ -18,7 +18,6 @@ import { buildUrlWithParams, extractUrlParams } from '@/lib/url-utils'
 import { CampaignHeader } from '@/components/campaign/campaign-header'
 import { LiveCallsTab } from '@/components/campaign/live-calls-tab'
 import { AnalyticsTab } from '@/components/campaign/analytics-tab'
-import { SmsOverviewTab } from '@/components/campaign/sms-overview-tab'
 import { LeadsTab } from '@/components/campaign/leads-tab'
 import { ErrorsTab } from '@/components/campaign/errors-tab'
 import { SettingsTab } from '@/components/campaign/settings-tab'
@@ -35,11 +34,11 @@ import {
   getMockCampaignCompleted,
   getMockCampaignConversationData,
   getMockCampaignDetails,
-  getMockSmsOverview,
   getMockLeadsData,
   getMockCampaignTypes,
   getMockAnalyticsExtras,
   getMockErrorsData,
+  getMockSmsOverview,
 } from '@/lib/outbound-local-data'
 // import { MetricsGrid } from '@/components/ui/metrics-grid'
 import type { CallRecord } from '@/types/call-record'
@@ -77,7 +76,7 @@ const mapCampaignType = (campaignType: string, campaignTypes?: any | null): stri
 }
 
 // Calculate service campaign specific statistics
-const allowedTabs = ['overview', 'analytics', 'sms-overview', 'leads', 'errors', 'settings'] as const
+const allowedTabs = ['overview', 'analytics', 'leads', 'errors', 'settings'] as const
 
 const calculateServicecampaignStatus = (totalCalls: number) => {
   const stats = calculatecampaignStatus(totalCalls)
@@ -121,6 +120,7 @@ export default function CampaignDetail() {
   const [connectionFilter, setConnectionFilter] = useState(["all"])
   const [showFilters, setShowFilters] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [funnelMode, setFunnelMode] = useState<'sms' | 'call'>('sms')
   const audioRef = useRef<any>(null)
   const [isClosing, setIsClosing] = useState(false)
   const lastCloseTimeRef = useRef<number>(0)
@@ -216,10 +216,10 @@ export default function CampaignDetail() {
     }
   }, [analyticsData, completedCallsData])
 
-  const smsOverviewData = useMemo(() => getMockSmsOverview(campaignId), [campaignId])
   const leadsData = useMemo(() => getMockLeadsData(campaignId), [campaignId])
   const analyticsExtrasData = useMemo(() => getMockAnalyticsExtras(campaignId), [campaignId])
   const errorsData = useMemo(() => getMockErrorsData(campaignId), [campaignId])
+  const smsOverviewData = useMemo(() => getMockSmsOverview(campaignId), [campaignId])
 
   // Utility functions
   const formatDate = (dateString: string) => {
@@ -390,6 +390,86 @@ export default function CampaignDetail() {
           timestamp: 9,
           duration: 3
         }
+      ],
+      smsThread: [
+        // Day 1
+        {
+          sender: 'agent' as const,
+          text: `Hi ${call.customer.name}, this is ${campaignAgent?.name || 'Avery'} from ${campaignData?.campaign?.name || 'the dealership'}. We have some great options for you! Would you like to learn more?`,
+          timestamp: '9:00 AM',
+          status: 'Delivered' as const,
+          day: 1,
+          dateLabel: 'APR 9',
+        },
+        {
+          sender: 'lead' as const,
+          text: 'Hi! Yes, I was actually looking at the Silverado. Do you have any in stock?',
+          timestamp: '9:47 AM',
+          day: 1,
+        },
+        {
+          sender: 'agent' as const,
+          text: 'Absolutely! We have several Silverados available. Would you prefer a specific trim or color? I can check our current inventory for you.',
+          timestamp: '9:48 AM',
+          status: 'AI' as const,
+          day: 1,
+        },
+        {
+          sender: 'lead' as const,
+          text: 'Looking for the LT trim in white or black. What kind of pricing are we talking?',
+          timestamp: '10:15 AM',
+          day: 1,
+        },
+        {
+          sender: 'agent' as const,
+          text: `Great taste! We have a 2024 Silverado LT in White currently available. I'd love to set up a time for you to come see it and take a test drive. Are you available this week?`,
+          timestamp: '10:16 AM',
+          status: 'Delivered' as const,
+          day: 1,
+        },
+        // Day 2 — EOD banner + escalation
+        {
+          sender: 'agent' as const,
+          text: `Hey ${call.customer.name}, just checking in on the Silverado. We have $3,500 in manufacturer incentives running this week! Want to hear more?`,
+          timestamp: '2:00 PM',
+          status: 'Delivered' as const,
+          day: 2,
+          dateLabel: 'APR 10',
+          preBanner: { variant: 'eod' as const, text: 'EOD — No reply. Day 2 scheduled.' },
+        },
+        {
+          sender: 'lead' as const,
+          text: "Maybe. What's the promotion?",
+          timestamp: '3:15 PM',
+          day: 2,
+        },
+        {
+          sender: 'agent' as const,
+          text: "Great to hear from you! Right now there's $3,500 in manufacturer incentives on the Silverado LT. Want the full breakdown?",
+          timestamp: '3:15 PM',
+          status: 'AI' as const,
+          day: 2,
+        },
+        {
+          sender: 'lead' as const,
+          text: "Yes. And I have a 2019 Accord I'd want to trade in.",
+          timestamp: '3:22 PM',
+          day: 2,
+          preBanner: undefined,
+        },
+        {
+          sender: 'agent' as const,
+          text: "A trade-in is a great way to lower the cost! To give you the best numbers, let me give you a quick call — mind if I ring you now?",
+          timestamp: '3:22 PM',
+          status: 'AI' as const,
+          day: 2,
+          preBanner: { variant: 'escalation' as const, text: 'Escalation triggered: pricing + trade_in detected' },
+          postCall: {
+            duration: '4m 12s',
+            outcome: 'Test drive booked for Apr 15, 3:00 PM',
+            startedAt: '3:24 PM',
+          },
+        },
       ],
       tags: [call.callReason?.replace(/_/g, ' ') || 'general', call.outcome.replace(/_/g, ' ')]
     }
@@ -743,16 +823,6 @@ export default function CampaignDetail() {
               Leads
             </button>
             <button
-              onClick={() => handleTabChange('sms-overview')}
-              className={`px-4 py-3 text-base border-b-2 transition-all duration-200 ${
-                activeTab === 'sms-overview'
-                  ? 'text-black font-semibold border-[#4600F2] bg-transparent'
-                  : 'text-gray-500 font-normal border-transparent hover:text-gray-700'
-              }`}
-            >
-              SMS Overview
-            </button>
-            <button
               onClick={() => handleTabChange('analytics')}
               className={`px-4 py-3 text-base border-b-2 transition-all duration-200 ${
                 activeTab === 'analytics'
@@ -810,6 +880,8 @@ export default function CampaignDetail() {
               campaignMetrics={campaignMetrics}
               authKey={urlParams.auth_key || undefined}
               refreshTrigger={refreshTrigger}
+              smsData={smsOverviewData}
+              onFunnelModeChange={setFunnelMode}
             />
           </TabsContent>
 
@@ -825,13 +897,8 @@ export default function CampaignDetail() {
                 analyticsData={analyticsData}
                 extrasData={analyticsExtrasData}
                 mode="analytics"
+                smsData={smsOverviewData}
               />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="sms-overview" className="mt-0">
-            <div className="px-12 py-6">
-              <SmsOverviewTab data={smsOverviewData} />
             </div>
           </TabsContent>
 
@@ -908,6 +975,7 @@ export default function CampaignDetail() {
               isPlaying={isPlaying}
               audioRef={audioRef}
               autoStartPlayback={false}
+              hideTranscript={true}
             />
           </div>
         </div>

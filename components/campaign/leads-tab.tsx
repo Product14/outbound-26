@@ -34,7 +34,7 @@ import type {
   LeadIntentLevel,
 } from '@/lib/outbound-local-data'
 
-type LeadDrawerTab = 'highlights' | 'customer' | 'summary' | 'appointment' | 'sms' | 'metrics'
+type LeadDrawerTab = 'highlights' | 'customer' | 'summary' | 'appointment' | 'sms'
 
 interface LeadsTabProps {
   data: LeadsTabData
@@ -512,7 +512,7 @@ function SmsConversationSection({ lead }: { lead: LeadRow }) {
     <section className="space-y-3">
       <h3 className="text-sm font-medium text-gray-900 flex items-center gap-2">
         <MessageSquare className="h-4 w-4 text-gray-700/30" />
-        SMS Conversation
+        Conversation
       </h3>
       <div className="space-y-3">
         {lead.smsThread.map((msg, i) => {
@@ -591,15 +591,12 @@ function LeadDrawer({ lead, onClose }: { lead: LeadRow; onClose: () => void }) {
   const summaryRef = useRef<HTMLDivElement>(null)
   const appointmentRef = useRef<HTMLDivElement>(null)
   const smsRef = useRef<HTMLDivElement>(null)
-  const metricsRef = useRef<HTMLDivElement>(null)
-
   const tabs: { id: LeadDrawerTab; label: string; ref: React.RefObject<HTMLDivElement | null> }[] = [
     { id: 'highlights',   label: 'Highlights',       ref: highlightsRef  },
     { id: 'customer',     label: 'Customer',         ref: customerRef    },
     { id: 'summary',      label: 'Summary',          ref: summaryRef     },
     { id: 'appointment',  label: 'Appointment',      ref: appointmentRef },
-    { id: 'metrics',      label: 'Metrics',          ref: metricsRef     },
-    { id: 'sms',          label: 'SMS Conversation', ref: smsRef         },
+    { id: 'sms',          label: 'Conversation', ref: smsRef         },
   ]
 
   const scrollToSection = (
@@ -712,45 +709,16 @@ function LeadDrawer({ lead, onClose }: { lead: LeadRow; onClose: () => void }) {
             <div ref={appointmentRef}>
               <AppointmentSection lead={lead} />
             </div>
-            <div ref={metricsRef}>
-              <MetricsSection lead={lead} />
-            </div>
             <div ref={smsRef}>
               <SmsConversationSection lead={lead} />
             </div>
           </div>
         </div>
 
-        {/* Footer — Quick actions */}
-        <div className="px-6 py-4 border-t border-gray-100 space-y-2">
-          <div className="grid grid-cols-3 gap-2">
-            <Button
-              variant="outline"
-              className="text-xs font-medium"
-              onClick={() => console.log('Call Now', lead.id)}
-            >
-              <PhoneCall className="h-3.5 w-3.5 mr-1.5" /> Call Now
-            </Button>
-            <Button
-              variant="outline"
-              className="text-xs font-medium"
-              onClick={() => console.log('Skip', lead.id)}
-            >
-              <SkipForward className="h-3.5 w-3.5 mr-1.5" /> Skip
-            </Button>
-            <Button
-              variant="outline"
-              className="text-xs font-medium text-[#991B1B] hover:bg-[#FEF2F2]"
-              onClick={() => console.log('Remove', lead.id)}
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Remove
-            </Button>
-          </div>
+        {/* Footer — fixed at bottom */}
+        <div className="px-6 py-4 border-t border-gray-100 bg-white flex-shrink-0">
           <Button variant="outline" className="w-full text-sm font-medium">
             View Full Conversation <ArrowRight className="h-4 w-4 ml-1.5" />
-          </Button>
-          <Button className="w-full text-sm font-medium bg-[#4600F2] hover:bg-[#3700C2] text-white">
-            <Zap className="h-4 w-4 mr-2" /> Escalate to Call
           </Button>
         </div>
       </div>

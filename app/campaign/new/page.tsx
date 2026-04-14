@@ -828,6 +828,7 @@ export default function NewCampaignPage() {
           selectedCategory={selectedCategory}
           isContinueDisabled={isContinueDisabledCheck}
           getMissingFields={() => getMissingFields(currentStep)}
+          isRecurring={campaignData.vinSolutionsSettings?.enableRecurringLeads ?? false}
           onPrevStep={handlePrevStep}
           onNextStep={handleNextStep}
           onCancel={handleCancel}

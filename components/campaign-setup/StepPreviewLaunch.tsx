@@ -78,6 +78,7 @@ export default function StepPreviewLaunch({ campaignData }: StepPreviewLaunchPro
   const smsEnabled = mode !== 'call'
   const callEnabled = mode !== 'sms'
   const schedule = campaignData.messageSchedule || []
+  const isRecurring = campaignData.vinSolutionsSettings?.enableRecurringLeads ?? false
 
   const activeEscalations = campaignData.escalationRules
     ? Object.values(campaignData.escalationRules).filter(Boolean).length
@@ -120,6 +121,24 @@ export default function StepPreviewLaunch({ campaignData }: StepPreviewLaunchPro
         <Row label="Campaign name" value={campaignData.campaignName || '—'} />
         <Row label="Use case" value={campaignData.subUseCase || '—'} />
         <Row label="Channel" value={<ChannelPill mode={mode} />} />
+        <Row
+          label="Mode"
+          value={
+            isRecurring ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-[#EDE9FE] text-[#6D28D9]">
+                Recurring
+              </span>
+            ) : (
+              'One-time'
+            )
+          }
+        />
+        {isRecurring && (
+          <>
+            <Row label="Frequency" value={(campaignData as any).recurringFrequency || 'weekly'} />
+            <Row label="Lead age filter" value={`${campaignData.vinSolutionsSettings?.leadAgeDays ?? 10}+ days`} />
+          </>
+        )}
         <Row label="Leads enrolled" value={campaignData.totalRecords.toLocaleString()} />
         {campaignData.fileName && <Row label="File" value={campaignData.fileName} />}
       </SectionCard>
@@ -192,28 +211,33 @@ export default function StepPreviewLaunch({ campaignData }: StepPreviewLaunchPro
         iconColor="text-[#F59E0B]"
         title="Schedule"
       >
-        <Row
-          label="Launch"
-          value={
-            campaignData.schedule === 'now'
-              ? 'Start immediately'
-              : `${campaignData.scheduledDate || '—'} at ${campaignData.scheduledTime || '—'}`
-          }
-        />
-        {campaignData.scheduledEndDate && (
-          <Row label="End date" value={campaignData.scheduledEndDate} />
+        {isRecurring ? (
+          <>
+            <Row
+              label="Mode"
+              value={
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-[#EDE9FE] text-[#6D28D9]">
+                  Recurring — {(campaignData as any).recurringFrequency || 'weekly'}
+                </span>
+              }
+            />
+            <Row label="Lead age filter" value={`${campaignData.vinSolutionsSettings?.leadAgeDays ?? 10}+ days since last contact`} />
+          </>
+        ) : (
+          <>
+            <Row
+              label="Launch"
+              value={
+                campaignData.schedule === 'now'
+                  ? 'Start immediately'
+                  : `${campaignData.scheduledDate || '—'} at ${campaignData.scheduledTime || '—'}`
+              }
+            />
+          </>
         )}
         <Row
           label="Quiet hours"
           value={`${campaignData.smsQuietStart || '09:00'} – ${campaignData.smsQuietEnd || '21:00'}`}
-        />
-        <Row
-          label="Recurring"
-          value={
-            campaignData.vinSolutionsSettings?.enableRecurringLeads
-              ? `Yes — ${(campaignData as any).recurringFrequency || 'weekly'}, leads aged ${campaignData.vinSolutionsSettings?.leadAgeDays ?? 10}+ days`
-              : 'Off'
-          }
         />
       </SectionCard>
 
@@ -241,9 +265,20 @@ export default function StepPreviewLaunch({ campaignData }: StepPreviewLaunchPro
       <div className="rounded-[10px] bg-[#F5F3FF] border border-[#DDD6FE] px-4 py-3 flex items-start gap-2">
         <Users className="h-4 w-4 text-[#6D28D9] flex-shrink-0 mt-0.5" />
         <p className="text-xs text-[#6D28D9] leading-relaxed">
-          When you click <strong>Launch Campaign</strong>, the first-touch message will be sent to all{' '}
-          <strong>{campaignData.totalRecords.toLocaleString()}</strong> leads at their configured send
-          time in the lead&apos;s local timezone.
+          {isRecurring ? (
+            <>
+              When you click <strong>Activate Recurring</strong>, Vini will automatically pull leads
+              aged <strong>{campaignData.vinSolutionsSettings?.leadAgeDays ?? 10}+ days</strong> from
+              your CRM <strong>{(campaignData as any).recurringFrequency || 'weekly'}</strong> and
+              run the configured workflow sequence for each batch.
+            </>
+          ) : (
+            <>
+              When you click <strong>Launch Campaign</strong>, the first-touch message will be sent to all{' '}
+              <strong>{campaignData.totalRecords.toLocaleString()}</strong> leads at their configured send
+              time in the lead&apos;s local timezone.
+            </>
+          )}
         </p>
       </div>
     </div>

@@ -87,6 +87,7 @@ export interface CallRecord {
   voice_recording_url?: string | null
   transcript_url: string | null
   transcript?: TranscriptEntry[]
+  smsThread?: SmsMessage[]
   tags: string[]
   agentInfo?: {
     agentName: string
@@ -102,4 +103,22 @@ export interface TranscriptEntry {
   text: string
   timestamp: number // in seconds
   duration?: number
+}
+
+export interface SmsMessage {
+  sender: 'agent' | 'lead'
+  text: string
+  timestamp: string
+  status?: 'Delivered' | 'Read' | 'Sent' | 'AI'
+  day?: number
+  dateLabel?: string
+  preBanner?: {
+    variant: 'eod' | 'escalation'
+    text: string
+  }
+  postCall?: {
+    duration: string
+    outcome: string
+    startedAt: string
+  }
 }

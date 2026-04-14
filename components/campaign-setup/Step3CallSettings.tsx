@@ -143,7 +143,8 @@ export default function Step3CallSettings({
 
         {(mode === 'all' || mode === 'schedule-only') && (
         <>
-        {/* Schedule Options — lives in the Schedule tab */}
+        {/* Schedule Options — hidden when recurring is enabled */}
+        {!campaignData.vinSolutionsSettings?.enableRecurringLeads && (
         <div ref={scheduleRef} className={`bg-white border rounded-lg transition-colors ${
           errors.scheduledDate || errors.scheduledEndDate || errors.dailyStartTime || errors.dailyEndTime ? 'border-red-500' : 'border-[#E5E7EB]'
         }`}>
@@ -487,10 +488,11 @@ export default function Step3CallSettings({
             )}
           </div>
         </div>
+        )}
         </>
         )}
 
-        {/* Voicemail Strategy + Quiet Hours + Recurring — in schedule-only mode */}
+        {/* Voicemail Strategy + Quiet Hours — in schedule-only mode */}
         {(mode === 'all' || mode === 'schedule-only') && (<>
         <div className={`bg-white border rounded-lg p-6 transition-colors ${
           errors.voicemailStrategy ? 'border-red-500' : 'border-[#E5E7EB]'
@@ -593,99 +595,7 @@ export default function Step3CallSettings({
           </div>
         </div>
 
-        {/* Recurring Settings */}
-        <div className="bg-white border border-[#E5E7EB] rounded-lg p-6">
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-[16px] font-bold text-[#1A1A1A]">
-                Recurring
-              </h3>
-              <p className="text-[14px] text-[#6B7280] mt-1 leading-[1.5]">
-                Automatically re-run this campaign on a recurring schedule to continuously reach new or aged leads
-              </p>
-            </div>
-
-            <div className="flex items-center justify-between p-4 border border-[#E5E7EB] rounded-lg">
-              <div>
-                <Label className="text-[14px] font-medium text-[#1A1A1A]">Enable recurring campaign</Label>
-                <p className="text-[13px] text-[#6B7280] mt-0.5">
-                  Automatically re-enroll new leads from CRM on a regular cadence
-                </p>
-              </div>
-              <Checkbox
-                id="enableRecurring"
-                checked={campaignData.vinSolutionsSettings?.enableRecurringLeads ?? false}
-                onCheckedChange={(checked) =>
-                  setCampaignData(prev => ({
-                    ...prev,
-                    vinSolutionsSettings: {
-                      ...prev.vinSolutionsSettings!,
-                      enableRecurringLeads: checked === true,
-                    },
-                  }))
-                }
-                className="border-2 border-[#E5E7EB] data-[state=checked]:bg-[#4600F2] data-[state=checked]:border-[#4600F2]"
-              />
-            </div>
-
-            {campaignData.vinSolutionsSettings?.enableRecurringLeads && (
-              <div className="space-y-4 p-4 border border-[#E5E7EB] rounded-lg bg-[#F9FAFB]">
-                <div>
-                  <Label className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">
-                    Frequency
-                  </Label>
-                  <Select
-                    value={(campaignData as any).recurringFrequency || 'weekly'}
-                    onValueChange={(value) => setCampaignData(prev => ({ ...prev, recurringFrequency: value } as any))}
-                  >
-                    <SelectTrigger className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2] max-w-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="biweekly">Every 2 weeks</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">
-                    Lead Age Filter (days)
-                  </Label>
-                  <p className="text-[13px] text-[#6B7280] mb-2">
-                    Only enroll leads that haven&apos;t been contacted in this many days
-                  </p>
-                  <Select
-                    value={(campaignData.vinSolutionsSettings?.leadAgeDays ?? 10).toString()}
-                    onValueChange={(value) =>
-                      setCampaignData(prev => ({
-                        ...prev,
-                        vinSolutionsSettings: {
-                          ...prev.vinSolutionsSettings!,
-                          leadAgeDays: parseInt(value),
-                        },
-                      }))
-                    }
-                  >
-                    <SelectTrigger className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2] max-w-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="7">7 days</SelectItem>
-                      <SelectItem value="10">10 days</SelectItem>
-                      <SelectItem value="14">14 days</SelectItem>
-                      <SelectItem value="30">30 days</SelectItem>
-                      <SelectItem value="60">60 days</SelectItem>
-                      <SelectItem value="90">90 days</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        {/* Recurring moved to Step 1 (Channel & Details) */}
         </>)}
 
         {(mode === 'all' || mode === 'rules-only') && (<>

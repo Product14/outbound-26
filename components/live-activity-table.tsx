@@ -8,7 +8,7 @@ import { AIScoreBreakdown } from "@/components/ai-score-breakdown"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { SmartPagination } from "@/components/ui/smart-pagination"
-import { Phone, Search, Play, Pause, ArrowUpDown, User, Clock, CheckCircle, X, AlertTriangle, Car, Calendar, ChevronLeft, ChevronRight, PhoneCall, Users, PhoneOff, Voicemail, PhoneMissed, Ban, Timer, Loader2 } from "lucide-react"
+import { Phone, Search, Play, Pause, ArrowUpDown, User, Clock, CheckCircle, X, AlertTriangle, Car, Calendar, ChevronLeft, ChevronRight, PhoneCall, Users, PhoneOff, Voicemail, PhoneMissed, Ban, Timer, Loader2, MessageSquare, Mail } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { RefreshCountdown } from "@/components/ui/refresh-countdown"
 import type { CallRecord as AICallRecord } from "@/types/call-record"
@@ -111,6 +111,10 @@ interface CallRecord {
   }
   qualityScore: number // Use 0 when no score from API
   retryCount: number // Number of retry attempts for this call
+  currentStep: number // Current step in the sequence (1-based)
+  totalSteps: number // Total steps in the sequence
+  stepType: 'call' | 'sms' | 'email' // Type of the current step
+  nextAction: string // Description of the next action
 }
 
 interface LiveActivityTableProps {
@@ -327,6 +331,21 @@ export const LiveActivityTable = forwardRef<{
      
      
 
+      // Derive step sequence info from retryCount
+      // Sequence pattern: Call → SMS follow-up → Voice call → Email follow-up
+      const stepSequence: Array<{ type: 'call' | 'sms' | 'email'; label: string }> = [
+        { type: 'call', label: 'Voice call attempt' },
+        { type: 'sms', label: 'SMS follow-up' },
+        { type: 'call', label: 'Voice call attempt' },
+        { type: 'email', label: 'Email follow-up' },
+      ]
+      const totalSteps = stepSequence.length
+      const currentStep = Math.min((task.retryCount || 0) + 1, totalSteps)
+      const stepType = stepSequence[currentStep - 1].type
+      const isFinalStep = currentStep >= totalSteps
+      const isTerminal = task.status === 'FAILED' || outcome === 'Call_failed' || outcome === 'Not_interested'
+      const nextAction = (isFinalStep || isTerminal) ? '--' : stepSequence[currentStep]?.label || '--'
+
       return {
         id: task.callId, // Keep outboundTaskId as unique identifier
         call_id: task.callId, // Use callId first, fallback to outboundTaskId if needed
@@ -345,7 +364,7 @@ export const LiveActivityTable = forwardRef<{
         outcome,
         nextVisibleAt: task.nextVisibleAt, // Add nextVisibleAt for queue timing
         callReason: "Unknown", // API doesn't provide this field
-        priority: "Unknown", // API doesn't provide this field  
+        priority: "Unknown", // API doesn't provide this field
         agent: {
           name: apiData.agentName || "AI Agent",
           avatar: "/placeholder-user.jpg"
@@ -356,7 +375,11 @@ export const LiveActivityTable = forwardRef<{
           agentType: "AI Agent"
         },
         qualityScore: task.aiQuality ? parseFloat(task.aiQuality) : 0,
-        retryCount: task.retryCount || 0 // Map retry count from API
+        retryCount: task.retryCount || 0, // Map retry count from API
+        currentStep,
+        totalSteps,
+        stepType,
+        nextAction
       }
     })
   }
@@ -1426,7 +1449,7 @@ export const LiveActivityTable = forwardRef<{
         )}
         
         <div className="overflow-x-auto">
-          <Table className="min-w-[1000px]">
+          <Table className="min-w-[1300px]">
               <TableHeader>
                 <TableRow className="bg-gray-50">
                   <TableHead className="font-semibold text-gray-900 cursor-pointer whitespace-nowrap min-w-[250px]" onClick={() => handleSort("customer")}>
@@ -1446,7 +1469,12 @@ export const LiveActivityTable = forwardRef<{
                   </TableHead>
                   <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[120px]">Duration</TableHead>
                   <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[160px]">Outcome</TableHead>
-                  <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[140px]">Agent</TableHead>
+                  <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[150px]">
+                    <span className="uppercase text-xs tracking-wider">Current Step</span>
+                  </TableHead>
+                  <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[150px]">
+                    <span className="uppercase text-xs tracking-wider">Next Action</span>
+                  </TableHead>
                   <TableHead className="font-semibold text-gray-900 cursor-pointer whitespace-nowrap min-w-[160px]" onClick={() => handleSort("qualityScore")}>
                     <div className="flex items-center gap-2">
                       Quality Score
@@ -1544,18 +1572,48 @@ export const LiveActivityTable = forwardRef<{
                       {getOutcomeBadge(call.outcome)}
                     </TableCell>
                     
-                    {/* Agent */}
+
+                    {/* Current Step */}
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Avatar className="w-6 h-6">
-                          <AvatarFallback className="bg-purple-100 text-purple-600 text-xs">
-                            {call.agent.name.slice(0, 2)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm text-gray-900">{call.agent.name}</span>
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                          call.stepType === 'call' ? 'bg-indigo-50' :
+                          call.stepType === 'sms' ? 'bg-emerald-50' :
+                          'bg-blue-50'
+                        }`}>
+                          {call.stepType === 'call' ? (
+                            <Phone className="w-3.5 h-3.5 text-indigo-500" />
+                          ) : call.stepType === 'sms' ? (
+                            <MessageSquare className="w-3.5 h-3.5 text-emerald-500" />
+                          ) : (
+                            <Mail className="w-3.5 h-3.5 text-blue-500" />
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-sm font-medium text-gray-700">
+                            Step {call.currentStep}/{call.totalSteps}
+                          </span>
+                          <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                call.stepType === 'call' ? 'bg-indigo-500' :
+                                call.stepType === 'sms' ? 'bg-emerald-500' :
+                                'bg-blue-500'
+                              }`}
+                              style={{ width: `${(call.currentStep / call.totalSteps) * 100}%` }}
+                            />
+                          </div>
+                        </div>
                       </div>
                     </TableCell>
-                    
+
+                    {/* Next Action */}
+                    <TableCell>
+                      <span className="text-sm text-gray-600">
+                        {call.nextAction}
+                      </span>
+                    </TableCell>
+
                     {/* Quality Score */}
                     <TableCell>
                       <QualityScoreBar score={call.qualityScore} call={call} />

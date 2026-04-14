@@ -382,211 +382,171 @@ export default function Step2FileUpload({
                         {crmSelection === 'vinsolutions' && (
                           <div className="mt-4 p-4 bg-white rounded-lg border border-[#E5E7EB]" onClick={(e) => e.stopPropagation()}>
                             <h3 className="text-[16px] font-semibold text-[#1A1A1A] mb-4">Lead Filter Options</h3>
-                            
-                            {/* Filter Type Toggle */}
-                            <div className="mb-6">
-                              <div className="flex items-center space-x-4">
-                                <div 
-                                  className={`flex items-center space-x-2 p-3 rounded-lg border cursor-pointer transition-all ${
-                                    !enableRecurringLeads 
-                                      ? 'border-[#4600F2] bg-[#4600F2]/5 shadow-sm' 
-                                      : 'border-[#E5E7EB] bg-white hover:border-[#D1D5DB]'
-                                  }`}
-                                  onClick={() => {
-                                    setEnableRecurringLeads(false)
-                                    if (errors.leadAgeDays) {
-                                      setErrors(prev => ({ ...prev, leadAgeDays: false }))
-                                    }
-                                    // Clear recurring leads data when switching to date range
-                                    setCampaignData(prev => ({
-                                      ...prev,
-                                      totalRecords: 0,
-                                      csvData: undefined
-                                    }))
-                                  }}
-                                >
-                                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                                    !enableRecurringLeads ? 'border-[#4600F2] bg-[#4600F2]' : 'border-[#D1D5DB]'
-                                  }`}>
-                                    {!enableRecurringLeads && <div className="w-2 h-2 rounded-full bg-white" />}
-                                  </div>
-                                  <span className="text-[14px] font-medium text-[#1A1A1A]">Date Range Filter</span>
+
+                            {/* Date Range Filter — always shown, no toggle */}
+                            {(() => { /* Date Range Filter */
+                              return (
+                            <div className="space-y-5">
+
+                              {/* Removed before launch info */}
+                              <div className="rounded-[10px] bg-[#FFFBEB] border border-[#FDE68A] p-4 space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <AlertCircle className="h-4 w-4 text-[#92400E]" />
+                                  <span className="text-sm font-semibold text-[#92400E]">Removed before launch</span>
                                 </div>
-                                
-                                <div 
-                                  className={`flex items-center space-x-2 p-3 rounded-lg border cursor-pointer transition-all ${
-                                    enableRecurringLeads 
-                                      ? 'border-[#4600F2] bg-[#4600F2]/5 shadow-sm' 
-                                      : 'border-[#E5E7EB] bg-white hover:border-[#D1D5DB]'
-                                  }`}
-                                  onClick={() => {
-                                    setEnableRecurringLeads(true)
-                                    if (errors.vinSolutionsDateRange) {
-                                      setErrors(prev => ({ ...prev, vinSolutionsDateRange: false }))
-                                    }
-                                    // Clear date range data when switching to recurring leads
-                                    setCampaignData(prev => ({
-                                      ...prev,
-                                      totalRecords: 0,
-                                      csvData: undefined
-                                    }))
-                                  }}
-                                >
-                                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                                    enableRecurringLeads ? 'border-[#4600F2] bg-[#4600F2]' : 'border-[#D1D5DB]'
-                                  }`}>
-                                    {enableRecurringLeads && <div className="w-2 h-2 rounded-full bg-white" />}
-                                  </div>
-                                  <span className="text-[14px] font-medium text-[#1A1A1A]">Recurring Lead Age</span>
+                                <p className="text-xs text-[#92400E] leading-relaxed">
+                                  These leads are not added to your campaign. We leave them out so your campaign can launch successfully with only valid, callable contacts.
+                                </p>
+                                <div className="space-y-1.5 mt-2 text-xs text-[#92400E]">
+                                  <p><strong>CONSENT</strong> — Call consent must be true. Leads without consent to be called are not included.</p>
+                                  <p className="bg-[#FEF2F2] border border-[#FECACA] rounded px-2 py-1">
+                                    <strong>DUPLICATE</strong> — Duplicate phone numbers: extra rows for the same number are removed.
+                                  </p>
+                                  <p><strong>INVALID</strong> — Non-numeric, empty, or malformed phones are excluded.</p>
                                 </div>
                               </div>
-                              <p className="text-[12px] text-[#6B7280] mt-2">
-                                {!enableRecurringLeads 
-                                  ? 'Import leads created within a specific date range' 
-                                  : 'Automatically call leads when they reach a specific age (e.g., call 10-day old leads)'
-                                }
-                              </p>
-                            </div>
 
-                            {!enableRecurringLeads ? (
-                              /* Date Range Filter */
-                            <div className="space-y-4">
-                              {/* Start Date/Time Row */}
-                              <div>
-                                <label className="text-[12px] font-normal text-[#6B7280] mb-2 block">From</label>
-                                <div className="grid grid-cols-2 gap-3">
+                              {!campaignData.vinSolutionsSettings?.enableRecurringLeads && (
+                              <>
+                              <p className="text-xs text-[#4600F2]">If no date range is selected, it will be default to 30 days</p>
+
+                              {/* From / To Date Row — hidden for recurring */}
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <label className="text-[12px] font-normal text-[#6B7280] mb-2 flex items-center gap-1.5">
+                                    <span>📅</span> From
+                                  </label>
                                   <DatePicker
                                     value={vinSolutionsStartDate}
-                                      onChange={async (value) => {
-                                        setVinSolutionsStartDate(value)
-                                        if (errors.vinSolutionsDateRange && value) {
-                                          setErrors(prev => ({ ...prev, vinSolutionsDateRange: false }))
+                                    onChange={async (value) => {
+                                      setVinSolutionsStartDate(value)
+                                      if (errors.vinSolutionsDateRange && value) {
+                                        setErrors(prev => ({ ...prev, vinSolutionsDateRange: false }))
+                                      }
+                                      if (value && vinSolutionsEndDate && urlParams?.enterprise_id && urlParams?.team_id) {
+                                        try {
+                                          const startDateTime = new Date(`${value}T00:00:00`)
+                                          const endDateTime = new Date(`${vinSolutionsEndDate}T23:59:59`)
+                                          await fetchLeadsDataWithCSV(startDateTime, endDateTime)
+                                        } catch (error) {
+                                          console.error('Error fetching lead count:', error)
                                         }
-                                        
-                                        // Fetch lead count if both dates are selected
-                                        if (value && vinSolutionsEndDate && urlParams?.enterprise_id && urlParams?.team_id) {
-                                          try {
-                                            const startDateTime = vinSolutionsStartTime 
-                                              ? new Date(`${value}T${vinSolutionsStartTime}:00`)
-                                              : new Date(`${value}T00:00:00`);
-                                            
-                                            const endDateTime = vinSolutionsEndTime 
-                                              ? new Date(`${vinSolutionsEndDate}T${vinSolutionsEndTime}:00`)
-                                              : new Date(`${vinSolutionsEndDate}T23:59:59`);
-                                            
-                                            await fetchLeadsDataWithCSV(startDateTime, endDateTime);
-                                          } catch (error) {
-                                            console.error('Error fetching lead count:', error);
-                                          }
-                                        }
-                                      }}
-                                    placeholder="Select start date"
-                                      className={errors.vinSolutionsDateRange ? 'border-red-500' : ''}
-                                    // For CRM imports, start date should not be in the future since we're importing historical leads
+                                      }
+                                    }}
+                                    placeholder="Select date"
+                                    className={errors.vinSolutionsDateRange ? 'border-red-500' : ''}
                                     maxDate={new Date().toISOString().split('T')[0]}
                                   />
-                                  <TimePicker
-                                    value={vinSolutionsStartTime}
-                                      onChange={async (value) => {
-                                        setVinSolutionsStartTime(value)
-                                        if (errors.vinSolutionsDateRange && value) {
-                                          setErrors(prev => ({ ...prev, vinSolutionsDateRange: false }))
-                                        }
-                                        
-                                        // Fetch lead count if both dates are selected
-                                        if (vinSolutionsStartDate && vinSolutionsEndDate && urlParams?.enterprise_id && urlParams?.team_id) {
-                                          try {
-                                            const startDateTime = new Date(`${vinSolutionsStartDate}T${value}:00`);
-                                            const endDateTime = vinSolutionsEndTime 
-                                              ? new Date(`${vinSolutionsEndDate}T${vinSolutionsEndTime}:00`)
-                                              : new Date(`${vinSolutionsEndDate}T23:59:59`);
-                                            
-                                            await fetchLeadsDataWithCSV(startDateTime, endDateTime);
-                                          } catch (error) {
-                                            console.error('Error fetching lead count:', error);
-                                          }
-                                        }
-                                      }}
-                                    placeholder="Select start time"
-                                      className={errors.vinSolutionsDateRange ? 'border-red-500' : ''}
-                                    selectedDate={vinSolutionsStartDate}
-                                    isCrmImport={true} // Enable CRM import mode: allow past times, restrict future times for today
-                                  />
                                 </div>
-                              </div>
-                              
-                              {/* End Date/Time Row */}
-                              <div>
-                                <label className="text-[12px] font-normal text-[#6B7280] mb-2 block">To</label>
-                                <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="text-[12px] font-normal text-[#6B7280] mb-2 flex items-center gap-1.5">
+                                    <span>📅</span> To
+                                  </label>
                                   <DatePicker
                                     value={vinSolutionsEndDate}
-                                      onChange={async (value) => {
-                                        setVinSolutionsEndDate(value)
-                                        if (errors.vinSolutionsDateRange && value) {
-                                          setErrors(prev => ({ ...prev, vinSolutionsDateRange: false }))
+                                    onChange={async (value) => {
+                                      setVinSolutionsEndDate(value)
+                                      if (errors.vinSolutionsDateRange && value) {
+                                        setErrors(prev => ({ ...prev, vinSolutionsDateRange: false }))
+                                      }
+                                      if (vinSolutionsStartDate && value && urlParams?.enterprise_id && urlParams?.team_id) {
+                                        try {
+                                          const startDateTime = new Date(`${vinSolutionsStartDate}T00:00:00`)
+                                          const endDateTime = new Date(`${value}T23:59:59`)
+                                          await fetchLeadsDataWithCSV(startDateTime, endDateTime)
+                                        } catch (error) {
+                                          console.error('Error fetching lead count:', error)
                                         }
-                                        
-                                        // Fetch lead count if both dates are selected
-                                        if (vinSolutionsStartDate && value && urlParams?.enterprise_id && urlParams?.team_id) {
-                                          try {
-                                            const startDateTime = vinSolutionsStartTime 
-                                              ? new Date(`${vinSolutionsStartDate}T${vinSolutionsStartTime}:00`)
-                                              : new Date(`${vinSolutionsStartDate}T00:00:00`);
-                                            
-                                            const endDateTime = vinSolutionsEndTime 
-                                              ? new Date(`${value}T${vinSolutionsEndTime}:00`)
-                                              : new Date(`${value}T23:59:59`);
-                                            
-                                            await fetchLeadsDataWithCSV(startDateTime, endDateTime);
-                                          } catch (error) {
-                                            console.error('Error fetching lead count:', error);
-                                          }
-                                        }
-                                      }}
-                                    placeholder="Select end date"
-                                      className={errors.vinSolutionsDateRange ? 'border-red-500' : ''}
-                                    // Allow end date to be up to today + reasonable buffer for CRM imports
+                                      }
+                                    }}
+                                    placeholder="Select date"
+                                    className={errors.vinSolutionsDateRange ? 'border-red-500' : ''}
                                     maxDate={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-                                  />
-                                  <TimePicker
-                                    value={vinSolutionsEndTime}
-                                      onChange={async (value) => {
-                                        setVinSolutionsEndTime(value)
-                                        if (errors.vinSolutionsDateRange && value) {
-                                          setErrors(prev => ({ ...prev, vinSolutionsDateRange: false }))
-                                        }
-                                        
-                                        // Fetch lead count if both dates are selected
-                                        if (vinSolutionsStartDate && vinSolutionsEndDate && urlParams.enterprise_id && urlParams.team_id) {
-                                          try {
-                                            const startDateTime = vinSolutionsStartTime 
-                                              ? new Date(`${vinSolutionsStartDate}T${vinSolutionsStartTime}:00`)
-                                              : new Date(`${vinSolutionsStartDate}T00:00:00`);
-                                            
-                                            const endDateTime = new Date(`${vinSolutionsEndDate}T${value}:00`);
-                                            
-                                            await fetchLeadsDataWithCSV(startDateTime, endDateTime);
-                                          } catch (error) {
-                                            console.error('Error fetching lead count:', error);
-                                          }
-                                        }
-                                      }}
-                                    placeholder="Select end time"
-                                      className={errors.vinSolutionsDateRange ? 'border-red-500' : ''}
-                                    selectedDate={vinSolutionsEndDate}
-                                    isCrmImport={true} // Enable CRM import mode: allow past times, restrict future times for today
                                   />
                                 </div>
                               </div>
-                                {errors.vinSolutionsDateRange && (
-                                  <p className="text-[12px] text-red-600 mt-1">
-                                    Please ensure start date/time is before end date/time, and end date is not more than 7 days in the future
-                                  </p>
-                                )}
+
+                              {errors.vinSolutionsDateRange && (
+                                <p className="text-[12px] text-red-600 mt-1">
+                                  Please ensure start date is before end date
+                                </p>
+                              )}
+                              </>
+                              )}
+
+                              {/* Lead Type & Lead Source */}
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <Label className="text-[12px] font-normal text-[#6B7280] mb-2 block">Lead Type</Label>
+                                  <Select defaultValue="">
+                                    <SelectTrigger className="h-10 text-[14px] border-[#E5E7EB]">
+                                      <SelectValue placeholder="Select lead type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="internet">Internet</SelectItem>
+                                      <SelectItem value="phone">Phone</SelectItem>
+                                      <SelectItem value="walk_in">Walk-in</SelectItem>
+                                      <SelectItem value="referral">Referral</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div>
+                                  <Label className="text-[12px] font-normal text-[#6B7280] mb-2 block">Lead Source</Label>
+                                  <Input
+                                    placeholder="Select lead source"
+                                    className="h-10 text-[14px] border-[#E5E7EB]"
+                                    disabled
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Last Contacted toggle */}
+                              <div className="flex items-center justify-between p-4 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB]">
+                                <div>
+                                  <Label className="text-[14px] font-medium text-[#1A1A1A]">Last contacted</Label>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <input
+                                    type="checkbox"
+                                    className="w-9 h-5 rounded-full appearance-none bg-[#E5E7EB] checked:bg-[#4600F2] relative cursor-pointer transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:rounded-full after:bg-white after:transition-transform checked:after:translate-x-4"
+                                  />
+                                  <Input
+                                    type="number"
+                                    defaultValue={10}
+                                    min={1}
+                                    max={365}
+                                    className="h-9 w-16 text-center text-[14px] border-[#E5E7EB]"
+                                  />
+                                  <span className="text-sm text-[#6B7280]">days ago</span>
+                                </div>
+                              </div>
+
+                              {/* No Appointment Scheduled toggle */}
+                              <div className="flex items-center justify-between p-4 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB]">
+                                <div>
+                                  <Label className="text-[14px] font-medium text-[#1A1A1A]">No Appointment Scheduled in</Label>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <input
+                                    type="checkbox"
+                                    className="w-9 h-5 rounded-full appearance-none bg-[#E5E7EB] checked:bg-[#4600F2] relative cursor-pointer transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:rounded-full after:bg-white after:transition-transform checked:after:translate-x-4"
+                                  />
+                                  <Input
+                                    type="number"
+                                    defaultValue={10}
+                                    min={1}
+                                    max={365}
+                                    className="h-9 w-16 text-center text-[14px] border-[#E5E7EB]"
+                                  />
+                                  <span className="text-sm text-[#6B7280]">days</span>
+                                </div>
+                              </div>
                             </div>
-                            ) : (
-                              /* Recurring Lead Age Filter */
+                              )
+                            })()}
+
+                            {/* Recurring Lead Age — removed; only Date Range Filter is shown */}
+                            {false && (
                               <div className="space-y-4">
                                 <div>
                                   <Label className={`text-[14px] font-medium mb-2 block ${
@@ -724,8 +684,9 @@ export default function Step2FileUpload({
 
              
 
-              {/* Option 3: Upload CSV */}
-              <div 
+              {/* Option 3: Upload CSV — hidden when recurring is enabled */}
+              {!campaignData.vinSolutionsSettings?.enableRecurringLeads && (
+              <div
                 className={`p-4 rounded-lg border cursor-pointer transition-all ${
                   selectedUploadOption === 'upload'
                     ? 'border-[#4600f2] bg-[#4600f2]/5 shadow-sm'
@@ -910,6 +871,7 @@ export default function Step2FileUpload({
                   </div>
                 </div>
               </div>
+              )}
             </div>
 
             {/* Download Sample CSV - Always visible for sales */}

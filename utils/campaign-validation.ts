@@ -90,40 +90,25 @@ export const validateStep = (
         missingFields.push('CRM Selection')
         isValid = false
       } else if (selectedUploadOption === 'crm' && crmSelection === 'vinsolutions') {
-        // Validate VinSolutions settings
-        if (enableRecurringLeads) {
-          // For recurring leads, validate lead age (1-365 days)
-          if (!leadAgeDays || leadAgeDays < 1 || leadAgeDays > 365) {
-            newErrors.leadAgeDays = true
-            missingFields.push('Lead Age (must be between 1-365 days)')
-            isValid = false
-          }
+        // Check recurring from campaignData (set in Step 1) OR local state
+        const isRecurring = campaignData.vinSolutionsSettings?.enableRecurringLeads || enableRecurringLeads
+
+        if (isRecurring) {
+          // Recurring — lead age is configured in Step 1, no date range needed here
+          // Just pass through — no additional validation needed for Step 2
         } else {
-          // For date range filter, validate date/time fields
+          // For date range filter, validate date fields only (time pickers removed)
           if (!vinSolutionsStartDate || !vinSolutionsEndDate) {
             newErrors.vinSolutionsDateRange = true
             missingFields.push('Date Range Selection')
             isValid = false
-          } else if (!vinSolutionsStartTime || !vinSolutionsEndTime) {
-            newErrors.vinSolutionsDateRange = true
-            missingFields.push('Time Range Selection')
-            isValid = false
           } else {
-            // Create full datetime objects for proper comparison
-            const startDateTime = new Date(`${vinSolutionsStartDate}T${vinSolutionsStartTime}:00`)
-            const endDateTime = new Date(`${vinSolutionsEndDate}T${vinSolutionsEndTime}:00`)
-            
-            if (startDateTime >= endDateTime) {
+            const startDate = new Date(`${vinSolutionsStartDate}T00:00:00`)
+            const endDate = new Date(`${vinSolutionsEndDate}T23:59:59`)
+
+            if (startDate >= endDate) {
               newErrors.vinSolutionsDateRange = true
-              missingFields.push('Valid Date Range (Start date/time must be before end date/time)')
-              isValid = false
-            }
-            
-            // Check if end date is not too far in the future (reasonable limit for CRM imports)
-            const maxEndDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
-            if (endDateTime > maxEndDate) {
-              newErrors.vinSolutionsDateRange = true
-              missingFields.push('End date cannot be more than 7 days in the future')
+              missingFields.push('Valid Date Range (Start date must be before end date)')
               isValid = false
             }
           }

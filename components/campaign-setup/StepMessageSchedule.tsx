@@ -5,13 +5,15 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
-import { Plus, Trash2, AlertCircle, Clock, MessageSquare, PhoneCall, Zap, GripVertical, ChevronDown, CalendarPlus, Pencil } from 'lucide-react'
+import { Plus, Trash2, AlertCircle, Clock, MessageSquare, PhoneCall, Zap, GripVertical, CalendarPlus, Pencil, X, Check } from 'lucide-react'
 import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from '@/components/ui/dropdown-menu'
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import type { CampaignData } from '@/types/campaign-setup'
 
 interface StepMessageScheduleProps {
@@ -45,7 +47,7 @@ export default function StepMessageSchedule({
   const schedule = campaignData.messageSchedule || []
   // Track focused textarea index for variable insertion
   const [focusedIdx, setFocusedIdx] = useState<number | null>(null)
-  const [globalEdit, setGlobalEdit] = useState(false)
+  const [editorOpen, setEditorOpen] = useState(false)
 
   const channelMode = campaignData.channelMode || 'both'
   const smsEnabled = channelMode !== 'call'
@@ -61,7 +63,7 @@ export default function StepMessageSchedule({
   const addDay = () => {
     setCampaignData((prev) => {
       const list = prev.messageSchedule || []
-      if (list.length >= 7) return prev
+      if (list.length >= 21) return prev
       return {
         ...prev,
         messageSchedule: [
@@ -70,6 +72,20 @@ export default function StepMessageSchedule({
         ],
       }
     })
+  }
+
+  const setChannelMode = (mode: 'sms' | 'call' | 'both') => {
+    setCampaignData((prev) => ({ ...prev, channelMode: mode }))
+  }
+
+  const updateScript = (key: 'callOpenerScript' | 'callFinalAttemptScript' | 'recapSmsBody', value: string) => {
+    setCampaignData((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const scripts: CallScripts = {
+    callOpener: campaignData.callOpenerScript,
+    callFinalAttempt: campaignData.callFinalAttemptScript,
+    recapSms: campaignData.recapSmsBody,
   }
 
   const removeDay = (idx: number) => {
@@ -121,53 +137,43 @@ export default function StepMessageSchedule({
           <h2 className="text-[24px] font-bold text-[#1A1A1A]">Workflow</h2>
           {channelChip}
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all bg-[#4600F2]/10 text-[#4600F2] hover:bg-[#4600F2]/20"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Options
-              <ChevronDown className="h-3 w-3 ml-0.5" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem
-              onClick={() => setGlobalEdit(!globalEdit)}
-              className="cursor-pointer"
-            >
-              <Pencil className="h-4 w-4 mr-2" />
-              {globalEdit ? 'Done Editing' : 'Edit Workflow'}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={addDay}
-              disabled={schedule.length >= 7}
-              className="cursor-pointer"
-            >
-              <CalendarPlus className="h-4 w-4 mr-2" />
-              Add Date
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <button
+          type="button"
+          onClick={() => setEditorOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all bg-[#4600F2]/10 text-[#4600F2] hover:bg-[#4600F2]/20"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+          Edit Workflow
+        </button>
       </div>
       <p className="text-[14px] text-[#6B7280] leading-[1.5] mb-6">
-        Configure what Vini sends on Day&nbsp;1, Day&nbsp;2, … up to 7 days. Each day&apos;s message only sends if the lead hasn&apos;t replied yet. When they reply, the AI agent takes over the conversation automatically.
+        Configure what Vini sends on Day&nbsp;1, Day&nbsp;2, … up to 21 days. Each day&apos;s message only sends if the lead hasn&apos;t replied yet. When they reply, the AI agent takes over the conversation automatically.
       </p>
 
-      {/* Unified Day-by-Day Timeline */}
+      {/* Unified Day-by-Day Timeline (read-only) */}
       <WorkflowTimeline
         channelMode={channelMode}
         schedule={schedule}
-        updateDay={updateDay}
-        addDay={addDay}
-        removeDay={removeDay}
-        setFocusedIdx={setFocusedIdx}
-        globalEdit={globalEdit}
+        scripts={scripts}
       />
 
       {/* Campaign Offers — below calling script */}
       <CampaignOffers />
+
+      {/* Edit Workflow Modal */}
+      <WorkflowEditorModal
+        open={editorOpen}
+        onClose={() => setEditorOpen(false)}
+        schedule={schedule}
+        updateDay={updateDay}
+        removeDay={removeDay}
+        addDay={addDay}
+        setFocusedIdx={setFocusedIdx}
+        channelMode={channelMode}
+        setChannelMode={setChannelMode}
+        scripts={scripts}
+        updateScript={updateScript}
+      />
     </div>
   )
 }
@@ -200,16 +206,25 @@ function smsSeg(body: string) {
 }
 
 const DAY_TITLES = ['Kickoff', 'Follow-Up', 'Last Check-In', 'Day 4', 'Day 5', 'Day 6', 'Day 7']
-const CALL_OPENER = '"Hi {first_name}, this is Vini calling from {dealership}. You\'d reached out to us a while back about a car — I just wanted to follow up personally. Is this a good time for a quick call?"'
+const DEFAULT_CALL_OPENER = '"Hi {first_name}, this is Vini calling from {dealership}. You\'d reached out to us a while back about a car — I just wanted to follow up personally. Is this a good time for a quick call?"'
+const DEFAULT_FINAL_ATTEMPT_CALL = '"Hi {first_name}, this is Vini from {dealership} — last quick follow-up! I wanted to make sure you saw the options I sent. Any of them catch your eye?"'
+const DEFAULT_RECAP_SMS = 'Hi {first_name}, Vini here. Good speaking with you. I\'ll [send options / check availability / pull numbers] and get back to you by [time] today.\n\nFeel free to reply here if anything comes up.\n\n— Vini'
+
+interface CallScripts {
+  callOpener?: string
+  callFinalAttempt?: string
+  recapSms?: string
+}
 
 function getDayBlocks(
   channelMode: string,
   schedule: { day: number; body: string; sendTime: string }[],
+  scripts: CallScripts = {},
 ): DayBlock[] {
   const smsEnabled = channelMode !== 'call'
   const callEnabled = channelMode !== 'sms'
 
-  // Total days = max(3, schedule.length) for SMS modes, 3 for call-only
+  // Total days = schedule.length when SMS enabled (up to 21), 3 for call-only
   const totalDays = smsEnabled ? Math.max(3, schedule.length) : 3
   const days: DayBlock[] = []
 
@@ -258,20 +273,21 @@ function getDayBlocks(
           title: `Call #${callNum} — ${d <= 2 ? 'First Contact' : 'Final Attempt'}`,
           timing: `Day ${d} · ${d <= 2 ? 'Morning' : 'Afternoon'}`,
           body: d <= 2
-            ? CALL_OPENER
-            : '"Hi {first_name}, this is Vini from {dealership} — last quick follow-up! I wanted to make sure you saw the options I sent. Any of them catch your eye?"',
+            ? (scripts.callOpener || DEFAULT_CALL_OPENER)
+            : (scripts.callFinalAttempt || DEFAULT_FINAL_ATTEMPT_CALL),
           tip: isLast ? 'Final attempt — mark lead as no_response if not picked.' : `If not picked — no voicemail, no SMS. Come back Day ${d + 1}.`,
         }
 
         // Recap SMS after call (blended only)
         if (smsEnabled && d === 2) {
+          const recapBody = scripts.recapSms || DEFAULT_RECAP_SMS
           recapTouchpoint = {
             type: 'recap_sms',
             title: 'Recap SMS — Only if connected',
             timing: `Day ${d} · Post-call only`,
-            body: 'Hi {first_name}, Vini here. Good speaking with you. I\'ll [send options / check availability / pull numbers] and get back to you by [time] today.\n\nFeel free to reply here if anything comes up.\n\n— Vini',
+            body: recapBody,
             tip: 'ONLY send if call was answered. Sets expectation. No call = no SMS.',
-            segmentInfo: '155 chars · 1 segment',
+            segmentInfo: smsSeg(recapBody),
           }
         }
       }
@@ -304,22 +320,13 @@ const typeBadge: Record<string, { bg: string; text: string; label: string }> = {
 function WorkflowTimeline({
   channelMode,
   schedule,
-  updateDay,
-  addDay,
-  removeDay,
-  setFocusedIdx,
-  globalEdit,
+  scripts,
 }: {
   channelMode: string
   schedule: { day: number; body: string; sendTime: string }[]
-  updateDay: (idx: number, patch: Partial<{ body: string; sendTime: string }>) => void
-  addDay: () => void
-  removeDay: (idx: number) => void
-  setFocusedIdx: (idx: number | null) => void
-  globalEdit: boolean
+  scripts?: CallScripts
 }) {
-  const [expandedCall, setExpandedCall] = useState<string | null>(null)
-  const dayBlocks = getDayBlocks(channelMode, schedule)
+  const dayBlocks = getDayBlocks(channelMode, schedule, scripts)
 
   return (
     <div className="space-y-8">
@@ -345,9 +352,6 @@ function WorkflowTimeline({
               <div className="space-y-3">
             {block.touchpoints.map((tp, tpIdx) => {
               const badge = typeBadge[tp.type]
-              const tpKey = `${block.day}-${tpIdx}`
-              const isCallExpanded = expandedCall === tpKey
-              const isEditing = globalEdit
 
               return (
                 <div
@@ -375,40 +379,12 @@ function WorkflowTimeline({
                       </p>
                     )}
 
-                    {/* Body — static by default, editable when globalEdit is ON */}
-                    {tp.editable && globalEdit ? (
-                      <>
-                        <Textarea
-                          value={tp.body}
-                          onChange={(e) => {
-                            const smsIdx = schedule.findIndex((s) => s.body === tp.body)
-                            if (smsIdx >= 0) updateDay(smsIdx, { body: e.target.value })
-                          }}
-                          onFocus={() => {
-                            const smsIdx = schedule.findIndex((s) => s.body === tp.body)
-                            if (smsIdx >= 0) setFocusedIdx(smsIdx)
-                          }}
-                          rows={3}
-                          className="text-sm"
-                          autoFocus
-                        />
-                        {tp.segmentInfo && (
-                          <p className="mt-1.5 text-xs font-medium text-[#10B981]">{tp.segmentInfo}</p>
-                        )}
-                      </>
-                    ) : (
-                      <p className="text-sm text-[#374151] leading-relaxed">
-                        {tp.body}
-                      </p>
-                    )}
+                    <p className="text-sm text-[#374151] leading-relaxed">
+                      {tp.body}
+                    </p>
 
-                    {/* Segment info for static SMS view */}
-                    {tp.editable && !globalEdit && tp.segmentInfo && (
-                      <p className="mt-1.5 text-xs font-medium text-[#10B981]">{tp.segmentInfo}</p>
-                    )}
-
-                    {/* Non-editable segment info (call recap etc) */}
-                    {!tp.editable && tp.segmentInfo && (
+                    {/* Segment info */}
+                    {tp.segmentInfo && (
                       <p className="mt-1.5 text-xs font-medium text-[#10B981]">{tp.segmentInfo}</p>
                     )}
 
@@ -442,6 +418,320 @@ function WorkflowTimeline({
         </div>
       )}
     </div>
+  )
+}
+
+// ── Workflow Editor Modal ─────────────────────────────────────────────────
+
+function WorkflowEditorModal({
+  open,
+  onClose,
+  schedule,
+  updateDay,
+  removeDay,
+  addDay,
+  setFocusedIdx,
+  channelMode,
+  setChannelMode,
+  scripts,
+  updateScript,
+}: {
+  open: boolean
+  onClose: () => void
+  schedule: { day: number; body: string; sendTime: string }[]
+  updateDay: (idx: number, patch: Partial<{ body: string; sendTime: string }>) => void
+  removeDay: (idx: number) => void
+  addDay: () => void
+  setFocusedIdx: (idx: number | null) => void
+  channelMode: 'sms' | 'call' | 'both'
+  setChannelMode: (mode: 'sms' | 'call' | 'both') => void
+  scripts: CallScripts
+  updateScript: (key: 'callOpenerScript' | 'callFinalAttemptScript' | 'recapSmsBody', value: string) => void
+}) {
+  const channelOptions: Array<{ value: 'sms' | 'call' | 'both'; label: string; icon: typeof MessageSquare; iconColor: string; bg: string; border: string }> = [
+    { value: 'sms',  label: 'SMS Only',  icon: MessageSquare, iconColor: 'text-[#10B981]', bg: 'bg-[#ECFDF5]', border: 'border-[#10B981]' },
+    { value: 'call', label: 'Call Only', icon: PhoneCall,     iconColor: 'text-[#3B82F6]', bg: 'bg-[#EFF6FF]', border: 'border-[#3B82F6]' },
+    { value: 'both', label: 'SMS + Call', icon: Zap,           iconColor: 'text-[#7C3AED]', bg: 'bg-[#F5F3FF]', border: 'border-[#7C3AED]' },
+  ]
+
+  // Per-day chips: matches the workflow timeline logic outside the modal.
+  // SMS mode → every day = SMS
+  // Call mode → every day = CALL
+  // SMS + Call mode → Day 1 = SMS; Day 2 = CALL + SMS; last day = CALL + SMS; everything else = SMS
+  const getDayChips = (day: number): Array<'sms' | 'call'> => {
+    if (channelMode === 'sms') return ['sms']
+    if (channelMode === 'call') return ['call']
+    const totalDays = schedule.length
+    const isLast = day === totalDays && day >= 3
+    if (day === 1) return ['sms']
+    if (day === 2 || isLast) return ['call', 'sms']
+    return ['sms']
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+      <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col p-0 gap-0 bg-[#F9FAFB]">
+        <DialogHeader className="px-6 py-5 border-b border-gray-100 flex-shrink-0 bg-white rounded-t-lg">
+          <DialogTitle className="text-[18px] font-bold text-[#1A1A1A]">
+            Edit Workflow
+          </DialogTitle>
+          <DialogDescription className="text-[13px] text-[#6B7280] mt-1">
+            Choose your channel and customize the SMS body and send time for each day. Day 1 is required and cannot be removed.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          {/* Channel Selector */}
+          <div>
+            <label className="text-[11px] font-bold text-[#6B7280] uppercase tracking-wide mb-2 block">
+              Channel
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {channelOptions.map((opt) => {
+                const Icon = opt.icon
+                const isActive = channelMode === opt.value
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setChannelMode(opt.value)}
+                    className={`relative flex items-center gap-2 px-3 py-2.5 rounded-[10px] border-2 transition-all text-sm font-medium ${
+                      isActive
+                        ? `${opt.border} ${opt.bg} text-[#1A1A1A]`
+                        : 'border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#D1D5DB]'
+                    }`}
+                  >
+                    <Icon className={`h-4 w-4 ${isActive ? opt.iconColor : 'text-[#9CA3AF]'}`} />
+                    <span>{opt.label}</span>
+                    {isActive && (
+                      <Check className="h-3.5 w-3.5 ml-auto text-[#4600F2]" />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-gray-100" />
+
+          {/* Per-day editor */}
+          <div className="space-y-4">
+          {channelMode === 'call' ? (
+            // Call Only — show 2 Call cards (First Contact + Final Attempt). No SMS schedule.
+            <>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 px-1">
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#4600F2]/10 text-[#4600F2] text-xs font-bold">1</span>
+                  <span className="text-[13px] font-semibold text-[#1A1A1A]">Day 1</span>
+                </div>
+                <div className="rounded-[12px] border border-[#E5E7EB] bg-white">
+                  <div className="flex items-center justify-between px-4 py-2.5 bg-[#EFF6FF] border-b border-[#DBEAFE] rounded-t-[12px]">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-[#DBEAFE] text-[#1D4ED8]">CALL</span>
+                      <span className="text-[13px] font-semibold text-[#1A1A1A]">#1 — First Contact</span>
+                    </div>
+                    <span className="text-[11px] text-[#9CA3AF]">Morning</span>
+                  </div>
+                  <div className="px-4 py-3">
+                    <Textarea
+                      value={scripts.callOpener || DEFAULT_CALL_OPENER}
+                      onChange={(e) => updateScript('callOpenerScript', e.target.value)}
+                      rows={3}
+                      className="text-sm"
+                      placeholder="Enter the call opener script..."
+                    />
+                    <p className="mt-1.5 text-[11px] text-[#6B7280]">Spoken script — read by the AI agent on the call.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 px-1">
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#4600F2]/10 text-[#4600F2] text-xs font-bold">3</span>
+                  <span className="text-[13px] font-semibold text-[#1A1A1A]">Day 3</span>
+                </div>
+                <div className="rounded-[12px] border border-[#E5E7EB] bg-white">
+                  <div className="flex items-center justify-between px-4 py-2.5 bg-[#EFF6FF] border-b border-[#DBEAFE] rounded-t-[12px]">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-[#DBEAFE] text-[#1D4ED8]">CALL</span>
+                      <span className="text-[13px] font-semibold text-[#1A1A1A]">#2 — Final Attempt</span>
+                    </div>
+                    <span className="text-[11px] text-[#9CA3AF]">Afternoon</span>
+                  </div>
+                  <div className="px-4 py-3">
+                    <Textarea
+                      value={scripts.callFinalAttempt || DEFAULT_FINAL_ATTEMPT_CALL}
+                      onChange={(e) => updateScript('callFinalAttemptScript', e.target.value)}
+                      rows={3}
+                      className="text-sm"
+                      placeholder="Enter the final attempt call script..."
+                    />
+                    <p className="mt-1.5 text-[11px] text-[#6B7280]">Last call attempt before marking the lead as no-response.</p>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+          {schedule.map((msg, idx) => {
+            const chars = msg.body.length
+            const segments = Math.max(1, Math.ceil(chars / 160))
+            const segCls =
+              chars === 0 ? 'text-[#9CA3AF]' :
+              chars <= 160 ? 'text-[#10B981]' :
+              chars <= 320 ? 'text-[#CA8A04]' :
+              chars <= 480 ? 'text-[#F97316]' :
+                             'text-[#EF4444]'
+            const totalDays = schedule.length
+            const isLastDay = msg.day === totalDays && msg.day >= 3
+            const showCall = channelMode === 'both' && (msg.day === 2 || isLastDay)
+            const showRecap = channelMode === 'both' && msg.day === 2
+            const callBody = isLastDay && msg.day >= 3
+              ? (scripts.callFinalAttempt || DEFAULT_FINAL_ATTEMPT_CALL)
+              : (scripts.callOpener || DEFAULT_CALL_OPENER)
+            const callKey: 'callOpenerScript' | 'callFinalAttemptScript' = (isLastDay && msg.day >= 3) ? 'callFinalAttemptScript' : 'callOpenerScript'
+            const recapBody = scripts.recapSms || DEFAULT_RECAP_SMS
+            const recapChars = recapBody.length
+            const recapSegs = Math.max(1, Math.ceil(recapChars / 160))
+
+            return (
+              <div key={idx} className="space-y-2">
+                {/* Day header */}
+                <div className="flex items-center gap-2 px-1">
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#4600F2]/10 text-[#4600F2] text-xs font-bold">
+                    {msg.day}
+                  </span>
+                  <span className="text-[13px] font-semibold text-[#1A1A1A]">Day {msg.day}</span>
+                </div>
+
+                {/* Call card (Day 2 First Contact, or Final Attempt on last day) */}
+                {showCall && (
+                  <div className="rounded-[12px] border border-[#E5E7EB] bg-white">
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-[#EFF6FF] border-b border-[#DBEAFE] rounded-t-[12px]">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-[#DBEAFE] text-[#1D4ED8]">CALL</span>
+                        <span className="text-[13px] font-semibold text-[#1A1A1A]">
+                          {isLastDay && msg.day >= 3 ? `#2 — Final Attempt` : `#1 — First Contact`}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-[#9CA3AF]">{isLastDay && msg.day >= 3 ? 'Afternoon' : 'Morning'}</span>
+                    </div>
+                    <div className="px-4 py-3">
+                      <Textarea
+                        value={callBody}
+                        onChange={(e) => updateScript(callKey, e.target.value)}
+                        rows={3}
+                        className="text-sm"
+                        placeholder="Enter the call opener script..."
+                      />
+                      <p className="mt-1.5 text-[11px] text-[#6B7280]">Spoken script — read by the AI agent on the call.</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* SMS card */}
+                <div className="rounded-[12px] border border-[#E5E7EB] bg-white">
+                  <div className="flex items-center justify-between px-4 py-2.5 bg-[#F9FAFB] border-b border-[#E5E7EB] rounded-t-[12px]">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-[#D1FAE5] text-[#065F46]">SMS</span>
+                      <span className="text-[13px] font-semibold text-[#1A1A1A]">
+                        {msg.day === 1 ? '#1 — Opening' : `Day ${msg.day} message`}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-3.5 w-3.5 text-[#9CA3AF]" />
+                      <Input
+                        type="time"
+                        value={msg.sendTime}
+                        onChange={(e) => updateDay(idx, { sendTime: e.target.value })}
+                        className="h-7 w-[110px] text-xs"
+                      />
+                      {idx > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => removeDay(idx)}
+                          className="p-1 rounded text-[#9CA3AF] hover:text-[#EF4444] hover:bg-[#FEF2F2] transition-colors"
+                          title="Remove day"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="px-4 py-3">
+                    <Textarea
+                      value={msg.body}
+                      onChange={(e) => updateDay(idx, { body: e.target.value })}
+                      onFocus={() => setFocusedIdx(idx)}
+                      rows={3}
+                      className="text-sm"
+                      placeholder="Enter the SMS body for this day..."
+                    />
+                    <p className={`mt-1.5 text-xs font-medium ${segCls}`}>
+                      {chars} / 480 chars · {segments} segment{segments === 1 ? '' : 's'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Recap SMS card (only Day 2 of SMS+Call) */}
+                {showRecap && (
+                  <div className="rounded-[12px] border border-[#E5E7EB] bg-white">
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-[#ECFDF5] border-b border-[#D1FAE5] rounded-t-[12px]">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-[#D1FAE5] text-[#065F46]">SMS</span>
+                        <span className="text-[13px] font-semibold text-[#1A1A1A]">Recap — Only if connected</span>
+                      </div>
+                      <span className="text-[11px] text-[#9CA3AF]">Post-call only</span>
+                    </div>
+                    <div className="px-4 py-3">
+                      <Textarea
+                        value={recapBody}
+                        onChange={(e) => updateScript('recapSmsBody', e.target.value)}
+                        rows={3}
+                        className="text-sm"
+                        placeholder="Recap message sent after a connected call..."
+                      />
+                      <p className="mt-1.5 text-xs font-medium text-[#10B981]">
+                        {recapChars} / 480 chars · {recapSegs} segment{recapSegs === 1 ? '' : 's'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+
+            {schedule.length < 21 && (
+              <button
+                type="button"
+                onClick={addDay}
+                className="w-full rounded-[12px] border-2 border-dashed border-[#E5E7EB] bg-white hover:bg-[#F9FAFB] hover:border-[#4600F2]/40 transition-all py-4 flex items-center justify-center gap-2 text-sm font-medium text-[#6B7280] hover:text-[#4600F2]"
+              >
+                <Plus className="h-4 w-4" />
+                Add Day {schedule.length + 1}
+              </button>
+            )}
+            </>
+          )}
+          </div>
+        </div>
+
+        <DialogFooter className="px-6 py-4 border-t border-gray-100 flex-shrink-0 bg-white rounded-b-lg">
+          <div className="flex items-center justify-between w-full">
+            <span className="text-xs text-[#6B7280]">
+              {channelMode === 'call'
+                ? '2 call attempts configured'
+                : `${schedule.length} of 21 days configured`}
+            </span>
+            <Button onClick={onClose} className="bg-[#4600F2] hover:bg-[#3800c2] text-white">
+              <Check className="h-4 w-4 mr-1.5" />
+              Done
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

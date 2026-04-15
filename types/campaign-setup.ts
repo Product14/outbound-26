@@ -104,6 +104,12 @@ export interface CampaignData {
     body: string;
     sendTime: string; // "HH:MM"
   }>;
+  /** Editable Call opener script (used on Day 2 First Contact in SMS+Call mode, or Day 1 in Call-only) */
+  callOpenerScript?: string;
+  /** Editable Final Attempt call script (used on the last day in SMS+Call mode when day >= 3) */
+  callFinalAttemptScript?: string;
+  /** Editable Recap SMS sent after a connected call on Day 2 in SMS+Call mode */
+  recapSmsBody?: string;
   /** PRD §Step 4 — SMS quiet hours (lead's local timezone) */
   smsQuietStart?: string;
   smsQuietEnd?: string;

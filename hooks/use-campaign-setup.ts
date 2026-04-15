@@ -9,6 +9,22 @@ import { ParsedCustomerData, type ParseResult } from '@/lib/file-parser'
 import { Agent } from '@/lib/agent-api'
 import { CampaignTypesResponse } from '@/lib/campaign-api'
 
+function buildDefaultSchedule(totalDays: number): CampaignData['messageSchedule'] {
+  const day1 = 'Hi {first_name}, this is Vini from {dealership}. I noticed you were looking at the {vehicle} a while back — are you still in the market? Reply here and I can help! Reply STOP to opt out.'
+  const day2 = 'Hey {first_name}, just following up on the {vehicle}. We have some new offers this week that might interest you. Want to hear more?'
+  const day3 = '{first_name}, last check-in about the {vehicle}. If you\'d like to chat, just reply here or I can give you a quick call. No pressure either way!'
+  const followUp = (d: number) => `Hi {first_name}, Vini here again. Just keeping the door open on the {vehicle} — happy to help whenever you\'re ready. Reply STOP to opt out.`
+  const schedule: NonNullable<CampaignData['messageSchedule']> = []
+  for (let d = 1; d <= totalDays; d++) {
+    let body = followUp(d)
+    if (d === 1) body = day1
+    else if (d === 2) body = day2
+    else if (d === 3) body = day3
+    schedule.push({ day: d, body, sendTime: d % 2 === 0 ? '14:00' : '10:00' })
+  }
+  return schedule
+}
+
 const initialCampaignData: CampaignData = {
   campaignName: '',
   useCase: 'sales',
@@ -64,23 +80,10 @@ const initialCampaignData: CampaignData = {
     textFinanceLink: false,
   },
   channelMode: 'both',
-  messageSchedule: [
-    {
-      day: 1,
-      body: 'Hi {first_name}, this is Vini from {dealership}. I noticed you were looking at the {vehicle} a while back — are you still in the market? Reply here and I can help! Reply STOP to opt out.',
-      sendTime: '10:00',
-    },
-    {
-      day: 2,
-      body: 'Hey {first_name}, just following up on the {vehicle}. We have some new offers this week that might interest you. Want to hear more?',
-      sendTime: '14:00',
-    },
-    {
-      day: 3,
-      body: '{first_name}, last check-in about the {vehicle}. If you\'d like to chat, just reply here or I can give you a quick call. No pressure either way!',
-      sendTime: '11:00',
-    },
-  ],
+  messageSchedule: buildDefaultSchedule(21),
+  callOpenerScript: '"Hi {first_name}, this is Vini calling from {dealership}. You\'d reached out to us a while back about a car — I just wanted to follow up personally. Is this a good time for a quick call?"',
+  callFinalAttemptScript: '"Hi {first_name}, this is Vini from {dealership} — last quick follow-up! I wanted to make sure you saw the options I sent. Any of them catch your eye?"',
+  recapSmsBody: 'Hi {first_name}, Vini here. Good speaking with you. I\'ll [send options / check availability / pull numbers] and get back to you by [time] today.\n\nFeel free to reply here if anything comes up.\n\n— Vini',
   smsQuietStart: '09:00',
   smsQuietEnd: '21:00',
   voicemailFallbackSms: 'Hi {first_name}, this is Vini from {dealership}. I just tried calling about the {vehicle} — feel free to text me back here or let me know a good time to call!',

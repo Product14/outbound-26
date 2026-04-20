@@ -113,12 +113,22 @@ export interface SmsMessage {
   day?: number
   dateLabel?: string
   preBanner?: {
-    variant: 'eod' | 'escalation'
+    variant: 'eod' | 'escalation' | 'callAttempted'
     text: string
   }
   postCall?: {
     duration: string
     outcome: string
     startedAt: string
+  }
+  voicemail?: {
+    duration: string
+    startedAt: string
+    description?: string
+  }
+  standaloneCall?: {
+    duration: string
+    startedAt: string
+    description?: string
   }
 }

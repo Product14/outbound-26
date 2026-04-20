@@ -15,6 +15,7 @@ interface AudioPlayerProps {
   onDurationChange?: (duration: number) => void;
   onEnded?: () => void; // New prop for when audio finishes playing
   hideControls?: boolean; // New prop to hide internal controls
+  hideSeekButtons?: boolean; // Hide the ±5s seek buttons
   onError?: (message: string) => void; // Notify parent of playback errors
 }
 
@@ -55,7 +56,7 @@ const AudioPlayerButton = ({
 };
 
 const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
-  ({ audioUrl, showWaveform = false, autoPlay = false, onTimeUpdate, onPlay, onPause, onDurationChange, onEnded, hideControls = false, onError }, ref) => {
+  ({ audioUrl, showWaveform = false, autoPlay = false, onTimeUpdate, onPlay, onPause, onDurationChange, onEnded, hideControls = false, hideSeekButtons = false, onError }, ref) => {
     const audioPlayerRef = useRef<HTMLAudioElement>(null);
     const htmlAudioRef = useRef<HTMLAudioElement>(null);
     const wavesurferContainerRef = useRef<HTMLDivElement>(null);
@@ -406,18 +407,20 @@ const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
     }
 
     return (
-      <div className="flex w-full items-center gap-3 rounded-[200px] bg-white px-[14px] py-2">
+      <div className="flex w-full items-center gap-3 rounded-[6px] px-[14px] py-2" style={{ backgroundColor: '#f9fafb', border: '1px solid rgba(0,0,0,0.1)' }}>
         <div className="flex items-center gap-3">
-          <AudioPlayerButton
-            icon={<RiReplay5Line className="text-black-80 h-4 w-4" />}
-            onClick={() =>
-              handleSeek(
-                showWaveform
-                  ? wavesurferCurrentTime - 5
-                  : (audioPlayerRef?.current?.currentTime || 0) - 5
-              )
-            }
-          />
+          {!hideSeekButtons && (
+            <AudioPlayerButton
+              icon={<RiReplay5Line className="text-black-80 h-4 w-4" />}
+              onClick={() =>
+                handleSeek(
+                  showWaveform
+                    ? wavesurferCurrentTime - 5
+                    : (audioPlayerRef?.current?.currentTime || 0) - 5
+                )
+              }
+            />
+          )}
           <div
             className="flex h-[38px] w-[38px] cursor-pointer items-center justify-center rounded-full bg-[#4600F2]"
             onClick={togglePlayPause}
@@ -431,16 +434,18 @@ const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
               <IoMdPlay className="h-4 w-4 text-white" />
             )}
           </div>
-          <AudioPlayerButton
-            icon={<RiForward5Line className="text-black-80 h-4 w-4" />}
-            onClick={() =>
-              handleSeek(
-                showWaveform
-                  ? wavesurferCurrentTime + 5
-                  : (audioPlayerRef?.current?.currentTime || 0) + 5
-              )
-            }
-          />
+          {!hideSeekButtons && (
+            <AudioPlayerButton
+              icon={<RiForward5Line className="text-black-80 h-4 w-4" />}
+              onClick={() =>
+                handleSeek(
+                  showWaveform
+                    ? wavesurferCurrentTime + 5
+                    : (audioPlayerRef?.current?.currentTime || 0) + 5
+                )
+              }
+            />
+          )}
         </div>
         <div className="text-sm font-normal tabular-nums text-black">
           <span>

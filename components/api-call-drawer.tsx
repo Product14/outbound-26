@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { Play, Pause, Calendar, Car, User, Phone, PhoneCall, Clock, ChevronDown, ChevronRight, Edit, X, Bot, AlertCircle, Wrench, Mail, FileText, Tag, MapPin, Loader2, Download, RotateCcw, ArrowDown, MessageSquare, Zap } from "lucide-react"
+import { Play, Pause, Calendar, Car, User, Phone, PhoneCall, Clock, ChevronDown, ChevronRight, ChevronUp, Edit, X, Bot, AlertCircle, Wrench, Mail, FileText, Tag, MapPin, Loader2, Download, RotateCcw, ArrowDown, MessageSquare, Zap, Star, Activity, BarChart2 } from "lucide-react"
 import AudioPlayer from "@/components/ui/audio-player"
 import { RightPanelShimmer } from "@/components/ui/right-panel-shimmer"
 import { useEndCallReport, type EndCallReportData } from "@/hooks/use-end-call-report"
@@ -27,7 +27,42 @@ interface ApiCallDrawerProps {
   hideTranscript?: boolean
 }
 
-export function ApiCallDrawer({ 
+function StandaloneCallCard({ postCall }: { postCall: { startedAt: string; duration: string; outcome: string; recordingUrl?: string } }) {
+  const demoUrl = postCall.recordingUrl || ''
+
+  return (
+    <div className="rounded-[8px] border overflow-hidden" style={{ borderColor: 'rgba(199,210,254,0.6)' }}>
+      {/* Card header */}
+      <div className="flex items-center gap-2 px-3 py-2.5" style={{ backgroundColor: 'rgba(244,243,255,0.8)' }}>
+        <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 bg-[#3658c7]">
+          <PhoneCall className="h-3.5 w-3.5 text-white" />
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[13px] font-medium text-[#3658c7] leading-tight">Standalone Call</span>
+            <span className="text-[10px] whitespace-nowrap" style={{ color: 'rgba(0,0,0,0.5)' }}>{postCall.startedAt} · {postCall.duration}</span>
+          </div>
+          <p className="text-[11px] leading-tight" style={{ color: 'rgba(10,10,10,0.6)' }}>{postCall.outcome}</p>
+        </div>
+      </div>
+      {/* Divider */}
+      <div style={{ height: '1px', backgroundColor: 'rgba(199,210,254,0.6)' }} />
+      {/* Audio player */}
+      <div className="px-3 py-2" style={{ backgroundColor: '#f9fafb' }}>
+        <AudioPlayer
+          key="standalone-call-player"
+          audioUrl={demoUrl}
+          showWaveform={true}
+          autoPlay={false}
+          hideControls={false}
+          hideSeekButtons={true}
+        />
+      </div>
+    </div>
+  )
+}
+
+export function ApiCallDrawer({
   call, 
   open, 
   onClose, 
@@ -526,7 +561,6 @@ export function ApiCallDrawer({
 
     const sections = [
       { ref: highlightsSectionRef, tab: 'highlights' as const },
-      { ref: customerSectionRef, tab: 'customer' as const },
       { ref: summarySectionRef, tab: 'summary' as const },
       { ref: appointmentSectionRef, tab: 'appointment' as const },
       { ref: smsSectionRef, tab: 'sms' as const },
@@ -987,47 +1021,26 @@ export function ApiCallDrawer({
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-white">
+    <div className="h-full w-full flex flex-col" style={{ backgroundColor: '#fafbfc' }}>
       {/* Content Area */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto bg-white overscroll-contain">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overscroll-contain" style={{ backgroundColor: '#fafbfc' }}>
         {/* Sticky Header + Recording + Tabs */}
-        <div className="sticky top-0 z-30 bg-white/95 backdrop-blur border-0">
-          <div className="px-6 pt-2 pb-6">
-            {/* Close Button - Positioned in top right */}
-            <div className="flex justify-end mb-0">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={onClose} 
-                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-lg transition-all duration-300 ease-out hover:scale-105 active:scale-95 ripple-effect"
-                style={{ transition: 'all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1)' }}
-              >
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
-            
-            {/* Call Title */}
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                <Phone className="h-5 w-5 text-gray-600" />
+        <div className="sticky top-0 z-30 backdrop-blur bg-white">
+          <div className="px-6 py-4 border-b border-black/10">
+            {/* Call Header + Close Button inline */}
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-[10px] flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#00bc7c' }}>
+                <span className="text-base font-bold text-white">
+                  {getCustomerInitials(call)}
+                </span>
               </div>
               <div className="flex-1 min-w-0">
-                <h1 className="text-xl font-semibold text-gray-900 leading-tight break-words mb-3">
-                  {getCallTitle(call)}
+                <h1 className="text-[17px] font-semibold leading-tight" style={{ color: 'rgba(0,0,0,0.8)' }}>
+                  {getCustomerDisplayName(call)}
                 </h1>
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Clock className="h-4 w-4" />
-                  <span>{getTimeAgo(call)}</span>
-                  {/* Agent Info */}
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden">
-                      <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-[10px] font-medium">
-                        {(reportData?.agentInfo?.name || call.agentInfo?.agentName || call.agentConfig?.agentName || 'AI Agent').slice(0, 2).toUpperCase()}
-                      </div>
-                    </div>
-                    <span className="font-medium">{reportData?.agentInfo?.name || call.agentInfo?.agentName || call.agentConfig?.agentName || 'AI Agent'}</span>
-                  </div>
-                </div>
+                <p className="text-[13px] mt-0.5" style={{ color: 'rgba(0,0,0,0.4)' }}>
+                  Last Interacted at {getTimeAgo(call)}
+                </p>
               </div>
               {detailsLoading && (
                 <div className="flex items-center gap-2 text-gray-600">
@@ -1035,16 +1048,24 @@ export function ApiCallDrawer({
                   <span className="text-sm">Loading...</span>
                 </div>
               )}
+              <Button
+                variant="ghost"
+                onClick={onClose}
+                className="hover:bg-black/5 p-2 rounded-lg transition-all duration-300 ease-out hover:scale-105 active:scale-95 flex-shrink-0"
+                style={{ color: 'rgba(0,0,0,0.4)', transition: 'all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1)' }}
+              >
+                <X className="h-6 w-6" />
+              </Button>
             </div>
-                
+
             {/* Error State */}
             {detailsError && (
               <div className="flex items-center gap-2 text-red-700 mb-4 bg-red-50 rounded-lg p-3 border border-red-200">
                 <AlertCircle className="h-4 w-4" />
                 <span className="text-sm">Error loading details: {detailsError}</span>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={retry}
                   className="ml-2 h-7 px-3 text-xs bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
                 >
@@ -1053,7 +1074,52 @@ export function ApiCallDrawer({
               </div>
             )}
           </div>
-      
+
+          {/* ── Record Details ── */}
+          <div className="px-6 pt-4 pb-3 border-b border-black/10">
+            <div className="flex items-center gap-1.5 mb-3">
+              <Star className="w-4 h-4" style={{ color: 'rgba(0,0,0,0.4)' }} />
+              <span className="text-[13px] font-semibold" style={{ color: 'rgba(0,0,0,0.6)' }}>Record Details</span>
+            </div>
+
+            {/* Cards — fill full width equally */}
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {/* Phone */}
+              <div className="rounded-[12px] p-3 flex flex-col gap-2" style={{ backgroundColor: '#f7f7f7' }}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-medium" style={{ color: 'rgba(0,0,0,0.4)' }}>Phone</span>
+                  <Phone className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'rgba(0,0,0,0.3)' }} />
+                </div>
+                <p className="text-[13px] font-semibold truncate" style={{ color: 'rgba(0,0,0,0.8)' }}>
+                  {reportData?.customerInfo?.phone || getCustomerDisplayPhone(call) || 'Not Available'}
+                </p>
+              </div>
+
+              {/* Email */}
+              <div className="rounded-[12px] p-3 flex flex-col gap-2" style={{ backgroundColor: '#f7f7f7' }}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-medium" style={{ color: 'rgba(0,0,0,0.4)' }}>Email</span>
+                  <Mail className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'rgba(0,0,0,0.3)' }} />
+                </div>
+                <p className="text-[13px] font-semibold truncate" style={{ color: 'rgba(0,0,0,0.8)' }}>
+                  {reportData?.customerInfo?.email || call.customer.email || 'Not Available'}
+                </p>
+              </div>
+
+              {/* Created On */}
+              <div className="rounded-[12px] p-3 flex flex-col gap-2" style={{ backgroundColor: '#f7f7f7' }}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-medium" style={{ color: 'rgba(0,0,0,0.4)' }}>Created on</span>
+                  <Calendar className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'rgba(0,0,0,0.3)' }} />
+                </div>
+                <p className="text-[13px] font-semibold truncate" style={{ color: 'rgba(0,0,0,0.8)' }}>
+                  {new Date(call.started_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
+              </div>
+            </div>
+
+          </div>
+
       {/* Recording Section */}
       {reportData?.recordingUrl && (
         <div className="bg-white">
@@ -1306,19 +1372,6 @@ export function ApiCallDrawer({
               )}
             </button>
             <button
-              onClick={() => scrollToSection(customerSectionRef, 'customer')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap relative hover:bg-gray-50 active:bg-gray-100 ${
-                activeTab === 'customer'
-                  ? 'border-[#4600f2] text-[#4600f2]'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Customer
-              {activeTab === 'customer' && (
-                <div className="absolute -bottom-0.5 left-1/2 transform -translate-x-1/2 w-1 h-0.5 bg-[#4600f2] rounded-full" />
-              )}
-            </button>
-            <button
               onClick={() => scrollToSection(summarySectionRef, 'summary')}
               className={`py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap relative hover:bg-gray-50 active:bg-gray-100 ${
                 activeTab === 'summary'
@@ -1385,115 +1438,64 @@ export function ApiCallDrawer({
         </div>
 
       {/* Content Area */}
-      <div className="flex-none">
+      <div className="flex-none" style={{ backgroundColor: '#fafbfc' }}>
         <div className="px-6 py-6">
 
           {detailsLoading ? (
             <RightPanelShimmer />
           ) : (
-            <div className="divide-y divide-gray-100 [&>*]:py-6 first:[&>*]:pt-0 last:[&>*]:pb-0">
+            <div className="divide-y divide-black/[0.06] [&>*]:py-6 first:[&>*]:pt-0 last:[&>*]:pb-0">
               {/* Key Highlights */}
               <div ref={highlightsSectionRef} className="space-y-3">
-                <h3 className="text-sm font-medium text-gray-900 mb-4 flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 text-gray-700/30" />
+                <h3 className="text-[13px] font-semibold mb-3 flex items-center gap-2" style={{ color: 'rgba(0,0,0,0.8)' }}>
+                  <AlertCircle className="h-4 w-4" style={{ color: 'rgba(0,0,0,0.3)' }} />
                   Key Highlights
                 </h3>
-                
-                <div className="bg-gray-50/50 rounded-lg p-5 border border-gray-100">
-                  <ul className="space-y-4">
-                    {getTopHighlights.highlights.map((highlight, index) => (
-                      <li key={index} className="flex gap-4">
-                        <span className="text-gray-400 font-medium text-sm mt-0.5 flex-shrink-0 w-4">{index + 1}.</span>
-                        <span className="text-sm text-gray-700 leading-relaxed">{highlight}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
 
-              {/* Customer Information */}
-              <div ref={customerSectionRef} className="space-y-3">
-                <h3 className="text-sm font-medium text-gray-900 mb-4 flex items-center gap-2">
-                  <User className="h-4 w-4 text-gray-700/30" />
-                  Customer Information
-                </h3>
-                
-                <div className="border border-gray-200 rounded-lg p-5 bg-white space-y-4">
-                  {/* Customer Name */}
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                      <User className="h-5 w-5 text-blue-600" />
+                <div className="bg-white rounded-xl border border-black/10 overflow-hidden">
+                  {getTopHighlights.highlights.map((highlight, index) => (
+                    <div key={index} className="flex items-start gap-3 px-4 py-3 border-b border-black/10 last:border-b-0">
+                      <span
+                        className="flex-shrink-0 w-5 h-5 rounded-full border border-black/10 flex items-center justify-center text-[10px] font-semibold mt-0.5"
+                        style={{ backgroundColor: '#fafbfc', color: 'rgba(0,0,0,0.5)' }}
+                      >
+                        {index + 1}
+                      </span>
+                      <span className="text-[13px] leading-relaxed" style={{ color: 'rgba(0,0,0,0.7)' }}>{highlight}</span>
                     </div>
-                    <div className="flex-1">
-                      <div className="text-xs font-medium text-gray-500 mb-1">Customer Name</div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {reportData?.customerInfo?.name || getCustomerDisplayName(call)}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Phone Number */}
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                      <Phone className="h-5 w-5 text-green-600" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-xs font-medium text-gray-500 mb-1">Phone Number</div>
-                      <div className={`text-sm font-mono ${getCustomerDisplayPhone(call) !== "Called from Web" ? 'text-gray-900' : 'text-gray-400 italic'}`}>
-                        {reportData?.customerInfo?.phone || getCustomerDisplayPhone(call)}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Email */}
-                  {(reportData?.customerInfo?.email || call.customer.email) && (
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                        <Mail className="h-5 w-5 text-purple-600" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-xs font-medium text-gray-500 mb-1">Email Address</div>
-                        <div className="text-sm text-gray-900">
-                          {reportData?.customerInfo?.email || call.customer.email}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Show message if no contact information is available */}
-                  {!reportData?.customerInfo?.email && !call.customer.email && !reportData?.customerInfo?.phone && !call.customer.phone && (
-                    <div className="text-center py-3">
-                      <div className="text-sm text-gray-500">
-                        Limited contact information available
-                      </div>
-                    </div>
-                  )}
+                  ))}
                 </div>
               </div>
 
               {/* Call Summary */}
               <div ref={summarySectionRef} className="space-y-3">
-                <h3 className="text-sm font-medium text-gray-900 mb-4 flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-gray-700/30" />
+                <h3 className="text-[13px] font-semibold mb-3 flex items-center gap-2" style={{ color: 'rgba(0,0,0,0.8)' }}>
+                  <FileText className="h-4 w-4" style={{ color: 'rgba(0,0,0,0.3)' }} />
                   Summary & Action Items
                 </h3>
-                
+
                 <div className="space-y-3">
-                  <div className="border border-gray-200 rounded-lg p-4 bg-white">
-                    <div className="text-xs font-medium text-gray-500 mb-2">Call Summary</div>
-                    <div className="text-sm text-gray-900 leading-relaxed">
+                  <div className="rounded-xl border border-[#f59e0b] bg-white overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-[#f59e0b]/30" style={{ background: 'linear-gradient(90deg, rgba(245,158,11,0.08) 0%, rgba(255,255,255,0) 100%)' }}>
+                      <span className="text-[11px] font-semibold tracking-wide" style={{ background: 'linear-gradient(90deg, #f59e0b, #ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                        CALL SUMMARY
+                      </span>
+                    </div>
+                    <div className="px-4 py-3 text-[13px] leading-relaxed" style={{ color: 'rgba(0,0,0,0.75)' }}>
                       {reportData?.summary || 'No summary available'}
                     </div>
                   </div>
-                  
+
                   {(reportData?.actionItems && reportData.actionItems.length > 0) || (reportData?.analysis?.nextActions && reportData.analysis.nextActions.length > 0) ? (
-                    <div className="border-l-4 border-[#4600f2] bg-[#4600f2]/5 rounded-r-lg p-4">
-                      <div className="text-xs font-semibold text-[#4600f2] uppercase tracking-wide mb-2">Next Action Required</div>
-                      <div className="text-sm text-gray-900 leading-relaxed">
-                        <ul className="space-y-1">
+                    <div className="rounded-xl bg-white border border-black/10 overflow-hidden">
+                      <div className="px-4 py-2.5 border-b border-black/10" style={{ background: 'linear-gradient(90deg, rgba(79,0,253,0.06) 0%, rgba(255,255,255,0) 100%)' }}>
+                        <span className="text-[11px] font-semibold tracking-wide" style={{ color: '#4f00fd' }}>NEXT ACTION REQUIRED</span>
+                      </div>
+                      <div className="px-4 py-3">
+                        <ul className="space-y-1.5">
                           {(reportData?.actionItems || reportData?.analysis?.nextActions || []).map((item, index) => (
-                            <li key={index} className="flex items-start gap-2">
-                              <span className="text-[#4600f2] mt-0">•</span>
+                            <li key={index} className="flex items-start gap-2 text-[13px]" style={{ color: 'rgba(0,0,0,0.75)' }}>
+                              <span className="mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#4f00fd' }} />
                               <span>{item}</span>
                             </li>
                           ))}
@@ -1501,9 +1503,11 @@ export function ApiCallDrawer({
                       </div>
                     </div>
                   ) : (
-                    <div className="border-l-4 border-gray-300 bg-gray-50 rounded-r-lg p-4">
-                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Next Action Required</div>
-                      <div className="text-sm text-gray-600">
+                    <div className="rounded-xl bg-white border border-black/10 overflow-hidden">
+                      <div className="px-4 py-2.5 border-b border-black/10">
+                        <span className="text-[11px] font-semibold tracking-wide" style={{ color: 'rgba(0,0,0,0.4)' }}>NEXT ACTION REQUIRED</span>
+                      </div>
+                      <div className="px-4 py-3 text-[13px]" style={{ color: 'rgba(0,0,0,0.45)' }}>
                         No specific action items identified
                       </div>
                     </div>
@@ -1514,42 +1518,36 @@ export function ApiCallDrawer({
               {/* AI Performance Analysis */}
               {reportData?.aiScore && (
                 <div className="space-y-3">
-                  <h3 className="text-sm font-medium text-gray-900 mb-4 flex items-center gap-2">
-                    <Bot className="h-4 w-4 text-gray-700/30" />
+                  <h3 className="text-[13px] font-semibold mb-3 flex items-center gap-2" style={{ color: 'rgba(0,0,0,0.8)' }}>
+                    <Bot className="h-4 w-4" style={{ color: 'rgba(0,0,0,0.3)' }} />
                     AI Performance Analysis
                   </h3>
-                  
-                  <div>
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <div className="text-xs font-medium text-gray-500 mb-1">Overall Score</div>
-                        <div className={`text-lg font-semibold ${
-                          reportData.aiScore >= 8 ? 'text-green-600' :
-                          reportData.aiScore >= 6 ? 'text-yellow-600' :
-                          'text-red-600'
-                        }`}>
-                          {reportData.aiScore.toFixed(1)} / 10
-                        </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-white rounded-xl border border-black/10 p-4">
+                      <div className="text-[11px] font-medium mb-1.5" style={{ color: 'rgba(0,0,0,0.4)' }}>Overall Score</div>
+                      <div className={`text-xl font-bold ${
+                        reportData.aiScore >= 8 ? 'text-green-600' :
+                        reportData.aiScore >= 6 ? 'text-yellow-600' :
+                        'text-red-500'
+                      }`}>
+                        {reportData.aiScore.toFixed(1)}<span className="text-sm font-normal ml-0.5 opacity-60">/10</span>
                       </div>
-                      <div>
-                        <div className="text-xs font-medium text-gray-500 mb-1">Customer Satisfaction</div>
-                        <div className={`text-lg font-semibold ${
-                          (() => {
-                            const score = reportData.analysis?.customerSatisfaction || reportData.sentiment?.score || 0;
-                            const normalizedScore = score <= 1 ? score : score / 10;
-                            return normalizedScore >= 0.8 ? 'text-green-600' :
-                                   normalizedScore >= 0.6 ? 'text-yellow-600' :
-                                   'text-red-600';
-                          })()
-                        }`}>
-                          {(() => {
-                            const score = reportData.analysis?.customerSatisfaction || reportData.sentiment?.score || 0;
-                            // If score is <= 1, it's normalized (0-1), so multiply by 10
-                            // If score is > 1, it's already scaled (0-10), so use as is
-                            const displayScore = score <= 1 ? score * 10 : score;
-                            return displayScore.toFixed(1);
-                          })()} / 10
-                        </div>
+                    </div>
+                    <div className="bg-white rounded-xl border border-black/10 p-4">
+                      <div className="text-[11px] font-medium mb-1.5" style={{ color: 'rgba(0,0,0,0.4)' }}>Customer Satisfaction</div>
+                      <div className={`text-xl font-bold ${
+                        (() => {
+                          const score = reportData.analysis?.customerSatisfaction || reportData.sentiment?.score || 0;
+                          const n = score <= 1 ? score : score / 10;
+                          return n >= 0.8 ? 'text-green-600' : n >= 0.6 ? 'text-yellow-600' : 'text-red-500';
+                        })()
+                      }`}>
+                        {(() => {
+                          const score = reportData.analysis?.customerSatisfaction || reportData.sentiment?.score || 0;
+                          const displayScore = score <= 1 ? score * 10 : score;
+                          return displayScore.toFixed(1);
+                        })()}<span className="text-sm font-normal ml-0.5 opacity-60">/10</span>
                       </div>
                     </div>
                   </div>
@@ -1558,29 +1556,29 @@ export function ApiCallDrawer({
 
               {/* Appointment Details */}
               <div ref={appointmentSectionRef} className="space-y-3">
-                <h3 className="text-sm font-medium text-gray-900 mb-4 flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-gray-700/30" />
+                <h3 className="text-[13px] font-semibold mb-3 flex items-center gap-2" style={{ color: 'rgba(0,0,0,0.8)' }}>
+                  <Calendar className="h-4 w-4" style={{ color: 'rgba(0,0,0,0.3)' }} />
                   Appointment
                 </h3>
-                
-                <div className="border border-gray-200 rounded-lg p-4 bg-white">
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <div className="text-xs font-medium text-gray-500 mb-1">Type</div>
-                      <div className="text-sm text-gray-900 capitalize">
-                        {reportData?.appointmentDetails?.type ? reportData.appointmentDetails.type.replace(/_/g, ' ') : "Not specified"}
+
+                <div className="bg-white rounded-xl border border-black/10 p-4">
+                  <div className="flex items-stretch divide-x divide-black/10">
+                    <div className="flex-1 pr-4">
+                      <div className="text-[11px] font-medium mb-1" style={{ color: 'rgba(0,0,0,0.4)' }}>Type</div>
+                      <div className="text-[13px] font-semibold capitalize" style={{ color: 'rgba(0,0,0,0.8)' }}>
+                        {reportData?.appointmentDetails?.type ? reportData.appointmentDetails.type.replace(/_/g, ' ') : 'Not specified'}
                       </div>
                     </div>
-                    <div>
-                      <div className="text-xs font-medium text-gray-500 mb-1">Status</div>
-                      <div className="text-sm text-gray-900 capitalize">
-                        {reportData?.appointmentDetails?.status || "No status"}
+                    <div className="flex-1 px-4">
+                      <div className="text-[11px] font-medium mb-1" style={{ color: 'rgba(0,0,0,0.4)' }}>Status</div>
+                      <div className="text-[13px] font-semibold capitalize" style={{ color: 'rgba(0,0,0,0.8)' }}>
+                        {reportData?.appointmentDetails?.status || 'No status'}
                       </div>
                     </div>
-                    <div>
-                      <div className="text-xs font-medium text-gray-500 mb-1">Date & Time</div>
-                      <div className="text-sm text-gray-900">
-                        {reportData?.appointmentDetails?.scheduledAt ? formatDateTime(reportData.appointmentDetails.scheduledAt) : "Not scheduled"}
+                    <div className="flex-1 pl-4">
+                      <div className="text-[11px] font-medium mb-1" style={{ color: 'rgba(0,0,0,0.4)' }}>Date & Time</div>
+                      <div className="text-[13px] font-semibold" style={{ color: 'rgba(0,0,0,0.8)' }}>
+                        {reportData?.appointmentDetails?.scheduledAt ? formatDateTime(reportData.appointmentDetails.scheduledAt) : 'Not scheduled'}
                       </div>
                     </div>
                   </div>
@@ -1590,86 +1588,159 @@ export function ApiCallDrawer({
               {/* Conversation Section */}
               {call?.smsThread && call.smsThread.length > 0 && (
                 <div ref={smsSectionRef} className="space-y-3">
-                  <h3 className="text-sm font-medium text-gray-900 mb-4 flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4 text-gray-700/30" />
+                  <h3 className="text-[13px] font-semibold mb-3 flex items-center gap-2" style={{ color: 'rgba(0,0,0,0.8)' }}>
+                    <MessageSquare className="h-4 w-4" style={{ color: 'rgba(0,0,0,0.3)' }} />
                     Conversation
                   </h3>
-                  <div className="space-y-3">
+
+                  <div className="bg-white rounded-xl border border-black/10 px-4 pt-6 pb-4 flex flex-col gap-6">
+
+                    {/* Beginning label */}
+                    <div className="text-center">
+                      <p className="text-[12px] text-[#8f8f8f]">This is the beginning of your text conversation</p>
+                    </div>
+
                     {call.smsThread.map((msg, i) => {
                       const prev = i > 0 ? call.smsThread![i - 1] : undefined
                       const showDay = msg.day !== undefined && msg.day !== prev?.day
                       const isAgent = msg.sender === 'agent'
+
                       return (
-                        <div key={i} className="space-y-3">
-                          {/* Day separator */}
-                          {showDay && (
-                            <div className="flex items-center justify-center py-2">
-                              <span className="text-[10px] font-semibold tracking-[0.14em] text-[#9CA3AF] uppercase">
-                                Day {msg.day}{msg.dateLabel ? ` · ${msg.dateLabel}` : ''}
-                              </span>
-                            </div>
-                          )}
-                          {/* Pre-banner: EOD or Escalation */}
+                        <div key={i} className="flex flex-col gap-5">
+
+                          {/* EOD chip — shown before the day label */}
                           {msg.preBanner && msg.preBanner.variant === 'eod' && (
-                            <div className="flex items-center justify-center gap-2 px-3 py-2 rounded-[8px] bg-[#FEF3C7] border border-[#FDE68A]">
-                              <Pause className="h-3.5 w-3.5 text-[#92400E]" />
-                              <span className="text-xs font-mono font-semibold text-[#92400E]">{msg.preBanner.text}</span>
+                            <div className="flex flex-col gap-3">
+                              <div className="flex items-center gap-2.5">
+                                <div className="flex-1 h-px bg-[#e5e7eb]" />
+                                <div className="flex items-center px-3 py-1 rounded-[12px] shrink-0" style={{ backgroundColor: '#fee9f5' }}>
+                                  <span className="text-[12px] text-[#c12588]">
+                                    <span className="font-semibold">EOD</span>
+                                    <span className="font-medium">{msg.preBanner.text.replace(/^EOD/, '')}</span>
+                                  </span>
+                                </div>
+                                <div className="flex-1 h-px bg-[#e5e7eb]" />
+                              </div>
+                              {/* Day label after EOD */}
+                              {showDay && (
+                                <p className="text-[12px] font-medium text-center" style={{ color: 'rgba(10,10,10,0.6)' }}>
+                                  {msg.dateLabel ? `${msg.dateLabel} (Day ${msg.day})` : `Day ${msg.day}`}
+                                </p>
+                              )}
                             </div>
                           )}
+
+                          {/* Escalation chip */}
                           {msg.preBanner && msg.preBanner.variant === 'escalation' && (
-                            <div className="flex items-center justify-center gap-2 px-3 py-2 rounded-[8px] bg-[#F5F3FF] border border-[#DDD6FE]">
-                              <Zap className="h-3.5 w-3.5 text-[#7C3AED] fill-[#7C3AED]" />
-                              <span className="text-xs font-medium text-[#6D28D9]">{msg.preBanner.text}</span>
+                            <div className="flex flex-col gap-3">
+                              <div className="flex items-center gap-2.5">
+                                <div className="flex-1 h-px bg-[#e5e7eb]" />
+                                <div className="flex items-center px-3 py-1 rounded-[36px] shrink-0" style={{ backgroundColor: '#f3ebff' }}>
+                                  <span className="text-[12px] font-semibold text-[#6941c6] whitespace-nowrap">{msg.preBanner.text}</span>
+                                </div>
+                                <div className="flex-1 h-px bg-[#e5e7eb]" />
+                              </div>
+                              {/* Day label after escalation */}
+                              {showDay && (
+                                <p className="text-[12px] font-medium text-center" style={{ color: 'rgba(10,10,10,0.6)' }}>
+                                  {msg.dateLabel ? `${msg.dateLabel} (Day ${msg.day})` : `Day ${msg.day}`}
+                                </p>
+                              )}
                             </div>
                           )}
-                          {/* Chat bubble */}
-                          <div className={`flex ${isAgent ? 'justify-end' : 'justify-start'}`}>
-                            <div className="max-w-[80%]">
-                              <div
-                                className={`rounded-[14px] px-3.5 py-2.5 ${
-                                  isAgent
-                                    ? 'bg-[#DCFCE7] text-[#14532D]'
-                                    : 'bg-[#F3F4F6] text-[#1A1A1A]'
-                                }`}
-                              >
-                                <p className="text-sm leading-relaxed">{msg.text}</p>
+
+                          {/* Call attempted chip */}
+                          {msg.preBanner && msg.preBanner.variant === 'callAttempted' && (
+                            <div className="flex items-center gap-2.5">
+                              <div className="flex-1 h-px bg-[#e5e7eb]" />
+                              <div className="flex items-center px-3 py-1 rounded-[36px] shrink-0" style={{ backgroundColor: '#fff3e0' }}>
+                                <span className="text-[12px] font-semibold text-[#c2420d] whitespace-nowrap">{msg.preBanner.text}</span>
                               </div>
-                              <div
-                                className={`mt-1 flex items-center gap-1.5 text-[10px] text-[#9CA3AF] ${
-                                  isAgent ? 'justify-end' : 'justify-start'
-                                }`}
-                              >
-                                <span>{msg.timestamp}</span>
-                                {msg.status && (
-                                  <>
-                                    <span className="text-[#D1D5DB]">·</span>
-                                    <span>{msg.status}</span>
-                                  </>
-                                )}
-                              </div>
+                              <div className="flex-1 h-px bg-[#e5e7eb]" />
                             </div>
-                          </div>
-                          {/* Post-call escalated call card */}
-                          {msg.postCall && (
-                            <div className="flex items-center justify-center">
-                              <div className="w-full rounded-[12px] border border-[#C7D2FE] bg-gradient-to-r from-[#EEF2FF] to-[#F5F3FF] px-4 py-3 flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-full bg-[#4600F2] flex items-center justify-center flex-shrink-0">
-                                  <PhoneCall className="h-4 w-4 text-white" />
+                          )}
+
+                          {/* Day label when no pre-banner */}
+                          {showDay && !msg.preBanner && (
+                            <p className="text-[12px] font-medium text-center" style={{ color: 'rgba(10,10,10,0.6)' }}>
+                              {msg.dateLabel ? `${msg.dateLabel} (Day ${msg.day})` : `Day ${msg.day}`}
+                            </p>
+                          )}
+
+                          {/* Agent message bubble (right-aligned) */}
+                          {isAgent && !msg.standaloneCall && (
+                            <div className="flex items-start justify-end gap-3">
+                              <div className="flex flex-col gap-1 items-start">
+                                <div className="px-3 py-2 rounded-[8px] max-w-[269px]" style={{ backgroundColor: 'rgba(0,52,220,0.1)' }}>
+                                  <p className="text-[12px] font-medium leading-5" style={{ color: 'rgba(10,10,10,0.8)' }}>{msg.text}</p>
                                 </div>
-                                <div className="min-w-0 flex-1">
-                                  <div className="text-xs font-semibold text-[#4338CA] uppercase tracking-wide">
-                                    Escalated Call
-                                  </div>
-                                  <div className="text-sm text-[#1A1A1A] mt-0.5 truncate">
-                                    {msg.postCall.outcome}
-                                  </div>
-                                  <div className="text-[11px] text-[#6366F1] mt-0.5">
-                                    {msg.postCall.startedAt} · {msg.postCall.duration}
-                                  </div>
+                                <div className="flex items-center gap-3 justify-end w-full">
+                                  <span className="text-[10px] font-medium text-[#3658c7]">SpyneAI</span>
+                                  <span className="text-[10px]" style={{ color: 'rgba(0,0,0,0.4)' }}>{msg.timestamp}</span>
                                 </div>
+                              </div>
+                              {/* Agent avatar square */}
+                              <div className="w-9 h-9 rounded-[6px] bg-[#3658c7] flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                <span className="text-[11px] font-bold text-white">AI</span>
                               </div>
                             </div>
                           )}
+
+                          {/* Voicemail card */}
+                          {msg.voicemail && (
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-[8px] border" style={{ backgroundColor: 'rgba(255,247,243,0.8)', borderColor: 'rgba(254,222,199,0.5)' }}>
+                              <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 bg-[#f97315]">
+                                <Phone className="h-3.5 w-3.5 text-white" />
+                              </div>
+                              <div className="flex flex-col gap-0.5">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[13px] font-medium text-[#c2420d] leading-tight">Voicemail Left</span>
+                                  <span className="text-[10px] whitespace-nowrap" style={{ color: 'rgba(0,0,0,0.5)' }}>{msg.voicemail.startedAt} · {msg.voicemail.duration}</span>
+                                </div>
+                                <p className="text-[11px] leading-tight" style={{ color: 'rgba(10,10,10,0.6)' }}>
+                                  {msg.voicemail.description || "Customer didn't answer; an automated voicemail was left."}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Standalone call card */}
+                          {msg.standaloneCall && (
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-[8px] border" style={{ backgroundColor: 'rgba(244,243,255,0.8)', borderColor: 'rgba(199,210,254,0.5)' }}>
+                              <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 bg-[#3658c7]">
+                                <PhoneCall className="h-3.5 w-3.5 text-white" />
+                              </div>
+                              <div className="flex flex-col gap-0.5">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[13px] font-medium text-[#3658c7] leading-tight">Standalone Call</span>
+                                  <span className="text-[10px] whitespace-nowrap" style={{ color: 'rgba(0,0,0,0.5)' }}>{msg.standaloneCall.startedAt} · {msg.standaloneCall.duration}</span>
+                                </div>
+                                <p className="text-[11px] leading-tight" style={{ color: 'rgba(10,10,10,0.6)' }}>
+                                  {msg.standaloneCall.description || 'Call completed'}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Post-call standalone card */}
+                          {msg.postCall && <StandaloneCallCard postCall={msg.postCall} />}
+
+                          {/* Customer message bubble (left-aligned) */}
+                          {!isAgent && !msg.voicemail && !msg.standaloneCall && !msg.postCall && (
+                            <div className="flex items-start gap-3">
+                              {/* Customer avatar */}
+                              <div className="w-10 h-10 rounded-[7.5px] flex-shrink-0 flex items-center justify-center text-[14px] font-semibold text-white" style={{ backgroundColor: '#3658c7' }}>
+                                {getCustomerInitials(call)}
+                              </div>
+                              <div className="flex flex-col gap-1 items-start">
+                                <div className="px-3 py-2 rounded-[8px] border border-[#f0f0f0]" style={{ background: 'linear-gradient(90deg, rgba(216,216,216,0.2) 0%, rgba(216,216,216,0.2) 100%), #fff' }}>
+                                  <p className="text-[12px] font-normal leading-5 text-[#0a0a0a]">{msg.text}</p>
+                                </div>
+                                <span className="text-[10px]" style={{ color: 'rgba(0,0,0,0.4)' }}>{msg.timestamp}</span>
+                              </div>
+                            </div>
+                          )}
+
                         </div>
                       )
                     })}
@@ -1774,9 +1845,12 @@ export function ApiCallDrawer({
 
       {/* Sticky Footer — View Full Conversation */}
       {call?.smsThread && call.smsThread.length > 0 && (
-        <div className="px-6 py-4 border-t border-gray-100 bg-white flex-shrink-0">
-          <Button variant="outline" className="w-full text-sm font-medium">
-            View Full Conversation <ChevronRight className="h-4 w-4 ml-1.5" />
+        <div className="px-4 py-4 border-t border-white/20 flex-shrink-0" style={{ backgroundColor: '#fafbfc' }}>
+          <Button
+            className="w-full text-sm font-semibold text-white rounded-xl h-11"
+            style={{ backgroundColor: '#4600f2', border: 'none' }}
+          >
+            View Full Conversation
           </Button>
         </div>
       )}

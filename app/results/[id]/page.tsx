@@ -460,10 +460,36 @@ export default function CampaignDetail() {
         {
           sender: 'agent' as const,
           text: "A trade-in is a great way to lower the cost! To give you the best numbers, let me give you a quick call — mind if I ring you now?",
-          timestamp: '3:22 PM',
+          timestamp: '14:22',
           status: 'AI' as const,
           day: 2,
           preBanner: { variant: 'escalation' as const, text: 'Escalation triggered: pricing + trade_in detected' },
+          voicemail: {
+            startedAt: '3:24 PM',
+            duration: '4m 12s',
+            description: "Customer didn't answer; an automated trade-in voicemail was left.",
+          },
+        },
+        {
+          sender: 'agent' as const,
+          text: "I just tried calling and left you a quick voicemail. I can also help over text with the trade-in estimate for your 2019 Accord, or we can schedule a better time to talk.",
+          timestamp: '14:22',
+          status: 'AI' as const,
+          day: 2,
+          preBanner: { variant: 'callAttempted' as const, text: 'Call attempted • Voicemail left' },
+        },
+        {
+          sender: 'lead' as const,
+          text: "Let's schedule the call for 9:30 PM .",
+          timestamp: '14:20',
+          day: 2,
+        },
+        {
+          sender: 'agent' as const,
+          text: "Sure, let me Schedule the Call for you 9:30 PM",
+          timestamp: '14:22',
+          status: 'AI' as const,
+          day: 2,
           postCall: {
             duration: '4m 12s',
             outcome: 'Test drive booked for Apr 15, 3:00 PM',
@@ -963,8 +989,8 @@ export default function CampaignDetail() {
           
           {/* Modal Content */}
           <div 
-            className="fixed top-0 right-0 h-full w-full sm:max-w-2xl bg-white shadow-2xl transform transition-all duration-300 ease-out overflow-hidden"
-            style={{ maxWidth: '38.4rem' }}
+            className="fixed top-0 right-0 h-full w-full sm:max-w-xl bg-white shadow-2xl transform transition-all duration-300 ease-out overflow-hidden"
+            style={{ maxWidth: '34rem' }}
             onClick={(e) => e.stopPropagation()}
           >
             <ApiCallDrawer

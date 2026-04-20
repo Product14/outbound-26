@@ -10,6 +10,7 @@ import type {
   CampaignCompletedResponse,
 } from '@/lib/metrics-utils'
 import type { EndCallReportData } from '@/hooks/use-end-call-report'
+import type { ActiveCampaignWithLeads } from '@/types/campaign-setup'
 
 export const OUTBOUND_USE_LOCAL_DATA = true
 
@@ -745,6 +746,33 @@ export function getMockCampaignList(): CampaignListItem[] {
   ]
 }
 
+export function getMockActiveCampaignsWithLeads(): ActiveCampaignWithLeads[] {
+  return [
+    {
+      campaignId: 'demo-sales-001',
+      name: 'Aged Lead Re-Activation',
+      status: 'running',
+      leads: [
+        { phone: '3055550174', name: 'James Whitfield' },
+        { phone: '7025550192', name: 'Sandra Kelley' },
+        { phone: '4155550138', name: 'Marcus Thompson' },
+        { phone: '2125550167', name: 'Priya Nair' },
+        { phone: '6175550145', name: 'Derek Owens' },
+      ],
+    },
+    {
+      campaignId: 'demo-service-002',
+      name: 'Oil Change Win-Back',
+      status: 'paused',
+      leads: [
+        { phone: '9495550183', name: 'Carla Mendez' },
+        { phone: '3055550174', name: 'James Whitfield' },
+        { phone: '8185550129', name: 'Tony Russo' },
+      ],
+    },
+  ]
+}
+
 export function getMockCampaignTypes(): CampaignTypesResponse {
   return mockCampaignTypes
 }
@@ -1254,7 +1282,30 @@ const salesLeads: LeadRow[] = [
         sender: 'agent',
         preBanner: { variant: 'escalation', text: 'Escalation triggered: pricing + trade_in detected' },
         text: "A trade-in is a great way to lower the cost! To give you the best numbers, let me give you a quick call — mind if I ring you now?",
-        timestamp: '3:22 PM',
+        timestamp: '14:22',
+        status: 'AI',
+        voicemail: {
+          startedAt: '3:24 PM',
+          duration: '4m 12s',
+          description: "Customer didn't answer; an automated trade-in voicemail was left.",
+        },
+      },
+      {
+        sender: 'agent',
+        preBanner: { variant: 'callAttempted', text: 'Call attempted • Voicemail left' },
+        text: "I just tried calling and left you a quick voicemail. I can also help over text with the trade-in estimate for your 2019 Accord, or we can schedule a better time to talk.",
+        timestamp: '14:22',
+        status: 'AI',
+      },
+      {
+        sender: 'lead',
+        text: "Let's schedule the call for 9:30 PM .",
+        timestamp: '14:20',
+      },
+      {
+        sender: 'agent',
+        text: "Sure, let me Schedule the Call for you 9:30 PM",
+        timestamp: '14:22',
         status: 'AI',
         postCall: {
           duration: '4m 12s',

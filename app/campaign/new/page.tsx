@@ -15,7 +15,7 @@ import { storeCampaignData, updateKeyMapping, updateUploadedData } from '@/lib/s
 import { getEstimatedTimeInMinutes, calculateEndDate, calculateAndFormatTimeRange } from '@/lib/time-utils'
 import { getRequiredKeysForUseCase, getDisplayColumns } from '@/utils/campaign-setup-utils'
 import { buildUrlWithParams } from '@/lib/url-utils'
-import { saveUserCampaign } from '@/lib/outbound-local-data'
+import { saveUserCampaign, getMockActiveCampaignsWithLeads } from '@/lib/outbound-local-data'
 
 // Import step components
 import Step1CampaignDetails from '@/components/campaign-setup/Step1CampaignDetails'
@@ -765,9 +765,40 @@ export default function NewCampaignPage() {
           />
         )
 
-      case 5:
-        // Preview & Launch
-        return <StepPreviewLaunch campaignData={campaignData} />
+      case 5: {
+        // Preview & Launch — inject active campaigns for conflict detection.
+        // If no CSV was uploaded (demo mode), seed mock leads so conflict detection
+        // always has data to compare against.
+        const mockActiveCampaigns = getMockActiveCampaignsWithLeads()
+        const effectiveUploadedData = uploadedData.length > 0
+          ? uploadedData
+          : [
+              { phone: '3055550174', name: 'James Whitfield', mobile: '3055550174' },
+              { phone: '7025550192', name: 'Sandra Kelley', mobile: '7025550192' },
+              { phone: '9495550183', name: 'Carla Mendez', mobile: '9495550183' },
+              { phone: '5125550101', name: 'Brian Foster', mobile: '5125550101' },
+              { phone: '3105550155', name: 'Alicia Grant', mobile: '3105550155' },
+            ]
+        const campaignDataWithConflicts = {
+          ...campaignData,
+          uploadedData: effectiveUploadedData,
+          activeCampaigns: mockActiveCampaigns,
+        }
+        return (
+          <StepPreviewLaunch
+            campaignData={campaignDataWithConflicts}
+            onRemoveConflicts={(conflicted) => {
+              const conflictPhones = new Set(conflicted.map((c) => c.phone.replace(/\D/g, '')))
+              const filtered = effectiveUploadedData.filter((row) => {
+                const rawPhone = String(row.phone ?? row.Phone ?? row.mobile ?? row.Mobile ?? '')
+                return !conflictPhones.has(rawPhone.replace(/\D/g, ''))
+              })
+              setUploadedData(filtered)
+              setCampaignData((prev) => ({ ...prev, totalRecords: filtered.length }))
+            }}
+          />
+        )
+      }
 
       case 6:
         // Campaign Started (post-launch success)

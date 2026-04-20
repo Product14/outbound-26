@@ -56,8 +56,30 @@ export type ServiceCallOutcome =
   | 'Call Aborted'
   | 'Customer Declined Service';
 
+// SMS Outcomes
+export type SmsOutcome =
+  | 'SMS Replied'
+  | 'SMS Opted Out'
+  | 'SMS No Reply'
+  | 'SMS Delivered'
+  | 'SMS Appointment Confirmed via SMS'
+  | 'SMS Callback Requested via SMS'
+  | 'SMS Interested – Follow-up Needed'
+  | 'SMS Not Interested';
+
 // Combined call outcome type
-export type CallOutcome = SalesCallOutcome | ServiceCallOutcome | 'Success' | 'Callback Requested' | 'Not Interested' | 'Wrong Number' | 'No Answer' | 'Follow-up Requested';
+export type CallOutcome = SalesCallOutcome | ServiceCallOutcome | SmsOutcome | 'Success' | 'Callback Requested' | 'Not Interested' | 'Wrong Number' | 'No Answer' | 'Follow-up Requested';
+
+export const SMS_OUTCOMES: SmsOutcome[] = [
+  'SMS Replied',
+  'SMS Delivered',
+  'SMS No Reply',
+  'SMS Opted Out',
+  'SMS Appointment Confirmed via SMS',
+  'SMS Callback Requested via SMS',
+  'SMS Interested – Follow-up Needed',
+  'SMS Not Interested',
+];
 
 export type AppointmentStatus = 'Yes' | 'No';
 

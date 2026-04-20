@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import {
   MessageSquare,
   PhoneCall,
@@ -15,11 +16,13 @@ import {
   Moon,
   Repeat,
   ArrowUpRight,
+  X,
 } from 'lucide-react'
-import type { CampaignData } from '@/types/campaign-setup'
+import type { CampaignData, ConflictedLead } from '@/types/campaign-setup'
 
 interface StepPreviewLaunchProps {
   campaignData: CampaignData
+  onRemoveConflicts?: (conflicted: ConflictedLead[]) => void
 }
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
@@ -73,7 +76,11 @@ function ChannelPill({ mode }: { mode?: 'sms' | 'call' | 'both' }) {
   )
 }
 
-export default function StepPreviewLaunch({ campaignData }: StepPreviewLaunchProps) {
+function normalizePhone(phone: string): string {
+  return phone.replace(/\D/g, '')
+}
+
+export default function StepPreviewLaunch({ campaignData, onRemoveConflicts }: StepPreviewLaunchProps) {
   const mode = campaignData.channelMode || 'both'
   const smsEnabled = mode !== 'call'
   const callEnabled = mode !== 'sms'
@@ -83,6 +90,57 @@ export default function StepPreviewLaunch({ campaignData }: StepPreviewLaunchPro
   const activeEscalations = campaignData.escalationRules
     ? Object.values(campaignData.escalationRules).filter(Boolean).length
     : 6
+
+  // Cross-campaign conflict detection
+  const exemptUseCases = ['birthday', 'anniversary']
+  const isExempt = exemptUseCases.includes(campaignData.subUseCase)
+
+  const conflictedLeads: ConflictedLead[] = []
+  if (!isExempt && campaignData.activeCampaigns && campaignData.uploadedData) {
+    const newLeadPhones = new Set(
+      campaignData.uploadedData.map((row) =>
+        normalizePhone(String(row.phone ?? row.Phone ?? row.mobile ?? row.Mobile ?? ''))
+      )
+    )
+    for (const activeCampaign of campaignData.activeCampaigns) {
+      if (activeCampaign.status !== 'running' && activeCampaign.status !== 'paused') continue
+      for (const lead of activeCampaign.leads) {
+        const normalized = normalizePhone(lead.phone)
+        if (normalized && newLeadPhones.has(normalized)) {
+          conflictedLeads.push({
+            phone: lead.phone,
+            name: lead.name,
+            conflictingCampaignName: activeCampaign.name,
+            conflictingCampaignId: activeCampaign.campaignId,
+          })
+        }
+      }
+    }
+  }
+
+  // Modal state
+  const [modalOpen, setModalOpen] = useState(conflictedLeads.length > 0)
+  const [modalScreen, setModalScreen] = useState<'list' | 'warning'>('list')
+  const [conflictsResolved, setConflictsResolved] = useState(false)
+  const [dontShowAgain, setDontShowAgain] = useState(false)
+
+  const handleRemoveConflicts = () => {
+    onRemoveConflicts?.(conflictedLeads)
+    setModalOpen(false)
+    setConflictsResolved(true)
+  }
+
+  const handleCloseModal = () => {
+    setModalOpen(false)
+    setModalScreen('list')
+  }
+
+  const handleContinueAnyway = () => setModalScreen('warning')
+
+  const handleConfirmAndContinue = () => {
+    setModalOpen(false)
+    setModalScreen('list')
+  }
 
   // Detect potential conflicts
   const conflicts: string[] = []
@@ -107,10 +165,208 @@ export default function StepPreviewLaunch({ campaignData }: StepPreviewLaunchPro
 
   return (
     <div className="max-w-3xl">
+
+      {/* ── Conflict Modal ── */}
+      {modalOpen && conflictedLeads.length > 0 && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={handleCloseModal} />
+
+          {/* Modal panel */}
+          <div className="relative bg-white rounded-[16px] shadow-2xl w-full max-w-xl overflow-hidden">
+
+            {/* ── Screen 1: Conflict list ── */}
+            {modalScreen === 'list' && (
+              <>
+                <div className="flex items-center justify-between px-6 pt-6 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-[#FEE2E2] flex items-center justify-center flex-shrink-0">
+                      <AlertTriangle className="h-4 w-4 text-[#DC2626]" />
+                    </div>
+                    <h2 className="text-[15px] font-bold text-[#111827]">
+                      {conflictedLeads.length} contact{conflictedLeads.length > 1 ? 's' : ''} already enrolled in active campaigns
+                    </h2>
+                  </div>
+                  <button
+                    onClick={handleCloseModal}
+                    className="w-7 h-7 rounded-full hover:bg-[#F3F4F6] flex items-center justify-center text-[#6B7280] hover:text-[#1A1A1A] transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <p className="px-6 pb-4 text-[13px] text-[#B91C1C] leading-relaxed">
+                  These leads are currently active in another campaign. Contacting them again may be disruptive.
+                  You can remove them from this campaign or keep them and proceed anyway.
+                </p>
+
+                <div className="mx-6 mb-5 rounded-[10px] border border-[#FECACA] overflow-hidden">
+                  <table className="w-full text-[13px]">
+                    <thead>
+                      <tr className="bg-[#FEE2E2]">
+                        <th className="text-left px-4 py-2.5 text-[#991B1B] font-semibold">Name</th>
+                        <th className="text-left px-4 py-2.5 text-[#991B1B] font-semibold">Phone</th>
+                        <th className="text-left px-4 py-2.5 text-[#991B1B] font-semibold">Conflicting Campaign</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {conflictedLeads.map((lead, i) => (
+                        <tr
+                          key={`${lead.phone}-${lead.conflictingCampaignId}-${i}`}
+                          className={i % 2 === 0 ? 'bg-white' : 'bg-[#FFF5F5]'}
+                        >
+                          <td className="px-4 py-2.5 text-[#1A1A1A] font-medium">{lead.name}</td>
+                          <td className="px-4 py-2.5 text-[#6B7280]">{lead.phone}</td>
+                          <td className="px-4 py-2.5">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#FEE2E2] text-[#DC2626]">
+                              {lead.conflictingCampaignName}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 px-6 pb-6">
+                  <button
+                    onClick={handleContinueAnyway}
+                    className="px-4 py-2.5 rounded-[10px] border border-[#E5E7EB] text-[#374151] text-[13px] font-semibold hover:bg-[#F3F4F6] transition-colors"
+                  >
+                    Continue anyway
+                  </button>
+                  <button
+                    onClick={handleRemoveConflicts}
+                    className="px-5 py-2.5 rounded-[10px] bg-[#DC2626] text-white text-[13px] font-semibold hover:bg-[#B91C1C] transition-colors"
+                  >
+                    Remove {conflictedLeads.length} conflicted contact{conflictedLeads.length > 1 ? 's' : ''}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* ── Screen 2: Warning before continuing ── */}
+            {modalScreen === 'warning' && (
+              <>
+                <div className="flex items-center justify-between px-6 pt-6 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-[#FEF3C7] flex items-center justify-center flex-shrink-0">
+                      <AlertTriangle className="h-4 w-4 text-[#D97706]" />
+                    </div>
+                    <h2 className="text-[15px] font-bold text-[#111827]">
+                      Before you continue — here's what could happen
+                    </h2>
+                  </div>
+                  <button
+                    onClick={handleCloseModal}
+                    className="w-7 h-7 rounded-full hover:bg-[#F3F4F6] flex items-center justify-center text-[#6B7280] hover:text-[#1A1A1A] transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="px-6 pb-5 space-y-3">
+                  {[
+                    {
+                      title: 'Leads receive multiple outreach attempts',
+                      desc: `${conflictedLeads.length} contact${conflictedLeads.length > 1 ? 's' : ''} will be contacted by both this campaign and an existing active one simultaneously.`,
+                    },
+                    {
+                      title: 'Higher opt-out risk',
+                      desc: 'Repeated contact from the same dealership increases the chance leads reply STOP, permanently removing them from future campaigns.',
+                    },
+                    {
+                      title: 'Degraded lead experience',
+                      desc: 'Multiple concurrent outreach threads create confusion and reduce the chance of a positive response or appointment.',
+                    },
+                  ].map((item) => (
+                    <div key={item.title} className="flex items-start gap-3 rounded-[10px] bg-[#FFFBEB] border border-[#FDE68A] px-4 py-3">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#D97706] flex-shrink-0 mt-1.5" />
+                      <div>
+                        <p className="text-[13px] font-semibold text-[#92400E]">{item.title}</p>
+                        <p className="text-[12px] text-[#92400E] mt-0.5 leading-relaxed">{item.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Don't show again checkbox */}
+                <div className="px-6 pb-5">
+                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={dontShowAgain}
+                      onChange={(e) => setDontShowAgain(e.target.checked)}
+                      className="w-4 h-4 rounded border-[#D1D5DB] text-[#DC2626] accent-[#DC2626] cursor-pointer"
+                    />
+                    <span className="text-[13px] text-[#6B7280]">Don't show this warning again</span>
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 px-6 pb-6">
+                  <button
+                    onClick={() => setModalScreen('list')}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-[10px] border border-[#E5E7EB] text-[#374151] text-[13px] font-semibold hover:bg-[#F3F4F6] transition-colors"
+                  >
+                    <ArrowUpRight className="h-4 w-4 rotate-180" />
+                    Back
+                  </button>
+                  <button
+                    onClick={handleConfirmAndContinue}
+                    className="px-5 py-2.5 rounded-[10px] bg-[#1A1A1A] text-white text-[13px] font-semibold hover:bg-[#374151] transition-colors"
+                  >
+                    Confirm & Continue
+                  </button>
+                </div>
+              </>
+            )}
+
+          </div>
+        </div>
+      )}
+
       <h2 className="text-[24px] font-bold text-[#1A1A1A] mb-2">Preview &amp; Launch</h2>
       <p className="text-[14px] text-[#6B7280] leading-[1.5] mb-6">
         Review your full campaign configuration before launching.
       </p>
+
+      {/* ── Conflict banner (visible after modal is closed without resolving) ── */}
+      {conflictedLeads.length > 0 && !modalOpen && !conflictsResolved && (
+        <div className="rounded-[12px] border border-[#FECACA] bg-[#FFF5F5] px-4 py-3 mb-5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <AlertTriangle className="h-4 w-4 text-[#DC2626] flex-shrink-0" />
+            <p className="text-[13px] text-[#991B1B] font-medium truncate">
+              <span className="font-bold">{conflictedLeads.length} contact{conflictedLeads.length > 1 ? 's' : ''}</span> enrolled in active campaigns may receive duplicate outreach.
+            </p>
+          </div>
+          <button
+            onClick={() => setModalOpen(true)}
+            className="flex-shrink-0 px-3 py-1.5 rounded-[8px] border border-[#FECACA] text-[#DC2626] text-[12px] font-semibold hover:bg-[#FEE2E2] transition-colors whitespace-nowrap"
+          >
+            View conflicts
+          </button>
+        </div>
+      )}
+
+      {/* ── Config warnings ── */}
+      {conflicts.length > 0 && (
+        <div className="rounded-[12px] border border-[#FDE68A] bg-[#FFFBEB] p-5 mb-5">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle className="h-4 w-4 text-[#D97706]" />
+            <h3 className="text-sm font-semibold text-[#92400E]">
+              {conflicts.length} {conflicts.length === 1 ? 'issue' : 'issues'} detected
+            </h3>
+          </div>
+          <ul className="space-y-2">
+            {conflicts.map((c, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-[#92400E]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#D97706] flex-shrink-0 mt-1.5" />
+                {c}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* ── 1. Channel & Details ── */}
       <SectionCard
@@ -240,26 +496,6 @@ export default function StepPreviewLaunch({ campaignData }: StepPreviewLaunchPro
           value={`${campaignData.smsQuietStart || '09:00'} – ${campaignData.smsQuietEnd || '21:00'}`}
         />
       </SectionCard>
-
-      {/* ── 5. Conflicts / Warnings ── */}
-      {conflicts.length > 0 && (
-        <div className="rounded-[12px] border border-[#FDE68A] bg-[#FFFBEB] p-5 mb-5">
-          <div className="flex items-center gap-2 mb-3">
-            <AlertTriangle className="h-4 w-4 text-[#D97706]" />
-            <h3 className="text-sm font-semibold text-[#92400E]">
-              {conflicts.length} {conflicts.length === 1 ? 'issue' : 'issues'} detected
-            </h3>
-          </div>
-          <ul className="space-y-2">
-            {conflicts.map((c, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-[#92400E]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#D97706] flex-shrink-0 mt-1.5" />
-                {c}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
 
       {/* ── Launch hint ── */}
       <div className="rounded-[10px] bg-[#F5F3FF] border border-[#DDD6FE] px-4 py-3 flex items-start gap-2">

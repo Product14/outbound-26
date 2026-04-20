@@ -452,7 +452,7 @@ async function extractDataFromCurrentView(): Promise<CallRecord[]> {
       // Extract data from table cells with proper column mapping
       const cells = row.querySelectorAll('td, .cell, [data-cell]')
       
-      if (cells.length >= 6) { // We expect 6 columns: Customer, Status, Timestamp, Duration, Outcome, Quality
+      if (cells.length >= 5) { // We expect 5 columns: Customer, Status, Timestamp, Outcome, Quality
         // Column 0: Customer Details (name + phone)
         const customerCell = cells[0]
         const customerName = customerCell.querySelector('.font-medium')?.textContent?.trim() ||
@@ -468,15 +468,12 @@ async function extractDataFromCurrentView(): Promise<CallRecord[]> {
         const date = timestampCell.querySelector('.text-gray-900')?.textContent?.trim() || ''
         const time = timestampCell.querySelector('.text-gray-500')?.textContent?.trim() || ''
 
-        // Column 3: Duration
-        const duration = extractTextContent(cells[3]) || '--'
-
-        // Column 4: Outcome (format to proper case)
-        const rawOutcome = extractTextContent(cells[4]) || '--'
+        // Column 3: Outcome (format to proper case)
+        const rawOutcome = extractTextContent(cells[3]) || '--'
         const outcome = formatOutcomeText(rawOutcome)
 
-        // Column 5: Quality Score
-        const qualityCell = cells[5]
+        // Column 4: Quality Score
+        const qualityCell = cells[4]
         const qualityText = qualityCell.textContent?.trim() || '0'
         const qualityScore = qualityText === '--' ? '--' : (parseFloat(qualityText) || 0)
         
@@ -489,7 +486,6 @@ async function extractDataFromCurrentView(): Promise<CallRecord[]> {
           status: status,
           callStatus: status,
           outcome: outcome,
-          duration: duration,
           callDate: date,
           callTime: time,
           timestamp: new Date().toISOString(),
@@ -558,7 +554,6 @@ function convertToCSV(records: CallRecord[]): string {
     'Status',
     'Date',
     'Time',
-    'Duration',
     'Outcome',
     'Quality Score'
   ]
@@ -571,7 +566,6 @@ function convertToCSV(records: CallRecord[]): string {
     record.status || record.callStatus || '',
     record.callDate || (record.timestamp ? formatDateForCSV(record.timestamp) : ''),
     record.callTime || (record.timestamp ? formatTimeForCSV(record.timestamp) : ''),
-    record.duration || '',
     record.outcome || '',
     record.qualityScore.toString()
   ])

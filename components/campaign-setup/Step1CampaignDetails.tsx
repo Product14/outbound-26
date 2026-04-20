@@ -505,39 +505,6 @@ export default function Step1CampaignDetails({
                     </SelectContent>
                   </Select>
                 </div>
-
-                <div>
-                  <Label className="text-[14px] font-medium text-[#1A1A1A]/60 mb-2 block">
-                    Lead Age Filter (days)
-                  </Label>
-                  <p className="text-[13px] text-[#6B7280] mb-2">
-                    Only enroll leads that haven&apos;t been contacted in this many days
-                  </p>
-                  <Select
-                    value={(campaignData.vinSolutionsSettings?.leadAgeDays ?? 10).toString()}
-                    onValueChange={(value) =>
-                      setCampaignData(prev => ({
-                        ...prev,
-                        vinSolutionsSettings: {
-                          ...prev.vinSolutionsSettings!,
-                          leadAgeDays: parseInt(value),
-                        },
-                      }))
-                    }
-                  >
-                    <SelectTrigger className="h-10 text-[14px] border-[#E5E7EB] focus:border-[#4600F2] max-w-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="7">7 days</SelectItem>
-                      <SelectItem value="10">10 days</SelectItem>
-                      <SelectItem value="14">14 days</SelectItem>
-                      <SelectItem value="30">30 days</SelectItem>
-                      <SelectItem value="60">60 days</SelectItem>
-                      <SelectItem value="90">90 days</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
             )}
           </div>

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Phone, Clock, Activity, Users, AlertCircle, Calendar, CheckCircle, X } from 'lucide-react'
+import { Phone, Clock, Activity, Users, AlertCircle, Calendar, CheckCircle, X, Mail, MapPin, ChevronUp, Star, BarChart2, Car } from 'lucide-react'
 import { LiveCallChip } from "@/components/ui/live-call-chip"
 
 interface CallDetailsSidebarProps {
@@ -36,42 +36,119 @@ export function CallDetailsSidebar({
     }`}>
       <div className="overflow-y-auto h-full p-6">
         <>
-          <div className="border-b pb-4 mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                <span className="text-sm font-medium text-purple-600">
-                  {typeof selectedCall.customer === 'string' 
-                    ? selectedCall.customer.charAt(0)
-                    : selectedCall.customer?.name?.charAt(0) || 'U'}
+          {/* ── Contact header ── */}
+          <div className="border-b pb-5 mb-5">
+            {/* Avatar + name */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-11 h-11 rounded-[10px] bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                <span className="text-base font-bold text-white">
+                  {(typeof selectedCall.customer === 'string'
+                    ? selectedCall.customer
+                    : selectedCall.customer?.name || 'U').charAt(0).toUpperCase()}
                 </span>
               </div>
-              <div className="flex-1">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  {isCallInProgress(selectedCall) ? 
-                    `Live Call with ${typeof selectedCall.customer === 'string' ? selectedCall.customer : selectedCall.customer?.name || 'Customer'}` :
-                   selectedCall.outcome === 'info provided' ? 'Service Appointment Booking: Oil Change at Avis Motors' : 
-                   selectedCall.outcome === 'appointment set' ? 'Recall and oil change scheduling for Chevy Tahoe' :
-                   'Inquiry about BMW X3 availability and pricing'}
+              <div>
+                <h2 className="text-[17px] font-bold text-gray-900">
+                  {typeof selectedCall.customer === 'string' ? selectedCall.customer : selectedCall.customer?.name || 'Customer'}
                 </h2>
-                <div className="flex items-center gap-2 mt-1 text-sm text-gray-600">
-                  <Phone className="w-4 h-4" />
-                  <span>{typeof selectedCall.customer === 'string' ? selectedCall.phone : selectedCall.customer?.phone || 'N/A'}</span>
-                  <span>•</span>
-                  <span>{formatDate(selectedCall.callTime)}</span>
-                  <span>•</span>
-                  <div className="flex items-center gap-1">
-                    <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">
-                      <span className="text-xs font-medium text-gray-600">
-                        {(selectedCall.agentName || selectedCall.agentInfo?.agentName || 'AI Agent').slice(0, 2).toUpperCase()}
-                      </span>
-                    </div>
-                    <span>{selectedCall.agentName || selectedCall.agentInfo?.agentName || 'AI Agent'}</span>
+                <p className="text-[13px] text-gray-400 mt-0.5">
+                  Last Interacted at {formatDate(selectedCall.callTime)}
+                </p>
+              </div>
+              {isCallInProgress(selectedCall) && (
+                <div className="ml-auto">
+                  <LiveCallChip size="sm" />
+                </div>
+              )}
+            </div>
+
+            {/* Customer Highlights */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-3">
+                <Star className="w-4 h-4 text-gray-400" />
+                <span className="text-[13px] font-semibold text-gray-700">Customer Highlights</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {/* Upcoming Appointments */}
+                <div className="border border-gray-100 rounded-xl p-3 flex flex-col gap-2 bg-white">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-gray-400 leading-tight">Upcoming Appointments</span>
+                    <Calendar className="w-4 h-4 text-gray-300 flex-shrink-0" />
                   </div>
-                  {isCallInProgress(selectedCall) && (
-                    <div className="ml-2">
-                      <LiveCallChip size="sm" />
+                  {selectedCall.appointment === 'Yes' || selectedCall.outcome === 'appointment set' || selectedCall.outcome?.toLowerCase().includes('appointment') ? (
+                    <div>
+                      <p className="text-[13px] font-bold text-gray-900">Monday 8AM</p>
+                      <button className="text-[11px] text-gray-400 underline underline-offset-2 mt-0.5 text-left">View Appointment</button>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-[13px] font-bold text-gray-900">Not Available</p>
+                      <button className="text-[11px] text-gray-400 underline underline-offset-2 mt-0.5 text-left">Schedule Appointment</button>
                     </div>
                   )}
+                </div>
+
+                {/* Lead Stage */}
+                <div className="border border-gray-100 rounded-xl p-3 flex flex-col gap-2 bg-white">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-gray-400 leading-tight">Lead Stage</span>
+                    <BarChart2 className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-base">😊</span>
+                      <p className="text-[13px] font-bold text-gray-900 uppercase">
+                        {selectedCall.leadStage || 'New Lead'}
+                      </p>
+                    </div>
+                    <p className="text-[11px] text-gray-500 mt-0.5">
+                      Updated: {formatDate(selectedCall.callTime)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Vehicle of Interest */}
+                <div className="border border-gray-100 rounded-xl p-3 flex flex-col gap-2 bg-white">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-gray-400 leading-tight">Vehicle of Interest</span>
+                    <Car className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                  </div>
+                  <div>
+                    {selectedCall.vehicleInfo ? (
+                      <p className="text-[13px] font-bold text-gray-900">
+                        {selectedCall.vehicleInfo.year} {selectedCall.vehicleInfo.make} {selectedCall.vehicleInfo.model}
+                      </p>
+                    ) : selectedCall.vehicle ? (
+                      <p className="text-[13px] font-bold text-gray-900">{selectedCall.vehicle}</p>
+                    ) : (
+                      <p className="text-[13px] font-bold text-gray-900">Not Available</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact Details below the cards */}
+              <div className="mt-4 space-y-2.5">
+                <div className="flex items-center gap-3">
+                  <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <span className="text-[13px] text-gray-400 w-20">Phone:</span>
+                  <span className="text-[13px] font-semibold text-gray-900">
+                    {typeof selectedCall.customer === 'string' ? selectedCall.phone : selectedCall.customer?.phone || '—'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <span className="text-[13px] text-gray-400 w-20">Email:</span>
+                  <span className="text-[13px] font-semibold text-gray-900 truncate">
+                    {selectedCall.customer?.email || selectedCall.email || '—'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <span className="text-[13px] text-gray-400 w-20">Created on:</span>
+                  <span className="text-[13px] font-semibold text-gray-900">
+                    {selectedCall.createdAt ? formatDate(selectedCall.createdAt) : formatDate(selectedCall.callTime)}
+                  </span>
                 </div>
               </div>
             </div>

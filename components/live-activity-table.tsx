@@ -1378,11 +1378,6 @@ export const LiveActivityTable = forwardRef<{
                   <div className="h-4 bg-gray-200 rounded w-14 animate-pulse" />
                 </div>
                 
-                {/* Duration */}
-                <div className="col-span-1">
-                  <div className="h-4 bg-gray-200 rounded w-12 animate-pulse" />
-                </div>
-                
                 {/* Outcome */}
                 <div className="col-span-1">
                   <div className="h-6 bg-gray-200 rounded-full w-20 animate-pulse" />
@@ -1467,7 +1462,6 @@ export const LiveActivityTable = forwardRef<{
                       <ArrowUpDown className="w-3 h-3" />
                     </div>
                   </TableHead>
-                  <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[120px]">Duration</TableHead>
                   <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[160px]">Outcome</TableHead>
                   <TableHead className="font-semibold text-gray-900 whitespace-nowrap min-w-[150px]">
                     <span className="uppercase text-xs tracking-wider">Current Step</span>
@@ -1562,11 +1556,6 @@ export const LiveActivityTable = forwardRef<{
                       </div>
                     </TableCell>
                     
-                    {/* Duration */}
-                    <TableCell>
-                      <div className="text-sm text-gray-900">{call.timestamp.duration}</div>
-                    </TableCell>
-                    
                     {/* Outcome */}
                     <TableCell>
                       {getOutcomeBadge(call.outcome)}
@@ -1575,7 +1564,7 @@ export const LiveActivityTable = forwardRef<{
 
                     {/* Current Step */}
                     <TableCell>
-                      <div className="flex items-center gap-2.5">
+                      <div className="relative group/step flex items-center gap-2.5">
                         <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
                           call.stepType === 'call' ? 'bg-indigo-50' :
                           call.stepType === 'sms' ? 'bg-emerald-50' :
@@ -1603,6 +1592,92 @@ export const LiveActivityTable = forwardRef<{
                               style={{ width: `${(call.currentStep / call.totalSteps) * 100}%` }}
                             />
                           </div>
+                        </div>
+
+                        {/* Hover tooltip — flips upward for last 2 rows */}
+                        <div className={`absolute left-0 z-50 hidden group-hover/step:block pointer-events-none ${
+                          index >= displayCalls.length - 2
+                            ? 'bottom-full mb-1'
+                            : 'top-full mt-1'
+                        }`}>
+                          {/* Arrow pointing up (only when tooltip is below) */}
+                          {index < displayCalls.length - 2 && (
+                            <div className="w-2.5 h-2.5 bg-[#1A1A1A] rotate-45 mx-4 mb-[-5px]" />
+                          )}
+                          <div className="bg-[#1A1A1A] text-white rounded-[10px] shadow-xl p-3.5 w-56">
+                            {/* Step label */}
+                            <div className="flex items-center gap-2 mb-2.5">
+                              <div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${
+                                call.stepType === 'call' ? 'bg-indigo-500/20' :
+                                call.stepType === 'sms' ? 'bg-emerald-500/20' :
+                                'bg-blue-500/20'
+                              }`}>
+                                {call.stepType === 'call' ? (
+                                  <Phone className={`w-3 h-3 text-indigo-400`} />
+                                ) : call.stepType === 'sms' ? (
+                                  <MessageSquare className={`w-3 h-3 text-emerald-400`} />
+                                ) : (
+                                  <Mail className={`w-3 h-3 text-blue-400`} />
+                                )}
+                              </div>
+                              <span className="text-[13px] font-semibold text-white">
+                                Step {call.currentStep} of {call.totalSteps}
+                              </span>
+                            </div>
+
+                            {/* Details rows */}
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] text-white/50">Channel</span>
+                                <span className="text-[11px] text-white font-medium capitalize">{call.stepType === 'sms' ? 'SMS' : call.stepType === 'call' ? 'Voice Call' : 'Email'}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] text-white/50">Status</span>
+                                <span className={`text-[11px] font-medium ${
+                                  call.callStatus === 'completed' ? 'text-emerald-400' :
+                                  call.callStatus === 'queued' ? 'text-amber-400' :
+                                  call.callStatus === 'failed' ? 'text-red-400' :
+                                  'text-white'
+                                }`}>{call.callStatus}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] text-white/50">Outcome</span>
+                                <span className="text-[11px] text-white font-medium">{call.outcome !== '--' ? call.outcome.replace(/_/g, ' ') : '—'}</span>
+                              </div>
+                              {call.timestamp.duration && call.timestamp.duration !== '--' && (
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[11px] text-white/50">Duration</span>
+                                  <span className="text-[11px] text-white font-medium">{call.timestamp.duration}</span>
+                                </div>
+                              )}
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] text-white/50">Next action</span>
+                                <span className="text-[11px] text-white font-medium">{call.nextAction}</span>
+                              </div>
+                            </div>
+
+                            {/* Progress bar */}
+                            <div className="mt-2.5 pt-2.5 border-t border-white/10">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[10px] text-white/40">Progress</span>
+                                <span className="text-[10px] text-white/60">{Math.round((call.currentStep / call.totalSteps) * 100)}%</span>
+                              </div>
+                              <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    call.stepType === 'call' ? 'bg-indigo-400' :
+                                    call.stepType === 'sms' ? 'bg-emerald-400' :
+                                    'bg-blue-400'
+                                  }`}
+                                  style={{ width: `${(call.currentStep / call.totalSteps) * 100}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                          {/* Arrow pointing down (when tooltip is above) */}
+                          {index >= displayCalls.length - 2 && (
+                            <div className="w-2.5 h-2.5 bg-[#1A1A1A] rotate-45 mx-4 mt-[-5px]" />
+                          )}
                         </div>
                       </div>
                     </TableCell>

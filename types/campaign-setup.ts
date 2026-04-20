@@ -124,6 +124,8 @@ export interface CampaignData {
     financingQuestions: boolean;
     urgency: boolean;
   };
+  /** Active campaigns with their enrolled leads — used for cross-campaign conflict detection */
+  activeCampaigns?: ActiveCampaignWithLeads[];
 }
 
 export interface TimeSlot {
@@ -161,4 +163,18 @@ export interface SetupStep {
   id: number;
   name: string;
   number: string;
+}
+
+export interface ConflictedLead {
+  phone: string;
+  name: string;
+  conflictingCampaignName: string;
+  conflictingCampaignId: string;
+}
+
+export interface ActiveCampaignWithLeads {
+  campaignId: string;
+  name: string;
+  status: string;
+  leads: Array<{ phone: string; name: string }>;
 }

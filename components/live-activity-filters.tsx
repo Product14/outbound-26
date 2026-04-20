@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { MultiSelect, MultiSelectOption } from "@/components/ui/multi-select"
-import { SERVICE_OUTCOMES, SALES_OUTCOMES } from "@/lib/call-status-utils"
+import { SERVICE_OUTCOMES, SALES_OUTCOMES, SMS_OUTCOMES } from "@/lib/call-status-utils"
 import { 
   Search, 
   Filter, 
@@ -232,6 +232,9 @@ export function LiveActivityFilters({
   const filteredOutcomes = getOutcomeOptions().filter(outcome =>
     outcome.toLowerCase().includes(outcomeSearchTerm.toLowerCase())
   )
+  const filteredSmsOutcomes = SMS_OUTCOMES.filter(outcome =>
+    outcome.toLowerCase().includes(outcomeSearchTerm.toLowerCase())
+  )
 
   // Clear all filters
   const clearAllFilters = () => {
@@ -334,13 +337,36 @@ export function LiveActivityFilters({
             {/* Scrollable content area */}
             <div className="max-h-[320px] overflow-y-auto">
               <SelectItem value="all">All Outcomes</SelectItem>
-              {filteredOutcomes.length > 0 ? (
-                filteredOutcomes.map((outcome) => (
-                  <SelectItem key={outcome} value={outcome}>
-                    {outcome}
-                  </SelectItem>
-                ))
-              ) : (
+
+              {/* Call outcomes group */}
+              {filteredOutcomes.length > 0 && (
+                <>
+                  <div className="px-3 py-1.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider bg-white">
+                    Call Outcomes
+                  </div>
+                  {filteredOutcomes.map((outcome) => (
+                    <SelectItem key={outcome} value={outcome}>
+                      {outcome}
+                    </SelectItem>
+                  ))}
+                </>
+              )}
+
+              {/* SMS outcomes group */}
+              {filteredSmsOutcomes.length > 0 && (
+                <>
+                  <div className="px-3 py-1.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider bg-white border-t border-gray-100 mt-1">
+                    SMS Outcomes
+                  </div>
+                  {filteredSmsOutcomes.map((outcome) => (
+                    <SelectItem key={outcome} value={outcome}>
+                      {outcome}
+                    </SelectItem>
+                  ))}
+                </>
+              )}
+
+              {filteredOutcomes.length === 0 && filteredSmsOutcomes.length === 0 && (
                 <div className="px-4 py-6 text-sm text-gray-500 text-center">
                   No outcomes found
                 </div>

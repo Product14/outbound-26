@@ -89,6 +89,46 @@ export interface ChannelComparisonRow {
   footnote?: string
 }
 
+export interface NoInteractionBreakdown {
+  voicemail: number
+  noReply: number
+  disconnected: number
+  total: number
+}
+
+export interface BestReachInsight {
+  bestDay: string
+  bestHour: string
+  bestReachRate: number
+  bestChannel: 'SMS' | 'Call'
+  bestChannelEngagement: number
+  bestChannelReason: string
+}
+
+export interface AnalyticsTopMetrics {
+  totalEnrolled: number
+  engaged: number
+  warmLeads: number
+  apptBooked: number
+  overallPct: number
+  connectRate: number
+  optedOut: number
+  avgCallDuration: string
+  avgTurnRateMinutes: number
+  failedCalls: number
+  exited: number
+}
+
+export interface DayWiseRow {
+  day: number
+  label: string
+  enrolled: number
+  contacted: number
+  engaged: number
+  booked: number
+  replyRate: number
+}
+
 export interface AnalyticsExtrasData {
   objections: ObjectionItem[]
   // heatmap: rows = days (Mon–Sun), cols = hours (9a–8p)
@@ -97,6 +137,10 @@ export interface AnalyticsExtrasData {
   heatmapDays: string[]
   channelComparison: ChannelComparisonRow[]
   channelFootnote: string
+  noInteraction: NoInteractionBreakdown
+  bestReach: BestReachInsight
+  topMetrics: AnalyticsTopMetrics
+  dayWise: DayWiseRow[]
 }
 
 export function getMockAnalyticsExtras(campaignId: string): AnalyticsExtrasData {
@@ -144,7 +188,6 @@ export function getMockAnalyticsExtras(campaignId: string): AnalyticsExtrasData 
     { metric: 'Engagement rate',     sms: '42%',        call: '46%*',       footnote: '* of connected calls only' },
     { metric: 'Avg time to engage',  sms: '47 min',     call: 'Instant' },
     { metric: 'Booking rate',        sms: '12%',        call: '15%',        callHighlight: true },
-    { metric: 'Cost per touch',      sms: '$0.01–0.03', call: '$0.08–0.15', smsHighlight: true },
   ]
 
   const serviceChannelComparison: ChannelComparisonRow[] = [
@@ -152,8 +195,78 @@ export function getMockAnalyticsExtras(campaignId: string): AnalyticsExtrasData 
     { metric: 'Engagement rate',     sms: '36%',        call: '51%*',       footnote: '* of connected calls only' },
     { metric: 'Avg time to engage',  sms: '62 min',     call: 'Instant' },
     { metric: 'Booking rate',        sms: '11%',        call: '18%',        callHighlight: true },
-    { metric: 'Cost per touch',      sms: '$0.01–0.03', call: '$0.08–0.15', smsHighlight: true },
   ]
+
+  const salesNoInteraction: NoInteractionBreakdown = {
+    voicemail: 142,
+    noReply: 318,
+    disconnected: 47,
+    total: 507,
+  }
+  const serviceNoInteraction: NoInteractionBreakdown = {
+    voicemail: 98,
+    noReply: 211,
+    disconnected: 33,
+    total: 342,
+  }
+
+  const salesBestReach: BestReachInsight = {
+    bestDay: 'Wednesday',
+    bestHour: '12p–1p',
+    bestReachRate: 38,
+    bestChannel: 'SMS',
+    bestChannelEngagement: 42,
+    bestChannelReason: 'Higher reach + lower cost per touch',
+  }
+  const serviceBestReach: BestReachInsight = {
+    bestDay: 'Tuesday',
+    bestHour: '11a–12p',
+    bestReachRate: 33,
+    bestChannel: 'Call',
+    bestChannelEngagement: 51,
+    bestChannelReason: 'Service customers convert faster on calls',
+  }
+
+  const salesTopMetrics: AnalyticsTopMetrics = {
+    totalEnrolled: 2480,
+    engaged: 1042,
+    warmLeads: 386,
+    apptBooked: 198,
+    overallPct: 8.0,
+    connectRate: 46,
+    optedOut: 31,
+    avgCallDuration: '2:45',
+    avgTurnRateMinutes: 47,
+    failedCalls: 64,
+    exited: 142,
+  }
+  const serviceTopMetrics: AnalyticsTopMetrics = {
+    totalEnrolled: 1820,
+    engaged: 712,
+    warmLeads: 264,
+    apptBooked: 174,
+    overallPct: 9.6,
+    connectRate: 51,
+    optedOut: 19,
+    avgCallDuration: '2:18',
+    avgTurnRateMinutes: 62,
+    failedCalls: 41,
+    exited: 96,
+  }
+
+  const buildDayWise = (mode: CampaignMode): DayWiseRow[] => {
+    const base = mode === 'service' ? serviceTopMetrics : salesTopMetrics
+    const labels = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7']
+    const enrolledShares = [0.30, 0.20, 0.16, 0.12, 0.10, 0.07, 0.05]
+    return labels.map((label, idx) => {
+      const enrolled = Math.round(base.totalEnrolled * enrolledShares[idx])
+      const contacted = Math.round(enrolled * (0.84 - idx * 0.04))
+      const engaged = Math.round(contacted * (0.42 - idx * 0.02))
+      const booked = Math.round(engaged * (0.18 - idx * 0.005))
+      const replyRate = Math.max(8, Math.round((engaged / Math.max(enrolled, 1)) * 100))
+      return { day: idx + 1, label, enrolled, contacted, engaged, booked, replyRate }
+    })
+  }
 
   return {
     objections: mode === 'service' ? serviceObjections : salesObjections,
@@ -162,6 +275,99 @@ export function getMockAnalyticsExtras(campaignId: string): AnalyticsExtrasData 
     heatmapDays:  ['M','T','W','T','F','S','S'],
     channelComparison: mode === 'service' ? serviceChannelComparison : salesChannelComparison,
     channelFootnote: '* of connected calls only',
+    noInteraction: mode === 'service' ? serviceNoInteraction : salesNoInteraction,
+    bestReach: mode === 'service' ? serviceBestReach : salesBestReach,
+    topMetrics: mode === 'service' ? serviceTopMetrics : salesTopMetrics,
+    dayWise: buildDayWise(mode),
+  }
+}
+
+/**
+ * Aggregate analytics across all campaigns — used on the campaign-listing page
+ * where the user wants "all data" rolled up.
+ */
+export function getMockAggregateAnalyticsExtras(): AnalyticsExtrasData {
+  const sales = getMockAnalyticsExtras('sales-aggregate')
+  const service = getMockAnalyticsExtras('service-aggregate')
+
+  // Sum sales+service objections (same labels stay in sales bucket; service ones append)
+  const combinedObjections: ObjectionItem[] = [
+    { label: 'Price',         count: 34 + 17, resolutionRate: 36, color: '#F59E0B' },
+    { label: 'Availability',  count: 11 + 14, resolutionRate: 40, color: '#10B981' },
+    { label: 'Not Ready',     count: 29 + 8,  resolutionRate: 12, color: '#EF4444' },
+    { label: 'Not in Market', count: 22,      resolutionRate: 18, color: '#6366F1' },
+    { label: 'Trade / Budget',count: 18 + 22, resolutionRate: 38, color: '#8B5CF6' },
+    { label: 'Will Call Back',count: 11,      resolutionRate: 55, color: '#3B82F6' },
+  ]
+
+  // Element-wise add the heatmaps
+  const combinedHeatmap = sales.heatmap.map((row, i) =>
+    row.map((v, j) => Math.round((v + service.heatmap[i][j]) / 2))
+  )
+
+  const combinedTopMetrics: AnalyticsTopMetrics = {
+    totalEnrolled: sales.topMetrics.totalEnrolled + service.topMetrics.totalEnrolled,
+    engaged: sales.topMetrics.engaged + service.topMetrics.engaged,
+    warmLeads: sales.topMetrics.warmLeads + service.topMetrics.warmLeads,
+    apptBooked: sales.topMetrics.apptBooked + service.topMetrics.apptBooked,
+    overallPct: Math.round(
+      ((sales.topMetrics.apptBooked + service.topMetrics.apptBooked) /
+        (sales.topMetrics.totalEnrolled + service.topMetrics.totalEnrolled)) *
+        1000
+    ) / 10,
+    connectRate: Math.round((sales.topMetrics.connectRate + service.topMetrics.connectRate) / 2),
+    optedOut: sales.topMetrics.optedOut + service.topMetrics.optedOut,
+    avgCallDuration: '2:32',
+    avgTurnRateMinutes: Math.round((sales.topMetrics.avgTurnRateMinutes + service.topMetrics.avgTurnRateMinutes) / 2),
+    failedCalls: sales.topMetrics.failedCalls + service.topMetrics.failedCalls,
+    exited: sales.topMetrics.exited + service.topMetrics.exited,
+  }
+
+  const combinedNoInteraction: NoInteractionBreakdown = {
+    voicemail: sales.noInteraction.voicemail + service.noInteraction.voicemail,
+    noReply: sales.noInteraction.noReply + service.noInteraction.noReply,
+    disconnected: sales.noInteraction.disconnected + service.noInteraction.disconnected,
+    total: sales.noInteraction.total + service.noInteraction.total,
+  }
+
+  const combinedDayWise: DayWiseRow[] = sales.dayWise.map((row, i) => {
+    const sRow = service.dayWise[i]
+    return {
+      day: row.day,
+      label: row.label,
+      enrolled: row.enrolled + sRow.enrolled,
+      contacted: row.contacted + sRow.contacted,
+      engaged: row.engaged + sRow.engaged,
+      booked: row.booked + sRow.booked,
+      replyRate: Math.round((row.replyRate + sRow.replyRate) / 2),
+    }
+  })
+
+  const aggregateChannelComparison: ChannelComparisonRow[] = [
+    { metric: 'Reach rate',          sms: '98%',        call: '48%',        smsHighlight: true },
+    { metric: 'Engagement rate',     sms: '39%',        call: '48%*',       footnote: '* of connected calls only' },
+    { metric: 'Avg time to engage',  sms: '54 min',     call: 'Instant' },
+    { metric: 'Booking rate',        sms: '11.5%',      call: '16.5%',      callHighlight: true },
+  ]
+
+  return {
+    objections: combinedObjections,
+    heatmap: combinedHeatmap,
+    heatmapHours: sales.heatmapHours,
+    heatmapDays: sales.heatmapDays,
+    channelComparison: aggregateChannelComparison,
+    channelFootnote: '* of connected calls only',
+    noInteraction: combinedNoInteraction,
+    bestReach: {
+      bestDay: 'Wednesday',
+      bestHour: '12p–1p',
+      bestReachRate: 36,
+      bestChannel: 'SMS',
+      bestChannelEngagement: 39,
+      bestChannelReason: 'Higher reach + lower cost across both campaign types',
+    },
+    topMetrics: combinedTopMetrics,
+    dayWise: combinedDayWise,
   }
 }
 
@@ -455,7 +661,7 @@ function salesTasks(): LocalCampaignStatusTask[] {
       callAnswered: true,
       appointmentScheduled: true,
       duration: '4:12',
-      outcome: 'appointment_scheduled',
+      outcome: 'Schedule Test Drive',
       aiQuality: '8.6',
     },
     {
@@ -476,7 +682,7 @@ function salesTasks(): LocalCampaignStatusTask[] {
       callAnswered: true,
       appointmentScheduled: false,
       duration: '3:07',
-      outcome: 'callback_requested',
+      outcome: 'Salesperson/Manager Request',
       aiQuality: '7.4',
     },
     {
@@ -495,7 +701,7 @@ function salesTasks(): LocalCampaignStatusTask[] {
       statusUpdatedAt: iso(-75 * 60 * 1000),
       isCallConnected: false,
       nextVisibleAt: iso(50 * 60 * 1000),
-      outcome: 'follow_up_pending',
+      outcome: 'General Sales Inquiry',
       aiQuality: '7.1',
     },
     {
@@ -515,7 +721,7 @@ function salesTasks(): LocalCampaignStatusTask[] {
       isCallConnected: false,
       callAnswered: false,
       duration: '0:24',
-      outcome: 'voicemail',
+      outcome: 'Voicemail',
       aiQuality: '5.6',
     },
     {
@@ -535,9 +741,292 @@ function salesTasks(): LocalCampaignStatusTask[] {
       isCallConnected: false,
       callAnswered: false,
       duration: '0:00',
-      outcome: 'call_failed',
+      outcome: 'Call Aborted',
       aiQuality: '4.1',
       errorReason: 'carrier_block',
+    },
+    {
+      outboundTaskId: 'task-6',
+      callId: 'call-6',
+      status: 'completed',
+      connectionStatus: 'connected',
+      leadId: 'lead-6',
+      leadName: 'Ava Rodriguez',
+      phoneNumber: '+1 (305) 555-0311',
+      email: 'ava@example.com',
+      vehicleName: '2024 Blazer RS',
+      vehicleIdentificationNumber: { vin: 'VIN-BLAZER-006' },
+      isCallback: false,
+      retryCount: 0,
+      statusUpdatedAt: iso(-35 * 60 * 1000),
+      isCallConnected: true,
+      callAnswered: true,
+      appointmentScheduled: false,
+      duration: '2:48',
+      outcome: 'Vehicle Availability Inquiry',
+      aiQuality: '7.9',
+    },
+    {
+      outboundTaskId: 'task-7',
+      callId: 'call-7',
+      status: 'completed',
+      connectionStatus: 'connected',
+      leadId: 'lead-7',
+      leadName: 'Noah Bennett',
+      phoneNumber: '+1 (305) 555-0332',
+      email: 'noah@example.com',
+      vehicleName: '2024 Colorado ZR2',
+      vehicleIdentificationNumber: { vin: 'VIN-ZR2-007' },
+      isCallback: false,
+      retryCount: 0,
+      statusUpdatedAt: iso(-50 * 60 * 1000),
+      isCallConnected: true,
+      callAnswered: true,
+      appointmentScheduled: true,
+      duration: '5:21',
+      outcome: 'Reschedule Test Drive',
+      aiQuality: '8.1',
+    },
+    {
+      outboundTaskId: 'task-8',
+      callId: 'call-8',
+      status: 'completed',
+      connectionStatus: 'connected',
+      leadId: 'lead-8',
+      leadName: 'Isabella Nguyen',
+      phoneNumber: '+1 (305) 555-0353',
+      email: 'isabella@example.com',
+      vehicleName: '2023 Camaro SS',
+      vehicleIdentificationNumber: { vin: 'VIN-CAMARO-008' },
+      isCallback: false,
+      retryCount: 0,
+      statusUpdatedAt: iso(-70 * 60 * 1000),
+      isCallConnected: true,
+      callAnswered: true,
+      appointmentScheduled: false,
+      duration: '2:10',
+      outcome: 'Cancel Test Drive',
+      aiQuality: '6.3',
+    },
+    {
+      outboundTaskId: 'task-9',
+      callId: 'call-9',
+      status: 'completed',
+      connectionStatus: 'connected',
+      leadId: 'lead-9',
+      leadName: 'Liam Patel',
+      phoneNumber: '+1 (305) 555-0374',
+      email: 'liam@example.com',
+      vehicleName: '2025 Corvette Stingray',
+      vehicleIdentificationNumber: { vin: 'VIN-VETTE-009' },
+      isCallback: false,
+      retryCount: 0,
+      statusUpdatedAt: iso(-90 * 60 * 1000),
+      isCallConnected: true,
+      callAnswered: true,
+      duration: '3:55',
+      outcome: 'Request Vehicle Information',
+      aiQuality: '8.4',
+    },
+    {
+      outboundTaskId: 'task-10',
+      callId: 'call-10',
+      status: 'completed',
+      connectionStatus: 'connected',
+      leadId: 'lead-10',
+      leadName: 'Mia Chen',
+      phoneNumber: '+1 (305) 555-0395',
+      email: 'mia@example.com',
+      vehicleName: '2024 Tahoe Premier',
+      vehicleIdentificationNumber: { vin: 'VIN-TAHOE-010' },
+      isCallback: false,
+      retryCount: 0,
+      statusUpdatedAt: iso(-2 * hour - 5 * 60 * 1000),
+      isCallConnected: true,
+      callAnswered: true,
+      duration: '4:02',
+      outcome: 'Request Price/Quote',
+      aiQuality: '7.7',
+    },
+    {
+      outboundTaskId: 'task-11',
+      callId: 'call-11',
+      status: 'completed',
+      connectionStatus: 'connected',
+      leadId: 'lead-11',
+      leadName: 'Ethan Silva',
+      phoneNumber: '+1 (305) 555-0416',
+      email: 'ethan@example.com',
+      vehicleName: '2024 Suburban LT',
+      vehicleIdentificationNumber: { vin: 'VIN-SUB-011' },
+      isCallback: true,
+      retryCount: 1,
+      statusUpdatedAt: iso(-2 * hour - 30 * 60 * 1000),
+      isCallConnected: true,
+      callAnswered: true,
+      duration: '4:35',
+      outcome: 'Financing/Leasing Inquiry',
+      aiQuality: '8.0',
+    },
+    {
+      outboundTaskId: 'task-12',
+      callId: 'call-12',
+      status: 'live',
+      connectionStatus: 'live',
+      leadId: 'lead-12',
+      leadName: 'Olivia Martinez',
+      phoneNumber: '+1 (305) 555-0437',
+      email: 'olivia@example.com',
+      vehicleName: '2022 Equinox LT',
+      vehicleIdentificationNumber: { vin: 'VIN-EQX-012' },
+      isCallback: false,
+      retryCount: 0,
+      statusUpdatedAt: iso(-2 * 60 * 1000),
+      isCallConnected: true,
+      callAnswered: true,
+      duration: '1:48',
+      outcome: 'Trade-in Inquiry',
+      aiQuality: '7.6',
+    },
+    {
+      outboundTaskId: 'task-13',
+      callId: 'call-13',
+      status: 'completed',
+      connectionStatus: 'connected',
+      leadId: 'lead-13',
+      leadName: 'Lucas Wright',
+      phoneNumber: '+1 (305) 555-0458',
+      email: 'lucas@example.com',
+      vehicleName: '2024 Silverado ZR2',
+      vehicleIdentificationNumber: { vin: 'VIN-ZR2-013' },
+      isCallback: false,
+      retryCount: 0,
+      statusUpdatedAt: iso(-3 * hour - 15 * 60 * 1000),
+      isCallConnected: true,
+      callAnswered: true,
+      duration: '3:28',
+      outcome: 'Inventory/Brochure Request',
+      aiQuality: '7.2',
+    },
+    {
+      outboundTaskId: 'task-14',
+      callId: 'call-14',
+      status: 'completed',
+      connectionStatus: 'connected',
+      leadId: 'lead-14',
+      leadName: 'Sophia Harris',
+      phoneNumber: '+1 (305) 555-0479',
+      email: 'sophia@example.com',
+      vehicleName: '2024 Silverado HD',
+      vehicleIdentificationNumber: { vin: 'VIN-HD-014' },
+      isCallback: false,
+      retryCount: 0,
+      statusUpdatedAt: iso(-4 * hour),
+      isCallConnected: true,
+      callAnswered: true,
+      appointmentScheduled: true,
+      duration: '6:14',
+      outcome: 'Appointment for Purchase Discussion',
+      aiQuality: '9.1',
+    },
+    {
+      outboundTaskId: 'task-15',
+      callId: 'call-15',
+      status: 'completed',
+      connectionStatus: 'connected',
+      leadId: 'lead-15',
+      leadName: 'Henry Adams',
+      phoneNumber: '+1 (305) 555-0491',
+      email: 'henry@example.com',
+      vehicleName: '2023 Bolt EUV',
+      vehicleIdentificationNumber: { vin: 'VIN-BOLT-015' },
+      isCallback: false,
+      retryCount: 0,
+      statusUpdatedAt: iso(-4 * hour - 25 * 60 * 1000),
+      isCallConnected: true,
+      callAnswered: true,
+      duration: '2:12',
+      outcome: 'Check Order/Delivery Status',
+      aiQuality: '7.0',
+    },
+    {
+      outboundTaskId: 'task-16',
+      callId: 'call-16',
+      status: 'completed',
+      connectionStatus: 'connected',
+      leadId: 'lead-16',
+      leadName: 'Grace Thompson',
+      phoneNumber: '+1 (305) 555-0512',
+      email: 'grace@example.com',
+      vehicleName: '2024 Traverse LT',
+      vehicleIdentificationNumber: { vin: 'VIN-TRV-016' },
+      isCallback: false,
+      retryCount: 0,
+      statusUpdatedAt: iso(-5 * hour - 10 * 60 * 1000),
+      isCallConnected: true,
+      callAnswered: true,
+      duration: '3:41',
+      outcome: 'Extended Warranty/Protection Plan Inquiry',
+      aiQuality: '7.5',
+    },
+    {
+      outboundTaskId: 'task-17',
+      callId: 'call-17',
+      status: 'completed',
+      connectionStatus: 'connected',
+      leadId: 'lead-17',
+      leadName: 'Benjamin Cole',
+      phoneNumber: '+1 (305) 555-0533',
+      email: 'benjamin@example.com',
+      vehicleName: '2024 Malibu LT',
+      vehicleIdentificationNumber: { vin: 'VIN-MAL-017' },
+      isCallback: false,
+      retryCount: 0,
+      statusUpdatedAt: iso(-6 * hour),
+      isCallConnected: true,
+      callAnswered: true,
+      duration: '2:55',
+      outcome: 'Insurance/Registration Assistance Inquiry',
+      aiQuality: '6.8',
+    },
+    {
+      outboundTaskId: 'task-18',
+      callId: 'call-18',
+      status: 'queued',
+      connectionStatus: 'queue',
+      leadId: 'lead-18',
+      leadName: 'Chloe Parker',
+      phoneNumber: '+1 (305) 555-0554',
+      email: 'chloe@example.com',
+      vehicleName: '2025 Silverado EV',
+      vehicleIdentificationNumber: { vin: 'VIN-EV-018' },
+      isCallback: false,
+      retryCount: 0,
+      statusUpdatedAt: iso(-15 * 60 * 1000),
+      isCallConnected: false,
+      nextVisibleAt: iso(20 * 60 * 1000),
+      outcome: 'Operating Hours/Location Inquiry',
+      aiQuality: '7.3',
+    },
+    {
+      outboundTaskId: 'task-19',
+      callId: 'call-19',
+      status: 'completed',
+      connectionStatus: 'connected',
+      leadId: 'lead-19',
+      leadName: 'Aiden Brooks',
+      phoneNumber: '+1 (305) 555-0575',
+      email: 'aiden@example.com',
+      vehicleName: '2024 Trax LT',
+      vehicleIdentificationNumber: { vin: 'VIN-TRAX-019' },
+      isCallback: false,
+      retryCount: 0,
+      statusUpdatedAt: iso(-7 * hour),
+      isCallConnected: true,
+      callAnswered: true,
+      duration: '3:18',
+      outcome: 'Promotions/Incentives Inquiry',
+      aiQuality: '7.2',
     },
   ]
 }
@@ -563,7 +1052,7 @@ function serviceTasks(): LocalCampaignStatusTask[] {
       callAnswered: true,
       appointmentScheduled: true,
       duration: '2:58',
-      outcome: 'service_appointment_scheduled',
+      outcome: 'Service Appointment Booked',
       aiQuality: '8.2',
     },
     {
@@ -585,7 +1074,7 @@ function serviceTasks(): LocalCampaignStatusTask[] {
       callAnswered: true,
       appointmentScheduled: false,
       duration: '2:21',
-      outcome: 'callback_requested',
+      outcome: 'Connect with Service Team',
       aiQuality: '7.3',
     },
     {
@@ -605,7 +1094,7 @@ function serviceTasks(): LocalCampaignStatusTask[] {
       statusUpdatedAt: iso(-90 * 60 * 1000),
       isCallConnected: false,
       nextVisibleAt: iso(35 * 60 * 1000),
-      outcome: 'follow_up_pending',
+      outcome: 'Follow-Up Required',
       aiQuality: '7.0',
     },
     {
@@ -626,8 +1115,243 @@ function serviceTasks(): LocalCampaignStatusTask[] {
       isCallConnected: false,
       callAnswered: false,
       duration: '0:19',
-      outcome: 'voicemail',
+      outcome: 'Voicemail',
       aiQuality: '5.8',
+    },
+    {
+      outboundTaskId: 'svc-task-5',
+      callId: 'svc-call-5',
+      status: 'completed',
+      connectionStatus: 'connected',
+      leadId: 'svc-lead-5',
+      leadName: 'Jasmine Park',
+      phoneNumber: '+1 (305) 555-0405',
+      email: 'jasmine@example.com',
+      serviceName: 'Tire Rotation',
+      vehicleName: '2023 Chevrolet Equinox',
+      vehicleIdentificationNumber: { vin: 'VIN-SVC-005' },
+      isCallback: false,
+      retryCount: 0,
+      statusUpdatedAt: iso(-45 * 60 * 1000),
+      isCallConnected: true,
+      callAnswered: true,
+      appointmentScheduled: true,
+      duration: '3:12',
+      outcome: 'Service Appointment Rescheduled',
+      aiQuality: '8.4',
+    },
+    {
+      outboundTaskId: 'svc-task-6',
+      callId: 'svc-call-6',
+      status: 'completed',
+      connectionStatus: 'connected',
+      leadId: 'svc-lead-6',
+      leadName: 'Dominic Hayes',
+      phoneNumber: '+1 (305) 555-0406',
+      email: 'dominic@example.com',
+      serviceName: 'Oil Change',
+      vehicleName: '2022 Chevrolet Tahoe',
+      vehicleIdentificationNumber: { vin: 'VIN-SVC-006' },
+      isCallback: false,
+      retryCount: 0,
+      statusUpdatedAt: iso(-70 * 60 * 1000),
+      isCallConnected: true,
+      callAnswered: true,
+      duration: '1:52',
+      outcome: 'Service Appointment Cancelled',
+      aiQuality: '6.5',
+    },
+    {
+      outboundTaskId: 'svc-task-7',
+      callId: 'svc-call-7',
+      status: 'completed',
+      connectionStatus: 'connected',
+      leadId: 'svc-lead-7',
+      leadName: 'Rachel Stone',
+      phoneNumber: '+1 (305) 555-0407',
+      email: 'rachel@example.com',
+      serviceName: 'Transmission Service',
+      vehicleName: '2021 Chevrolet Silverado',
+      vehicleIdentificationNumber: { vin: 'VIN-SVC-007' },
+      isCallback: true,
+      retryCount: 1,
+      statusUpdatedAt: iso(-2 * hour - 15 * 60 * 1000),
+      isCallConnected: true,
+      callAnswered: true,
+      duration: '2:40',
+      outcome: 'Engaged – Needs Reconnect',
+      aiQuality: '7.1',
+    },
+    {
+      outboundTaskId: 'svc-task-8',
+      callId: 'svc-call-8',
+      status: 'completed',
+      connectionStatus: 'connected',
+      leadId: 'svc-lead-8',
+      leadName: 'Marcus Bell',
+      phoneNumber: '+1 (305) 555-0408',
+      email: 'marcus@example.com',
+      serviceName: 'Oil Change',
+      vehicleName: '2020 Chevrolet Malibu',
+      vehicleIdentificationNumber: { vin: 'VIN-SVC-008' },
+      isCallback: false,
+      retryCount: 0,
+      statusUpdatedAt: iso(-3 * hour - 10 * 60 * 1000),
+      isCallConnected: true,
+      callAnswered: true,
+      appointmentScheduled: true,
+      duration: '4:05',
+      outcome: 'Drop Off/Pickup Info Shared',
+      aiQuality: '7.8',
+    },
+    {
+      outboundTaskId: 'svc-task-9',
+      callId: 'svc-call-9',
+      status: 'completed',
+      connectionStatus: 'connected',
+      leadId: 'svc-lead-9',
+      leadName: 'Tara Singh',
+      phoneNumber: '+1 (305) 555-0409',
+      email: 'tara@example.com',
+      serviceName: 'Collision Repair',
+      vehicleName: '2024 Chevrolet Traverse',
+      vehicleIdentificationNumber: { vin: 'VIN-SVC-009' },
+      isCallback: false,
+      retryCount: 0,
+      statusUpdatedAt: iso(-3 * hour - 45 * 60 * 1000),
+      isCallConnected: true,
+      callAnswered: true,
+      duration: '3:37',
+      outcome: 'Loaner Info Shared',
+      aiQuality: '7.6',
+    },
+    {
+      outboundTaskId: 'svc-task-10',
+      callId: 'svc-call-10',
+      status: 'completed',
+      connectionStatus: 'connected',
+      leadId: 'svc-lead-10',
+      leadName: 'Kevin Walsh',
+      phoneNumber: '+1 (305) 555-0410',
+      email: 'kevin@example.com',
+      serviceName: 'AC System Check',
+      vehicleName: '2022 Chevrolet Colorado',
+      vehicleIdentificationNumber: { vin: 'VIN-SVC-010' },
+      isCallback: true,
+      retryCount: 2,
+      statusUpdatedAt: iso(-4 * hour - 30 * 60 * 1000),
+      isCallConnected: true,
+      callAnswered: true,
+      duration: '2:15',
+      outcome: 'Transferred to Human',
+      aiQuality: '6.9',
+    },
+    {
+      outboundTaskId: 'svc-task-11',
+      callId: 'svc-call-11',
+      status: 'completed',
+      connectionStatus: 'connected',
+      leadId: 'svc-lead-11',
+      leadName: 'Helen Foster',
+      phoneNumber: '+1 (305) 555-0411',
+      email: 'helen@example.com',
+      serviceName: 'Oil Change',
+      vehicleName: '2023 Chevrolet Blazer',
+      vehicleIdentificationNumber: { vin: 'VIN-SVC-011' },
+      isCallback: false,
+      retryCount: 0,
+      statusUpdatedAt: iso(-5 * hour - 20 * 60 * 1000),
+      isCallConnected: true,
+      callAnswered: true,
+      duration: '3:02',
+      outcome: 'No Empty Slots',
+      aiQuality: '5.9',
+    },
+    {
+      outboundTaskId: 'svc-task-12',
+      callId: 'svc-call-12',
+      status: 'failed',
+      connectionStatus: 'failed',
+      leadId: 'svc-lead-12',
+      leadName: 'Ian Russell',
+      phoneNumber: '+1 (305) 555-0412',
+      email: 'ian@example.com',
+      serviceName: 'Engine Diagnostic',
+      vehicleName: '2019 Chevrolet Cruze',
+      vehicleIdentificationNumber: { vin: 'VIN-SVC-012' },
+      isCallback: false,
+      retryCount: 2,
+      statusUpdatedAt: iso(-6 * hour - 15 * 60 * 1000),
+      isCallConnected: false,
+      callAnswered: false,
+      duration: '0:12',
+      outcome: 'Call Disconnected',
+      aiQuality: '4.3',
+      errorReason: 'line_dropped',
+    },
+    {
+      outboundTaskId: 'svc-task-13',
+      callId: 'svc-call-13',
+      status: 'failed',
+      connectionStatus: 'failed',
+      leadId: 'svc-lead-13',
+      leadName: 'Brenda Cole',
+      phoneNumber: '+1 (305) 555-0413',
+      email: 'brenda@example.com',
+      serviceName: 'Recall Notice',
+      vehicleName: '2018 Chevrolet Impala',
+      vehicleIdentificationNumber: { vin: 'VIN-SVC-013' },
+      isCallback: false,
+      retryCount: 3,
+      statusUpdatedAt: iso(-7 * hour),
+      isCallConnected: false,
+      callAnswered: false,
+      duration: '0:00',
+      outcome: 'Call Aborted',
+      aiQuality: '3.9',
+      errorReason: 'carrier_block',
+    },
+    {
+      outboundTaskId: 'svc-task-14',
+      callId: 'svc-call-14',
+      status: 'live',
+      connectionStatus: 'live',
+      leadId: 'svc-lead-14',
+      leadName: 'Simone Clarke',
+      phoneNumber: '+1 (305) 555-0414',
+      email: 'simone@example.com',
+      serviceName: 'Multi-Point Inspection',
+      vehicleName: '2023 Chevrolet Suburban',
+      vehicleIdentificationNumber: { vin: 'VIN-SVC-014' },
+      isCallback: false,
+      retryCount: 0,
+      statusUpdatedAt: iso(-3 * 60 * 1000),
+      isCallConnected: true,
+      callAnswered: true,
+      duration: '2:08',
+      outcome: 'Connect with Service Team',
+      aiQuality: '7.4',
+    },
+    {
+      outboundTaskId: 'svc-task-15',
+      callId: 'svc-call-15',
+      status: 'completed',
+      connectionStatus: 'connected',
+      leadId: 'svc-lead-15',
+      leadName: 'Alan Pierce',
+      phoneNumber: '+1 (305) 555-0415',
+      email: 'alan@example.com',
+      serviceName: 'Oil Change',
+      vehicleName: '2021 Chevrolet Silverado',
+      vehicleIdentificationNumber: { vin: 'VIN-SVC-015' },
+      isCallback: false,
+      retryCount: 0,
+      statusUpdatedAt: iso(-8 * hour),
+      isCallConnected: true,
+      callAnswered: true,
+      duration: '2:33',
+      outcome: 'General Information Shared',
+      aiQuality: '6.7',
     },
   ]
 }
@@ -1563,8 +2287,8 @@ export type CampaignChannel = 'SMS' | 'Call' | 'SMS+Call'
 
 export interface CampaignChannelStats {
   channel: CampaignChannel
-  messagesSent: number
-  replyRate: number // percentage
+  enrolled: number
+  connectRate: number // percentage
 }
 
 // Deterministic channel by campaignId — stable across renders
@@ -1579,9 +2303,11 @@ export function getCampaignChannel(campaignId: string): CampaignChannel {
 export function getCampaignChannelStats(campaignId: string): CampaignChannelStats {
   const channel = getCampaignChannel(campaignId)
   const hash = [...campaignId].reduce((h, ch) => h + ch.charCodeAt(0), 0)
-  const messagesSent = channel === 'Call' ? 0 : 500 + (hash % 2400)
-  const replyRate = channel === 'Call' ? 0 : 28 + (hash % 20)
-  return { channel, messagesSent, replyRate }
+  // Enrolled = total customers in the campaign list (independent of channel)
+  const enrolled = 800 + (hash % 3200)
+  // Connect rate: SMS-leaning campaigns reach more customers; Call-only is lower
+  const connectRate = channel === 'Call' ? 42 + (hash % 12) : channel === 'SMS' ? 92 + (hash % 7) : 70 + (hash % 18)
+  return { channel, enrolled, connectRate }
 }
 
 // ── Errors Tab ────────────────────────────────────────────────────────────

@@ -21,12 +21,14 @@ import { formatUseCaseLabel } from '@/utils/campaign-setup-utils'
 import { CampaignListShimmer } from "@/components/ui/campaign-shimmer"
 import { CampaignSettingsModal } from "@/components/campaign-settings-modal"
 import { cn } from '@/lib/utils'
+import { AnalyticsSummary } from '@/components/campaign/analytics-tab'
 import {
   getMockAgents,
   getMockCampaignList,
   getMockCampaignTypes,
   getCampaignChannel,
   getCampaignChannelStats,
+  getMockAggregateAnalyticsExtras,
   type CampaignChannel,
 } from '@/lib/outbound-local-data'
 
@@ -321,6 +323,16 @@ export default function CampaignResults() {
           </div>
         </div>
 
+        {/* Aggregate Analytics Summary — all-data view across campaigns */}
+        <div className="mb-8">
+          <AnalyticsSummary
+            extrasData={getMockAggregateAnalyticsExtras()}
+            level="glance"
+            title="All-campaign performance"
+            subtitle="Rolled up across every Sales and Service campaign"
+          />
+        </div>
+
         {/* Tabs */}
         <div className="mb-8">
           <div className="flex items-center border-b border-gray-200">
@@ -508,8 +520,6 @@ export default function CampaignResults() {
               const channel = getCampaignChannel(campaign.campaignId)
               const channelStats = getCampaignChannelStats(campaign.campaignId)
               const isRunning = campaignStatusValue.toLowerCase() === 'running'
-              const smsEnabled = channel !== 'Call'
-              const callEnabled = channel !== 'SMS'
 
               return (
                 <Card key={campaign.campaignId} className="group hover:scale-105 transition-all duration-200 cursor-pointer overflow-hidden h-full border relative" style={{borderRadius: '16px'}}>
@@ -624,29 +634,14 @@ export default function CampaignResults() {
                       </div>
 
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                        {smsEnabled ? (
-                          <>
-                            <div className="flex flex-col items-start p-3 bg-gray-50 rounded-lg min-w-0">
-                              <span className="text-xs text-text-secondary">Messages Sent</span>
-                              <span className="text-sm font-medium text-text-primary">{channelStats.messagesSent.toLocaleString()}</span>
-                            </div>
-                            <div className="flex flex-col items-start p-3 bg-gray-50 rounded-lg min-w-0">
-                              <span className="text-xs text-text-secondary">Reply Rate</span>
-                              <span className="text-sm font-medium text-text-primary">{channelStats.replyRate}%</span>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="flex flex-col items-start p-3 bg-gray-50 rounded-lg min-w-0">
-                              <span className="text-xs text-text-secondary">Calls</span>
-                              <span className="text-sm font-medium text-text-primary">{campaign.totalCallPlaced}</span>
-                            </div>
-                            <div className="flex flex-col items-start p-3 bg-gray-50 rounded-lg min-w-0">
-                              <span className="text-xs text-text-secondary">Answer Rate</span>
-                              <span className="text-sm font-medium text-text-primary">{(campaign.answerRate ?? 0).toFixed(0)}%</span>
-                            </div>
-                          </>
-                        )}
+                        <div className="flex flex-col items-start p-3 bg-gray-50 rounded-lg min-w-0">
+                          <span className="text-xs text-text-secondary">Enrolled</span>
+                          <span className="text-sm font-medium text-text-primary">{channelStats.enrolled.toLocaleString()}</span>
+                        </div>
+                        <div className="flex flex-col items-start p-3 bg-gray-50 rounded-lg min-w-0">
+                          <span className="text-xs text-text-secondary">Connect Rate</span>
+                          <span className="text-sm font-medium text-text-primary">{channelStats.connectRate}%</span>
+                        </div>
                         <div className="flex flex-col items-start p-3 bg-gray-50 rounded-lg min-w-0">
                           <span className="text-xs text-text-secondary">Appointments</span>
                           <span className="text-sm font-medium text-text-primary">{campaign.appointmentScheduled}</span>

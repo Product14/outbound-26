@@ -120,7 +120,7 @@ export default function CampaignDetail() {
   const [connectionFilter, setConnectionFilter] = useState(["all"])
   const [showFilters, setShowFilters] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [funnelMode, setFunnelMode] = useState<'sms' | 'call'>('sms')
+  const [funnelMode, setFunnelMode] = useState<'sms' | 'call' | 'all'>('sms')
   const audioRef = useRef<any>(null)
   const [isClosing, setIsClosing] = useState(false)
   const lastCloseTimeRef = useRef<number>(0)
@@ -908,6 +908,7 @@ export default function CampaignDetail() {
               refreshTrigger={refreshTrigger}
               smsData={smsOverviewData}
               onFunnelModeChange={setFunnelMode}
+              extrasData={analyticsExtrasData}
             />
           </TabsContent>
 

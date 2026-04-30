@@ -12,9 +12,10 @@ import AppointmentFunnel from '@/components/ui/appointment-funnel'
 import { getAppointmentFunnelData } from '@/lib/funnel-utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Info, Voicemail, PhoneOff, Clock, PhoneMissed, Send, CheckCircle2, TrendingUp, BarChart2, CalendarCheck, PhoneForwarded, UserMinus, MessageSquare, Phone } from 'lucide-react'
+import { Info, Voicemail, PhoneOff, Clock, PhoneMissed, Send, CheckCircle2, TrendingUp, BarChart2, CalendarCheck, PhoneForwarded, UserMinus, MessageSquare, Phone, Layers } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import type { SmsOverviewData } from '@/lib/outbound-local-data'
+import type { SmsOverviewData, AnalyticsExtrasData } from '@/lib/outbound-local-data'
+import { AnalyticsSummary, type MetricFilter } from '@/components/campaign/analytics-summary'
 
 interface LiveCallsTabProps {
   isCallDetailsOpen: boolean
@@ -37,7 +38,8 @@ interface LiveCallsTabProps {
   authKey?: string
   refreshTrigger?: number
   smsData?: SmsOverviewData
-  onFunnelModeChange?: (mode: 'sms' | 'call') => void
+  onFunnelModeChange?: (mode: 'sms' | 'call' | 'all') => void
+  extrasData?: AnalyticsExtrasData | null
 }
 
 export function LiveCallsTab({
@@ -61,15 +63,19 @@ export function LiveCallsTab({
   authKey,
   refreshTrigger,
   smsData,
-  onFunnelModeChange
+  onFunnelModeChange,
+  extrasData,
 }: LiveCallsTabProps) {
-  // Funnel mode toggle: SMS (default) or Call
-  const [funnelMode, setFunnelMode] = useState<'sms' | 'call'>(smsData ? 'sms' : 'call')
+  // Funnel mode toggle: SMS (default), Call, or Common (both)
+  const [funnelMode, setFunnelMode] = useState<'sms' | 'call' | 'all'>(smsData ? 'sms' : 'call')
 
-  const handleFunnelModeChange = (mode: 'sms' | 'call') => {
+  const handleFunnelModeChange = (mode: 'sms' | 'call' | 'all') => {
     setFunnelMode(mode)
     onFunnelModeChange?.(mode)
   }
+
+  // KPI-tile metric filter (Opted Out / Exited / Failed Calls). null = no metric filter.
+  const [metricFilter, setMetricFilter] = useState<MetricFilter>(null)
 
   // Local state for all filters
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm || '')
@@ -90,36 +96,36 @@ export function LiveCallsTab({
   // Ref to access LiveActivityTable's search function
   const tableRef = useRef<any>(null)
 
+  // Translate the KPI metric filter into the table's statusFilter array.
+  // When the user clicks a KPI tile, override the existing status filter.
+  const effectiveStatusFilter = (() => {
+    if (metricFilter === 'optedOut') return ['opted-out']
+    if (metricFilter === 'exited') return ['customer-ended']
+    if (metricFilter === 'failedCalls') return ['failed']
+    return statusFilter
+  })()
+
   return (
     <div className="space-y-0 px-6 pt-6">
+      {/* Analytics summary header — full filter bar + KPI grid + insights */}
+      {extrasData && (
+        <div className="mb-6">
+          <AnalyticsSummary
+            extrasData={extrasData}
+            smsData={smsData}
+            analyticsData={analyticsData}
+            level="campaign"
+            activeMetricFilter={metricFilter}
+            onMetricFilter={setMetricFilter}
+          />
+        </div>
+      )}
       {/* Tab Header with Countdown Timer */}
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-4">
           <h2 className="text-lg font-semibold text-gray-900">Calls & Analytics</h2>
         </div>
         <div className="flex items-center gap-3">
-          {/* Funnel Mode Selector */}
-          {smsData && (
-            <Select value={funnelMode} onValueChange={(v) => handleFunnelModeChange(v as 'sms' | 'call')}>
-              <SelectTrigger className="w-[160px] h-9 text-sm border-gray-200 bg-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="sms">
-                  <span className="flex items-center gap-2">
-                    <MessageSquare className="h-3.5 w-3.5 text-emerald-500" />
-                    SMS Metrics
-                  </span>
-                </SelectItem>
-                <SelectItem value="call">
-                  <span className="flex items-center gap-2">
-                    <Phone className="h-3.5 w-3.5 text-indigo-500" />
-                    Call Metrics
-                  </span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -169,156 +175,6 @@ export function LiveCallsTab({
         </div>
       </div>
 
-      {/* ── SMS View ── */}
-      {funnelMode === 'sms' && smsData ? (
-        <div className="space-y-6 mb-6">
-          {/* SMS Funnel — first, full width, same AppointmentFunnel component as Call view */}
-          <Card className="rounded-[16px] border-0 bg-white">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">SMS Funnel</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="h-52">
-                <AppointmentFunnel
-                  data={{
-                    stages: [
-                      { name: 'Enrolled', count: smsData.funnel.enrolled },
-                      { name: 'SMS Delivered', count: smsData.funnel.delivered },
-                      { name: 'Replied', count: smsData.funnel.replied },
-                      { name: 'Escalated \u2192 Call', count: smsData.funnel.escalated },
-                      { name: 'Appt Booked', count: smsData.funnel.booked },
-                    ],
-                    conversionRates: [
-                      { rate: smsData.funnel.enrolled > 0 ? Math.round((smsData.funnel.delivered / smsData.funnel.enrolled) * 100) : 0 },
-                      { rate: smsData.funnel.delivered > 0 ? Math.round((smsData.funnel.replied / smsData.funnel.delivered) * 100) : 0 },
-                      { rate: smsData.funnel.replied > 0 ? Math.round((smsData.funnel.escalated / smsData.funnel.replied) * 100) : 0 },
-                      { rate: smsData.funnel.escalated > 0 ? Math.round((smsData.funnel.booked / smsData.funnel.escalated) * 100) : 0 },
-                    ],
-                  }}
-                  cardBackgroundColor="#ECFDF5"
-                  graphColor="#22C55E"
-                  conversionChipColor="#BBF7D0"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-        </div>
-      ) : (
-        /* ── Call View ── */
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
-          {/* Campaign Funnel */}
-          <Card className="border-0 bg-white rounded-[16px]">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">Campaign Funnel</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="h-52">
-                <AppointmentFunnel
-                  data={getAppointmentFunnelData(
-                    campaignData,
-                    isSalesCampaign ? 'sales' : 'service',
-                    analyticsData
-                  )}
-                  cardBackgroundColor={isSalesCampaign ? '#DBEAFE' : '#DCFCE7'}
-                  graphColor={isSalesCampaign ? '#3B82F6' : '#22C55E'}
-                  conversionChipColor={isSalesCampaign ? '#93C5FD' : '#86EFAC'}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Campaign Metrics */}
-          <Card className="border-0 bg-white rounded-[16px]">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">Campaign Metrics</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              {campaignMetrics && (
-                <TooltipProvider>
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Voice Mail % */}
-                    <div className="relative flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                      <div className="p-2 bg-[#FEF3C7] rounded-[8px] flex-shrink-0">
-                        <Voicemail className="h-4 w-4 text-[#F59E0B]" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Voice Mail %</h3>
-                        <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
-                          {campaignMetrics.voicemailPercentage?.count || 0} ({campaignMetrics.voicemailPercentage?.percentage || 0}%)
-                        </p>
-                      </div>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"><Info className="h-4 w-4" /></button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>Percentage of calls that went to voicemail</p></TooltipContent>
-                      </Tooltip>
-                    </div>
-
-                    {/* Call Failed % */}
-                    <div className="relative flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                      <div className="p-2 bg-[#FEE2E2] rounded-[8px] flex-shrink-0">
-                        <PhoneOff className="h-4 w-4 text-[#EF4444]" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Call Failed %</h3>
-                        <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
-                          {campaignMetrics.callFailedPercentage?.count || 0} ({campaignMetrics.callFailedPercentage?.percentage || 0}%)
-                        </p>
-                      </div>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"><Info className="h-4 w-4" /></button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>Percentage of calls that failed to connect</p></TooltipContent>
-                      </Tooltip>
-                    </div>
-
-                    {/* Avg. Call Duration */}
-                    <div className="relative flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                      <div className="p-2 bg-[#D1FAE5] rounded-[8px] flex-shrink-0">
-                        <Clock className="h-4 w-4 text-[#10B981]" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Avg. Call Duration</h3>
-                        <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
-                          {campaignMetrics.avgCallDuration?.duration || '0:00'}
-                        </p>
-                      </div>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"><Info className="h-4 w-4" /></button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>Average duration of connected calls</p></TooltipContent>
-                      </Tooltip>
-                    </div>
-
-                    {/* Call Rejected % */}
-                    <div className="relative flex items-start space-x-3 p-4 bg-white border border-black/10 rounded-[12px]">
-                      <div className="p-2 bg-[#E0E7FF] rounded-[8px] flex-shrink-0">
-                        <PhoneMissed className="h-4 w-4 text-[#6366F1]" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-[#6B7280] font-semibold text-sm leading-[1.4] mb-2">Call Rejected %</h3>
-                        <p className="text-[#1A1A1A] text-[24px] font-bold leading-[1.4]">
-                          {campaignMetrics.callRejectedPercentage?.count || 0} ({campaignMetrics.callRejectedPercentage?.percentage || 0}%)
-                        </p>
-                      </div>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"><Info className="h-4 w-4" /></button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>Percentage of calls that were rejected by customers</p></TooltipContent>
-                      </Tooltip>
-                    </div>
-                  </div>
-                </TooltipProvider>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
       {/* Filter Controls - Above the table */}
       <div className="mb-6">
@@ -355,8 +211,8 @@ export function LiveCallsTab({
 
       {/* Main Content Area - Full Width (Modal is positioned absolutely) */}
       <div className="w-full">
-        {/* Results Count */}
-        <div className="mb-4 px-1">
+        {/* Results Count + active metric filter chip */}
+        <div className="mb-4 flex items-center justify-between px-1">
           {isLoadingResults ? (
             <div className="h-4 w-28 bg-gray-200 rounded animate-pulse"></div>
           ) : (
@@ -364,15 +220,25 @@ export function LiveCallsTab({
               {totalResults || 0} {totalResults === 1 ? 'result' : 'results'} found
             </span>
           )}
+          {metricFilter && (
+            <button
+              type="button"
+              onClick={() => setMetricFilter(null)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-[#4600F2]/30 bg-[#EFEBFF] px-2.5 py-1 text-xs font-semibold text-[#4600F2] hover:bg-[#E2DAFE]"
+            >
+              Filtered: {metricFilter === 'optedOut' ? 'Opted out' : metricFilter === 'exited' ? 'Exited' : 'Failed calls'}
+              <span className="text-[10px]">✕</span>
+            </button>
+          )}
         </div>
         
         {/* Live Activity Feed */}
-        <LiveActivityTable 
+        <LiveActivityTable
           ref={tableRef}
           isCallDetailsOpen={isCallDetailsOpen}
           onCallSelect={onCallSelect}
           searchTerm={searchTerm}
-          statusFilter={statusFilter}
+          statusFilter={effectiveStatusFilter}
           connectionFilter={connectionFilter}
           callTypeFilter={callTypeFilter}
           campaignFilter={campaignFilter}

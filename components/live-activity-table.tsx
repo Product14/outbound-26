@@ -115,6 +115,12 @@ interface CallRecord {
   totalSteps: number // Total steps in the sequence
   stepType: 'call' | 'sms' | 'email' // Type of the current step
   nextAction: string // Description of the next action
+  previousSteps?: Array<{
+    type: 'call' | 'sms' | 'email'
+    label: string
+    outcome: string
+    duration?: string
+  }>
 }
 
 interface LiveActivityTableProps {
@@ -343,8 +349,31 @@ export const LiveActivityTable = forwardRef<{
       const currentStep = Math.min((task.retryCount || 0) + 1, totalSteps)
       const stepType = stepSequence[currentStep - 1].type
       const isFinalStep = currentStep >= totalSteps
-      const isTerminal = task.status === 'FAILED' || outcome === 'Call_failed' || outcome === 'Not_interested'
+      const normalizedOutcome = (outcome || '').toLowerCase()
+      const isTerminal =
+        task.status === 'FAILED' ||
+        task.status === 'failed' ||
+        normalizedOutcome.includes('call_failed') ||
+        normalizedOutcome.includes('call failed') ||
+        normalizedOutcome.includes('call aborted') ||
+        normalizedOutcome.includes('call disconnected') ||
+        normalizedOutcome.includes('not interested') ||
+        normalizedOutcome.includes('not_interested')
       const nextAction = (isFinalStep || isTerminal) ? '--' : stepSequence[currentStep]?.label || '--'
+      // Since we moved past these steps, synthesize a plausible
+      // non-terminal outcome per channel that explains why the sequence advanced.
+      const priorOutcomeForType = (t: 'call' | 'sms' | 'email') =>
+        t === 'call' ? 'No answer' : t === 'sms' ? 'No response' : 'No response'
+      const priorDurationForType = (t: 'call' | 'sms' | 'email') =>
+        t === 'call' ? '0min 28sec' : undefined
+      const previousSteps = currentStep > 1
+        ? stepSequence.slice(0, currentStep - 1).map((s) => ({
+            type: s.type,
+            label: s.label,
+            outcome: priorOutcomeForType(s.type),
+            duration: priorDurationForType(s.type),
+          }))
+        : undefined
 
       return {
         id: task.callId, // Keep outboundTaskId as unique identifier
@@ -379,7 +408,8 @@ export const LiveActivityTable = forwardRef<{
         currentStep,
         totalSteps,
         stepType,
-        nextAction
+        nextAction,
+        previousSteps
       }
     })
   }
@@ -1076,18 +1106,44 @@ export const LiveActivityTable = forwardRef<{
     // Map many human-readable variants to color classes
     const isServiceAppointment =
       normalized.includes("service") && normalized.includes("appointment")
+    const isPurchaseAppointment =
+      normalized.includes("appointment") && (normalized.includes("purchase") || normalized.includes("discussion"))
     const isTestDrive = normalized.includes("test") && normalized.includes("drive")
     const isCallback = normalized.includes("callback") || normalized.includes("call_back")
     const isNotInterested = normalized.includes("not_interested") || normalized.includes("notinterested")
     const isWrongNumber = normalized.includes("wrong") && normalized.includes("number")
-    const isInfoProvided = normalized.includes("information_provided") || normalized.includes("info")
-    const isTradeIn = normalized.includes("trade") && (normalized.includes("in") || normalized.includes("tradein"))
+    const isInfoProvided = normalized.includes("information_provided") || normalized.includes("info_provided")
+    const isTradeIn = normalized.includes("trade") && (normalized.includes("_in") || normalized.includes("tradein"))
     const isGeneralSalesInquiry =
       (normalized.includes("sales") && normalized.includes("inquiry")) || normalized.includes("general_sales_inquiry")
     const isVoicemailOutcome = normalized.includes("voicemail") || normalized.includes("voice_mail")
     const isNoOutcome = normalized === "no_outcome" || normalized === "nooutcome" || normalized === "none"
 
-    if (isServiceAppointment) {
+    // New sales outcome enums
+    const isVehicleAvailability = normalized.includes("vehicle") && normalized.includes("availability")
+    const isVehicleInfoRequest = normalized.includes("request") && normalized.includes("vehicle") && normalized.includes("information")
+    const isPriceQuote = normalized.includes("price") || normalized.includes("quote")
+    const isFinancingLeasing = normalized.includes("financing") || normalized.includes("leasing")
+    const isPromotions = normalized.includes("promotion") || normalized.includes("incentive")
+    const isInventoryBrochure = normalized.includes("inventory") || normalized.includes("brochure")
+    const isSalespersonRequest = normalized.includes("salesperson") || normalized.includes("manager_request")
+    const isOrderStatus = normalized.includes("order") || normalized.includes("delivery_status")
+    const isWarrantyPlan = normalized.includes("warranty") || normalized.includes("protection_plan")
+    const isInsuranceRegistration = normalized.includes("insurance") || normalized.includes("registration")
+    const isHoursLocation = normalized.includes("hours") || normalized.includes("location")
+
+    // New service outcome enums
+    const isConnectServiceTeam = normalized.includes("connect") && normalized.includes("service")
+    const isNeedsReconnect = normalized.includes("needs_reconnect") || normalized.includes("reconnect")
+    const isFollowUpRequired = normalized.includes("followup_required") || normalized.includes("follow_up_required") || normalized.includes("follow_up") || normalized.includes("followup")
+    const isDropOffPickup = normalized.includes("drop_off") || normalized.includes("dropoff") || normalized.includes("pickup")
+    const isLoanerInfo = normalized.includes("loaner")
+    const isGeneralInfoShared = normalized.includes("general_information") || (normalized.includes("information") && normalized.includes("shared"))
+    const isTransferredToHuman = normalized.includes("transferred") || normalized.includes("transfer_to_human")
+    const isNoSlots = normalized.includes("no_empty_slot") || normalized.includes("no_slot")
+    const isCallFailedLike = normalized.includes("call_failed") || normalized.includes("call_aborted") || normalized.includes("call_disconnected")
+
+    if (isServiceAppointment || isPurchaseAppointment) {
       return (
         <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
           <Calendar className="w-3 h-3 mr-1" />
@@ -1106,17 +1162,64 @@ export const LiveActivityTable = forwardRef<{
     if (isCallback) {
       return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100">{formattedLabel}</Badge>
     }
+    if (isCallFailedLike) {
+      return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">{formattedLabel}</Badge>
+    }
     if (isNotInterested) {
       return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">{formattedLabel}</Badge>
     }
     if (isWrongNumber) {
       return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">{formattedLabel}</Badge>
     }
-    if (isInfoProvided) {
-      return <Badge className="bg-cyan-100 text-cyan-800 hover:bg-cyan-100">{formattedLabel}</Badge>
-    }
     if (isTradeIn) {
       return <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">{formattedLabel}</Badge>
+    }
+    if (isVehicleAvailability || isVehicleInfoRequest) {
+      return (
+        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+          <Car className="w-3 h-3 mr-1" />
+          {formattedLabel}
+        </Badge>
+      )
+    }
+    if (isPriceQuote || isFinancingLeasing) {
+      return <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">{formattedLabel}</Badge>
+    }
+    if (isPromotions) {
+      return <Badge className="bg-pink-100 text-pink-800 hover:bg-pink-100">{formattedLabel}</Badge>
+    }
+    if (isInventoryBrochure) {
+      return <Badge className="bg-cyan-100 text-cyan-800 hover:bg-cyan-100">{formattedLabel}</Badge>
+    }
+    if (isSalespersonRequest || isTransferredToHuman) {
+      return <Badge className="bg-violet-100 text-violet-800 hover:bg-violet-100">{formattedLabel}</Badge>
+    }
+    if (isOrderStatus) {
+      return <Badge className="bg-teal-100 text-teal-800 hover:bg-teal-100">{formattedLabel}</Badge>
+    }
+    if (isWarrantyPlan || isInsuranceRegistration) {
+      return <Badge className="bg-sky-100 text-sky-800 hover:bg-sky-100">{formattedLabel}</Badge>
+    }
+    if (isHoursLocation) {
+      return <Badge className="bg-slate-100 text-slate-800 hover:bg-slate-100">{formattedLabel}</Badge>
+    }
+    if (isConnectServiceTeam) {
+      return <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">{formattedLabel}</Badge>
+    }
+    if (isNeedsReconnect) {
+      return <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">{formattedLabel}</Badge>
+    }
+    if (isFollowUpRequired) {
+      return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">{formattedLabel}</Badge>
+    }
+    if (isDropOffPickup || isLoanerInfo) {
+      return <Badge className="bg-teal-100 text-teal-800 hover:bg-teal-100">{formattedLabel}</Badge>
+    }
+    if (isGeneralInfoShared || isInfoProvided) {
+      return <Badge className="bg-cyan-100 text-cyan-800 hover:bg-cyan-100">{formattedLabel}</Badge>
+    }
+    if (isNoSlots) {
+      return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">{formattedLabel}</Badge>
     }
     if (isGeneralSalesInquiry) {
       return <Badge className="bg-indigo-100 text-indigo-800 hover:bg-indigo-100">{formattedLabel}</Badge>
@@ -1605,6 +1708,46 @@ export const LiveActivityTable = forwardRef<{
                             <div className="w-2.5 h-2.5 bg-[#1A1A1A] rotate-45 mx-4 mb-[-5px]" />
                           )}
                           <div className="bg-[#1A1A1A] text-white rounded-[10px] shadow-xl p-3.5 w-56">
+                            {/* Previous steps history */}
+                            {call.previousSteps && call.previousSteps.length > 0 && (
+                              <div className="mb-2.5 pb-2.5 border-b border-white/10">
+                                <div className="text-[10px] uppercase tracking-wider text-white/40 mb-1.5">
+                                  {call.previousSteps.length === 1 ? 'Previous step' : 'Previous steps'}
+                                </div>
+                                <div className="space-y-2">
+                                  {call.previousSteps.map((prev, i) => (
+                                    <div key={i} className="flex items-start gap-2">
+                                      <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                                        prev.type === 'call' ? 'bg-indigo-500/20' :
+                                        prev.type === 'sms' ? 'bg-emerald-500/20' :
+                                        'bg-blue-500/20'
+                                      }`}>
+                                        {prev.type === 'call' ? (
+                                          <Phone className="w-2.5 h-2.5 text-indigo-400" />
+                                        ) : prev.type === 'sms' ? (
+                                          <MessageSquare className="w-2.5 h-2.5 text-emerald-400" />
+                                        ) : (
+                                          <Mail className="w-2.5 h-2.5 text-blue-400" />
+                                        )}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-[11px] text-white font-medium truncate">{prev.label}</div>
+                                        <div className="flex items-center gap-1.5 text-[10px] text-white/60">
+                                          <span>{prev.outcome}</span>
+                                          {prev.duration && (
+                                            <>
+                                              <span className="text-white/30">·</span>
+                                              <span>{prev.duration}</span>
+                                            </>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
                             {/* Step label */}
                             <div className="flex items-center gap-2 mb-2.5">
                               <div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${

@@ -1,11 +1,39 @@
 'use client'
 
+import { useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Phone, Calendar, TrendingUp, RefreshCw, CheckCircle, Timer, MessageSquare, PhoneCall, Clock, Users, ArrowUpRight, ArrowDownRight, Minus, Send, BarChart2, PhoneForwarded, CalendarCheck, UserMinus } from 'lucide-react'
+import { Phone, Calendar, TrendingUp, RefreshCw, CheckCircle, Timer, MessageSquare, PhoneCall, Clock, Users, ArrowUpRight, ArrowDownRight, Minus, Send, BarChart2, PhoneForwarded, CalendarCheck, UserMinus, Voicemail, MessageCircleOff, PhoneOff, Flame, Sparkles, AlertTriangle, Filter } from 'lucide-react'
 import { PerformanceTimeChart } from '@/components/charts/PerformanceTimeChart'
 import type { CampaignDetailResponse } from '@/lib/campaign-api'
 import type { CampaignAnalyticsResponse } from '@/lib/metrics-utils'
 import type { AnalyticsExtrasData, SmsOverviewData } from '@/lib/outbound-local-data'
+export { AnalyticsSummary } from '@/components/campaign/analytics-summary'
+export type { AnalyticsSummaryProps } from '@/components/campaign/analytics-summary'
+import { AnalyticsSummary } from '@/components/campaign/analytics-summary'
+
+type DateRange = 'today' | 'week' | 'mtd' | 'total'
+type ChannelFilter = 'all' | 'sms' | 'call'
+type ViewMode = 'total' | 'daywise'
+
+const DATE_RANGE_LABELS: Record<DateRange, string> = {
+  today: 'Today',
+  week: 'This Week',
+  mtd: 'MTD',
+  total: 'Total',
+}
+
+const DATE_RANGE_MULTIPLIER: Record<DateRange, number> = {
+  today: 0.06,
+  week: 0.32,
+  mtd: 0.71,
+  total: 1,
+}
+
+const CHANNEL_LABELS: Record<ChannelFilter, string> = {
+  all: 'All',
+  sms: 'SMS',
+  call: 'Call',
+}
 
 interface AnalyticsTabProps {
   isServiceCampaign: boolean
@@ -62,11 +90,11 @@ export function AnalyticsTab({
   const avgDuration = calculatedStats?.avgCallDuration ?? serviceStats?.serviceAvgCallDuration ?? '2:45'
 
   const detailedMetrics = [
-    { label: 'Total Calls', value: totalCalls.toLocaleString(), icon: Phone, color: '#4600F2', bg: '#F0F4FF', trend: '+12%', trendUp: true },
-    { label: 'Calls Answered', value: answered.toLocaleString(), icon: CheckCircle, color: '#22C55E', bg: '#F0FDF4', trend: `${answerRate}%`, trendUp: true },
-    { label: 'Appointments Set', value: appointments.toLocaleString(), icon: Calendar, color: '#F59E0B', bg: '#FFFBEB', trend: `${conversionRate}% conv.`, trendUp: true },
-    { label: 'Avg Call Duration', value: avgDuration, icon: Clock, color: '#8B5CF6', bg: '#F5F3FF', trend: null, trendUp: null },
-    { label: 'Contact Rate', value: `${answerRate}%`, icon: Users, color: '#6366F1', bg: '#EEF2FF', trend: `${answered} of ${totalCalls}`, trendUp: true },
+    { label: 'Customers Contacted', value: totalCalls.toLocaleString(), icon: Users, color: '#4600F2', bg: '#F0F4FF', trend: '+12%', trendUp: true },
+    { label: 'Customers Reached', value: answered.toLocaleString(), icon: CheckCircle, color: '#22C55E', bg: '#F0FDF4', trend: `${answerRate}% reach`, trendUp: true },
+    { label: 'Customers Booked', value: appointments.toLocaleString(), icon: Calendar, color: '#F59E0B', bg: '#FFFBEB', trend: `${conversionRate}% conv.`, trendUp: true },
+    { label: 'Avg Talk Time / Customer', value: avgDuration, icon: Clock, color: '#8B5CF6', bg: '#F5F3FF', trend: null, trendUp: null },
+    { label: 'Customer Reach Rate', value: `${answerRate}%`, icon: Phone, color: '#6366F1', bg: '#EEF2FF', trend: `${answered} of ${totalCalls}`, trendUp: true },
   ]
 
   // ── GitHub-style heatmap color function ──────────────────────────────────
@@ -86,9 +114,9 @@ export function AnalyticsTab({
       <Card className="border-0 bg-white rounded-[16px]">
         <CardHeader className="pb-2">
           <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">
-            Detailed Metrics
+            Customer Performance
           </CardTitle>
-          <p className="text-sm text-[#6B7280] mt-0.5">Comprehensive breakdown of campaign performance indicators</p>
+          <p className="text-sm text-[#6B7280] mt-0.5">How customers moved through outreach, engagement, and booking</p>
         </CardHeader>
         <CardContent className="pt-2">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -123,8 +151,9 @@ export function AnalyticsTab({
       <Card className="border-0 bg-white rounded-[16px]">
         <CardHeader className="pb-4">
           <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">
-            Objection Breakdown
+            Customer Objections
           </CardTitle>
+          <p className="text-sm text-[#6B7280] mt-0.5">What customers pushed back on — and how often we resolved it</p>
         </CardHeader>
         <CardContent className="pt-0">
           <div className="space-y-3">
@@ -160,7 +189,7 @@ export function AnalyticsTab({
       <Card className="border-0 bg-white rounded-[16px]">
         <CardHeader className="pb-4">
           <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">
-            Channel Comparison
+            How Customers Responded by Channel
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
@@ -280,7 +309,7 @@ export function AnalyticsTab({
             <Send className="h-4 w-4 text-[#10B981]" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#6B7280]">SMS Sent</h3>
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Customers Enrolled</h3>
             <p className="text-[22px] font-bold leading-tight text-[#1A1A1A]">{smsData.metrics.smsSent.value.toLocaleString()}</p>
             <p className="mt-1 text-xs text-[#6B7280]">{smsData.metrics.smsSent.delta}</p>
           </div>
@@ -291,7 +320,7 @@ export function AnalyticsTab({
             <BarChart2 className="h-4 w-4 text-[#CA8A04]" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Reply Rate</h3>
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Customers Engaged</h3>
             <p className="text-[22px] font-bold leading-tight text-[#1A1A1A]">{smsData.metrics.replyRate.value}</p>
             <p className="mt-1 text-xs text-[#6B7280]">{smsData.metrics.replyRate.delta}</p>
           </div>
@@ -302,7 +331,7 @@ export function AnalyticsTab({
             <PhoneForwarded className="h-4 w-4 text-[#EF4444]" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Escalated</h3>
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Customers Escalated</h3>
             <p className="text-[22px] font-bold leading-tight text-[#1A1A1A]">{smsData.metrics.escalatedToCall.value}</p>
             <p className="mt-1 text-xs text-[#6B7280]">{smsData.metrics.escalatedToCall.delta}</p>
           </div>
@@ -313,7 +342,7 @@ export function AnalyticsTab({
             <CalendarCheck className="h-4 w-4 text-[#7C3AED]" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Appts Booked</h3>
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Customers Booked</h3>
             <p className="text-[22px] font-bold leading-tight text-[#1A1A1A]">{smsData.metrics.appointmentsBooked.value}</p>
             <p className="mt-1 text-xs text-[#6B7280]">{smsData.metrics.appointmentsBooked.delta}</p>
           </div>
@@ -324,7 +353,7 @@ export function AnalyticsTab({
             <UserMinus className="h-4 w-4 text-[#6B7280]" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Opt-Out Rate</h3>
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Customers Opted Out</h3>
             <p className="text-[22px] font-bold leading-tight text-[#1A1A1A]">{smsData.metrics.optOutRate.value}</p>
             <p className="mt-1 text-xs text-[#6B7280]">{smsData.metrics.optOutRate.delta}</p>
           </div>
@@ -336,7 +365,7 @@ export function AnalyticsTab({
         {/* Outcome Distribution */}
         <Card className="rounded-[16px] border-0 bg-white">
           <CardHeader className="pb-4">
-            <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">Outcome Distribution</CardTitle>
+            <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">Customer Outcome Distribution</CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
             <div className="space-y-4">
@@ -363,7 +392,7 @@ export function AnalyticsTab({
         {extrasData ? (
           <Card className="rounded-[16px] border-0 bg-white">
             <CardHeader className="pb-4">
-              <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">Reply Rate Heatmap</CardTitle>
+              <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">When Customers Reply</CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <div className="overflow-x-auto">
@@ -417,7 +446,7 @@ export function AnalyticsTab({
         {/* Multi-Day Reply Effectiveness */}
         <Card className="rounded-[16px] border-0 bg-white">
           <CardHeader className="pb-4">
-            <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">Multi-Day Reply Effectiveness</CardTitle>
+            <CardTitle className="text-[18px] font-semibold text-[#1A1A1A]">Customer Replies by Day</CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
             <div className="space-y-4">
@@ -453,7 +482,13 @@ export function AnalyticsTab({
   ) : null
 
   if (mode === 'analytics') {
-    return <div className="space-y-6">{ExtrasSection}{SmsAnalyticsSection}</div>
+    return (
+      <AnalyticsSummary
+        extrasData={extrasData}
+        smsData={smsData}
+        analyticsData={analyticsData}
+      />
+    )
   }
 
   if (isServiceCampaign) {
